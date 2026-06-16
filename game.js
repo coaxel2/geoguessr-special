@@ -48,6 +48,7 @@ const G = {
   countryFilter: "france",
   online: {
     active: false, peer: null, conn: null, isHost: false, code: null,
+    started: false,
     oppGuess: null, oppDone: false, oppScores: [],
     iWantNext: false, oppWantNext: false, ka: null,
   },
@@ -484,10 +485,12 @@ function onlineReset() {
   try { if (G.online.peer) G.online.peer.destroy(); } catch (e) {}
   clearInterval(G.online.ka);
   G.online = { active: false, peer: null, conn: null, isHost: false, code: null,
-               oppGuess: null, oppDone: false, oppScores: [], iWantNext: false, oppWantNext: false, ka: null };
+               started: false, oppGuess: null, oppDone: false, oppScores: [], iWantNext: false, oppWantNext: false, ka: null };
 }
 function sendMsg(m) { try { if (G.online.conn && G.online.conn.open) G.online.conn.send(m); } catch (e) {} }
-function roomPeerId(code) { return "geoq-" + code; }
+function roomPeerId(code) {
+  return "geoq2-" + location.hostname.replace(/[^a-z0-9-]/gi, "-") + "-" + code;
+}
 
 function createRoom() {
   if (!mapsReady) { $("online-error").textContent = "La carte charge encore, patiente une seconde."; return; }
@@ -498,6 +501,8 @@ function createRoom() {
   $("online-error").textContent = "";
   $("online-choice").style.display = "none";
   $("online-wait").classList.add("show");
+  $("btn-start-room").classList.add("hidden");
+  $("btn-start-room").disabled = true;
   $("room-code").textContent = "----";
   $("btn-copy").textContent = "Copier le lien";
   $("btn-copy").disabled = true;
@@ -533,6 +538,8 @@ function joinRoom(codeArg) {
   $("online-error").textContent = "";
   $("online-choice").style.display = "none";
   $("online-wait").classList.add("show");
+  $("btn-start-room").classList.add("hidden");
+  $("btn-start-room").disabled = true;
   $("room-code").textContent = code;
   $("btn-copy").textContent = "Copier le lien";
   $("btn-copy").disabled = true;
@@ -590,6 +597,7 @@ function joinRoom(codeArg) {
 function setupConn(conn) {
   G.online.conn = conn;
   G.online.active = true;
+  G.online.started = false;
   clearInterval(G.online.ka);
   G.online.ka = setInterval(() => { try { if (conn.open) conn.send({ type: "ping" }); } catch (e) {} }, 12000);
 
@@ -600,12 +608,21 @@ function setupConn(conn) {
   });
   conn.on("error", () => flashStatus("⚠️ Problème de connexion"));
 
-  // L'hôte prépare la partie (génération des lieux) puis envoie l'init.
-  if (G.online.isHost) hostStartGame();
-  else $("online-status").textContent = "✅ Connecté — préparation de la partie…";
+  if (G.online.isHost) {
+    $("online-status").textContent = "Joueur 2 connecté — prêt à lancer";
+    $("btn-start-room").classList.remove("hidden");
+    $("btn-start-room").disabled = false;
+    sendMsg({ type: "room", rounds: G.rounds, zone: G.zoneFilter, country: G.countryFilter });
+  } else {
+    $("online-status").textContent = "Connecté — en attente de l'hôte";
+  }
 }
 
 async function hostStartGame() {
+  if (!G.online.active || !G.online.isHost || G.online.started) return;
+  G.online.started = true;
+  $("btn-start-room").disabled = true;
+  sendMsg({ type: "start", rounds: G.rounds, zone: G.zoneFilter, country: G.countryFilter });
   $("online-status").textContent = "Connecté — recherche des lieux…";
   showScreen("game");
   resetLocations();
@@ -621,7 +638,24 @@ async function hostStartGame() {
 function onData(m) {
   if (!m || !m.type || m.type === "ping") return;
 
-  if (m.type === "init") {
+  if (m.type === "room") {
+    if (!G.online.isHost) {
+      G.rounds = m.rounds || G.rounds;
+      G.zoneFilter = m.zone || G.zoneFilter;
+      G.countryFilter = m.country || G.countryFilter;
+      $("online-status").textContent = "Connecté — en attente de l'hôte";
+    }
+
+  } else if (m.type === "start") {
+    if (!G.online.isHost) {
+      G.rounds = m.rounds || G.rounds;
+      G.zoneFilter = m.zone || G.zoneFilter;
+      G.countryFilter = m.country || G.countryFilter;
+      $("online-status").textContent = "L'hôte lance la partie…";
+    }
+
+  } else if (m.type === "init") {
+    G.online.started = true;
     G.rounds = m.rounds; resetLocations();
     (m.locations || []).forEach((loc, i) => { if (loc) setLocationAt(i, loc); });
     beginRoundsLocal();
@@ -699,6 +733,7 @@ function wire() {
   $("btn-online").addEventListener("click", () => { backToOnlineChoice(); $("online-error").textContent = ""; showScreen("online"); });
   $("btn-create").addEventListener("click", createRoom);
   $("btn-join").addEventListener("click", () => joinRoom());
+  $("btn-start-room").addEventListener("click", hostStartGame);
   $("join-code").addEventListener("keydown", (e) => { if (e.key === "Enter") joinRoom(); });
   $("btn-copy").addEventListener("click", copyLink);
 

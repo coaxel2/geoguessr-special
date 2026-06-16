@@ -232,6 +232,7 @@ input { font-family: inherit; }
 
 .online-wait { display: none; flex-direction: column; align-items: center; gap: 14px; }
 .online-wait.show { display: flex; }
+.online-wait .btn-primary { width: 100%; }
 .wait-label { color: var(--muted); font-size: 14px; }
 .room-display {
   width: 100%;
