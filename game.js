@@ -44,6 +44,8 @@ const G = {
   startPov: null,
   locationWaiters: {},
   locationBatch: 0,
+  zoneFilter: "world",
+  countryFilter: "france",
   online: {
     active: false, peer: null, conn: null, isHost: false, code: null,
     oppGuess: null, oppDone: false, oppScores: [],
@@ -97,11 +99,74 @@ const REGIONS = [
   [6, 19, 98, 106, 1],      // Thaïlande / Malaisie
   [52, 60, 30, 50, 1],      // Russie ouest
 ];
-const REGION_TOTAL = REGIONS.reduce((t, r) => t + r[4], 0);
+const ZONE_REGIONS = {
+  world: REGIONS,
+  europe: [[43, 55, -4, 15, 5], [51, 57, -8, 0, 2], [37, 43, -9, 2, 2], [38, 45, 8, 17, 2], [55, 64, 5, 25, 2], [48, 54, 12, 24, 2], [47, 55, 5, 15, 2], [42, 51, -5, 9, 2]],
+  "north-america": [[30, 47, -122, -75, 5], [43, 50, -123, -73, 2], [19, 26, -105, -98, 1]],
+  "south-america": [[-30, -20, -52, -43, 2], [-38, -31, -71, -58, 2], [-35, -22, -62, -48, 1]],
+  asia: [[33, 43, 131, 142, 3], [35, 38, 126, 129, 1], [37, 41, 27, 40, 1], [6, 19, 98, 106, 1], [22, 26, 120, 122, 1]],
+  oceania: [[-38, -28, 140, 153, 3], [-46, -36, 167, 178, 1]],
+  africa: [[-34, -26, 18, 31, 3], [30, 36, -10, 11, 1]],
+};
+const COUNTRY_REGIONS = {
+  france: [[42.3, 51.1, -5.1, 8.3, 5]],
+  usa: [[30, 47, -122, -75, 5]],
+  canada: [[43, 50, -123, -73, 4]],
+  "uk-ireland": [[51, 57, -8, 0, 4]],
+  "spain-portugal": [[37, 43, -9, 2, 4]],
+  italy: [[38, 45, 8, 17, 4]],
+  germany: [[47, 55, 5, 15, 4]],
+  japan: [[33, 43, 131, 142, 4]],
+  "south-korea": [[35, 38, 126, 129, 4]],
+  australia: [[-38, -28, 140, 153, 4]],
+  "new-zealand": [[-46, -36, 167, 178, 4]],
+  brazil: [[-30, -20, -52, -43, 4]],
+  "argentina-chile": [[-38, -31, -71, -58, 4]],
+  "south-africa": [[-34, -26, 18, 31, 4]],
+  mexico: [[19, 26, -105, -98, 4]],
+};
+const WORLD_CITIES = [
+  [40.7128, -74.0060, 23000, 3], [34.0522, -118.2437, 30000, 2], [41.8781, -87.6298, 22000, 2],
+  [51.5074, -0.1278, 22000, 3], [48.8566, 2.3522, 18000, 3], [52.5200, 13.4050, 18000, 2],
+  [40.4168, -3.7038, 18000, 2], [41.9028, 12.4964, 16000, 2], [52.3676, 4.9041, 14000, 2],
+  [35.6762, 139.6503, 26000, 3], [34.6937, 135.5023, 18000, 2], [37.5665, 126.9780, 22000, 2],
+  [1.3521, 103.8198, 16000, 2], [13.7563, 100.5018, 22000, 2], [-33.8688, 151.2093, 22000, 2],
+  [-37.8136, 144.9631, 20000, 2], [-23.5505, -46.6333, 26000, 2], [-34.6037, -58.3816, 22000, 2],
+  [-33.9249, 18.4241, 18000, 2], [45.5019, -73.5674, 18000, 2], [43.6532, -79.3832, 20000, 2],
+];
+const FRANCE_CITIES = [
+  [48.8566, 2.3522, 15000, 4], [45.7640, 4.8357, 12000, 3], [43.2965, 5.3698, 12000, 3],
+  [43.6047, 1.4442, 11000, 2], [43.7102, 7.2620, 10000, 2], [47.2184, -1.5536, 10000, 2],
+  [48.5734, 7.7521, 9000, 2], [43.6119, 3.8772, 9000, 2], [44.8378, -0.5792, 10000, 2],
+  [50.6292, 3.0573, 10000, 2], [48.1173, -1.6778, 9000, 1], [45.1885, 5.7245, 9000, 1],
+  [47.3220, 5.0415, 8000, 1], [49.2583, 4.0317, 8000, 1], [49.4944, 0.1079, 8000, 1],
+  [43.1242, 5.9280, 8000, 1], [47.4784, -0.5632, 8000, 1], [45.4397, 4.3872, 8000, 1],
+];
+function weightedPick(items) {
+  const total = items.reduce((t, r) => t + (r[3] && r.length === 4 ? r[3] : r[4] || 1), 0);
+  let x = Math.random() * total;
+  for (const r of items) {
+    x -= (r[3] && r.length === 4 ? r[3] : r[4] || 1);
+    if (x <= 0) return r;
+  }
+  return items[0];
+}
+function randomPointNear(lat, lng, meters) {
+  const d = Math.sqrt(Math.random()) * meters;
+  const a = Math.random() * Math.PI * 2;
+  return {
+    lat: lat + (Math.cos(a) * d) / 111320,
+    lng: lng + (Math.sin(a) * d) / (111320 * Math.cos(lat * Math.PI / 180)),
+  };
+}
+function activePool() {
+  if (G.zoneFilter === "world-cities") return { type: "city", items: WORLD_CITIES };
+  if (G.zoneFilter === "france-cities") return { type: "city", items: FRANCE_CITIES };
+  if (G.zoneFilter === "country") return { type: "region", items: COUNTRY_REGIONS[G.countryFilter] || COUNTRY_REGIONS.france };
+  return { type: "region", items: ZONE_REGIONS[G.zoneFilter] || REGIONS };
+}
 function pickRegion() {
-  let x = Math.random() * REGION_TOTAL;
-  for (const r of REGIONS) { x -= r[4]; if (x <= 0) return r; }
-  return REGIONS[0];
+  return weightedPick(activePool().items);
 }
 
 /* ===========================================================
@@ -110,10 +175,14 @@ function pickRegion() {
 async function findOneLocation() {
   const sv = new google.maps.StreetViewService();
   for (let attempt = 0; attempt < 40; attempt++) {
+    const pool = activePool();
     const r = pickRegion();
+    const target = pool.type === "city"
+      ? randomPointNear(r[0], r[1], r[2])
+      : { lat: rand(r[0], r[1]), lng: rand(r[2], r[3]) };
     const req = {
-      location: { lat: rand(r[0], r[1]), lng: rand(r[2], r[3]) },
-      radius: 150000,
+      location: target,
+      radius: pool.type === "city" ? 12000 : 150000,
       // GOOGLE = imagerie officielle des voitures Street View uniquement
       // (exclut les photosphères utilisateur, qui rendent mal / en noir).
       source: google.maps.StreetViewSource.GOOGLE,
@@ -617,6 +686,13 @@ function wire() {
     const b = e.target.closest("button[data-r]"); if (!b) return;
     $("rounds-seg").querySelectorAll("button").forEach((x) => x.classList.remove("on"));
     b.classList.add("on"); G.rounds = parseInt(b.dataset.r, 10);
+  });
+  $("zone-filter").addEventListener("change", () => {
+    G.zoneFilter = $("zone-filter").value;
+    $("country-field").classList.toggle("hidden", G.zoneFilter !== "country");
+  });
+  $("country-filter").addEventListener("change", () => {
+    G.countryFilter = $("country-filter").value;
   });
 
   $("btn-solo").addEventListener("click", startSolo);

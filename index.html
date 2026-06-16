@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-  <link rel="stylesheet" href="style.css?v=20260616-2" />
+  <link rel="stylesheet" href="style.css?v=20260616-3" />
 </head>
 <body>
 
@@ -27,6 +27,43 @@
           <button data-r="5" class="on">5</button>
           <button data-r="10">10</button>
         </div>
+      </div>
+
+      <div class="field">
+        <label for="zone-filter">Zone</label>
+        <select id="zone-filter" class="select">
+          <option value="world">Monde entier</option>
+          <option value="world-cities">Grandes villes du monde</option>
+          <option value="europe">Europe</option>
+          <option value="north-america">Amérique du Nord</option>
+          <option value="south-america">Amérique du Sud</option>
+          <option value="asia">Asie</option>
+          <option value="oceania">Océanie</option>
+          <option value="africa">Afrique</option>
+          <option value="country">Pays</option>
+          <option value="france-cities">France - grandes villes</option>
+        </select>
+      </div>
+
+      <div class="field hidden" id="country-field">
+        <label for="country-filter">Pays</label>
+        <select id="country-filter" class="select">
+          <option value="france">France</option>
+          <option value="usa">États-Unis</option>
+          <option value="canada">Canada</option>
+          <option value="uk-ireland">Royaume-Uni / Irlande</option>
+          <option value="spain-portugal">Espagne / Portugal</option>
+          <option value="italy">Italie</option>
+          <option value="germany">Allemagne</option>
+          <option value="japan">Japon</option>
+          <option value="south-korea">Corée du Sud</option>
+          <option value="australia">Australie</option>
+          <option value="new-zealand">Nouvelle-Zélande</option>
+          <option value="brazil">Brésil</option>
+          <option value="argentina-chile">Argentine / Chili</option>
+          <option value="south-africa">Afrique du Sud</option>
+          <option value="mexico">Mexique</option>
+        </select>
       </div>
 
       <div class="menu-actions">
@@ -148,6 +185,6 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <!-- PeerJS for multiplayer signaling (same lib as the chess project) -->
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
-  <script src="game.js?v=20260616-2"></script>
+  <script src="game.js?v=20260616-3"></script>
 </body>
 </html>
