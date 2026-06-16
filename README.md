@@ -43,7 +43,7 @@ python3 -m http.server 8765
 1. Pousser ce dossier sur un dépôt Git.
 2. Coolify → New Resource → **Dockerfile** (build depuis le dépôt).
 3. Variables d'environnement : `GMAPS_KEY = <ta clé>`.
-4. Port interne : **80**. Domaine : `geoguessr.planbadge.fr`.
+4. Port interne : **80**. Domaine : `geoguessr2.planbadge.fr`.
 5. Deploy.
 
 La clé reste dans Coolify, jamais dans le dépôt.

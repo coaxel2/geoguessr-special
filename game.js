@@ -8,7 +8,7 @@
 
 /* ---------- CONFIG ---------- */
 const CONFIG = {
-  // Clé Google Maps JS API. À restreindre à https://geoguessr.planbadge.fr/*.
+  // Clé Google Maps JS API. À restreindre à https://geoguessr2.planbadge.fr/*.
   GMAPS_KEY: "AIzaSyA1Xjw7eCPNUXXEN_7lrPQ5LCrICE5Qr_k",
 };
 
