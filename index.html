@@ -21,6 +21,11 @@
       <p class="tagline">Lâché quelque part sur Terre. Devine où.</p>
 
       <div class="field">
+        <label for="player-name">Pseudo</label>
+        <input id="player-name" class="text-input" maxlength="18" placeholder="Joueur" autocomplete="nickname" spellcheck="false" />
+      </div>
+
+      <div class="field">
         <label for="rounds">Manches</label>
         <div class="seg" id="rounds-seg">
           <button data-r="3">3</button>
@@ -84,6 +89,52 @@
       <h2 class="panel-title">Multijoueur en ligne</h2>
 
       <div id="online-choice" class="online-choice">
+        <div class="field">
+          <label for="online-rounds-seg">Manches</label>
+          <div class="seg" id="online-rounds-seg">
+            <button data-r="3">3</button>
+            <button data-r="5" class="on">5</button>
+            <button data-r="10">10</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="online-zone-filter">Zone</label>
+          <select id="online-zone-filter" class="select">
+            <option value="world">Monde entier</option>
+            <option value="world-cities">Grandes villes du monde</option>
+            <option value="europe">Europe</option>
+            <option value="north-america">Amérique du Nord</option>
+            <option value="south-america">Amérique du Sud</option>
+            <option value="asia">Asie</option>
+            <option value="oceania">Océanie</option>
+            <option value="africa">Afrique</option>
+            <option value="country">Pays</option>
+            <option value="france-cities">France - grandes villes</option>
+          </select>
+        </div>
+
+        <div class="field hidden" id="online-country-field">
+          <label for="online-country-filter">Pays</label>
+          <select id="online-country-filter" class="select">
+            <option value="france">France</option>
+            <option value="usa">États-Unis</option>
+            <option value="canada">Canada</option>
+            <option value="uk-ireland">Royaume-Uni / Irlande</option>
+            <option value="spain-portugal">Espagne / Portugal</option>
+            <option value="italy">Italie</option>
+            <option value="germany">Allemagne</option>
+            <option value="japan">Japon</option>
+            <option value="south-korea">Corée du Sud</option>
+            <option value="australia">Australie</option>
+            <option value="new-zealand">Nouvelle-Zélande</option>
+            <option value="brazil">Brésil</option>
+            <option value="argentina-chile">Argentine / Chili</option>
+            <option value="south-africa">Afrique du Sud</option>
+            <option value="mexico">Mexique</option>
+          </select>
+        </div>
+
         <button id="btn-create" class="btn btn-primary">Créer une partie</button>
         <div class="or">ou</div>
         <div class="join-row">
@@ -98,6 +149,7 @@
           <div class="room-code" id="room-code">----</div>
         </div>
         <button class="btn btn-mini" id="btn-copy">Copier le lien</button>
+        <p class="status mini" id="room-settings"></p>
         <p class="status status-chip" id="online-status">Création de la salle…</p>
         <button class="btn btn-primary hidden" id="btn-start-room" disabled>Lancer la partie</button>
       </div>
@@ -145,12 +197,12 @@
       <h2 id="result-title">Manche 1</h2>
       <div class="result-rows">
         <div class="result-row me">
-          <span class="who">Toi</span>
+          <span class="who" id="result-me-name">Toi</span>
           <span class="dist" id="result-dist">— km</span>
           <span class="pts" id="result-pts">0 pts</span>
         </div>
         <div class="result-row opp hidden" id="result-opp-row">
-          <span class="who">Adversaire</span>
+          <span class="who" id="result-opp-name">Adversaire</span>
           <span class="dist" id="result-opp-dist">— km</span>
           <span class="pts" id="result-opp-pts">0 pts</span>
         </div>
@@ -168,12 +220,12 @@
       <h2 id="final-title">Partie terminée</h2>
       <div class="final-scores">
         <div class="final-score me">
-          <span class="who">Toi</span>
+          <span class="who" id="final-me-name">Toi</span>
           <span class="big" id="final-me">0</span>
           <span class="sub">/ <span id="final-max">25000</span></span>
         </div>
         <div class="final-score opp hidden" id="final-opp-block">
-          <span class="who">Adversaire</span>
+          <span class="who" id="final-opp-name">Adversaire</span>
           <span class="big" id="final-opp">0</span>
         </div>
       </div>

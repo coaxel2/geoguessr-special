@@ -27,6 +27,30 @@ function fmtDist(m) {
   return Math.round(m / 1000).toLocaleString("fr-FR") + " km";
 }
 function setMapsState(txt) { const e = $("maps-state"); if (e) e.textContent = txt; }
+function cleanName(v) {
+  return (v || "").trim().replace(/\s+/g, " ").slice(0, 18) || "Joueur";
+}
+function savePlayerName() {
+  G.playerName = cleanName($("player-name").value);
+  $("player-name").value = G.playerName;
+  try { localStorage.setItem("geoq-name", G.playerName); } catch (e) {}
+}
+function labelForSelect(id) {
+  const el = $(id);
+  return el && el.selectedOptions[0] ? el.selectedOptions[0].textContent : "";
+}
+function settingsText() {
+  const zone = G.zoneFilter === "country" ? labelForSelect("online-country-filter") : labelForSelect("online-zone-filter");
+  return G.rounds + " manches · " + (zone || "Monde entier");
+}
+function updateNameLabels() {
+  const opp = G.online.oppName || "Adversaire";
+  const me = G.playerName || "Joueur";
+  if ($("result-me-name")) $("result-me-name").textContent = me;
+  if ($("result-opp-name")) $("result-opp-name").textContent = opp;
+  if ($("final-me-name")) $("final-me-name").textContent = me;
+  if ($("final-opp-name")) $("final-opp-name").textContent = opp;
+}
 
 /* ---------- état global ---------- */
 const G = {
@@ -38,6 +62,7 @@ const G = {
   guess: null,
   submitted: false,
   lastDist: null,
+  playerName: "Joueur",
   pano: null,
   gmap: null,
   marker: null,
@@ -49,6 +74,7 @@ const G = {
   online: {
     active: false, peer: null, conn: null, isHost: false, code: null,
     started: false,
+    oppName: "Adversaire",
     oppGuess: null, oppDone: false, oppScores: [],
     iWantNext: false, oppWantNext: false, ka: null,
   },
@@ -166,6 +192,33 @@ function activePool() {
   if (G.zoneFilter === "country") return { type: "region", items: COUNTRY_REGIONS[G.countryFilter] || COUNTRY_REGIONS.france };
   return { type: "region", items: ZONE_REGIONS[G.zoneFilter] || REGIONS };
 }
+function setRoundSeg(id, rounds) {
+  $(id).querySelectorAll("button").forEach((b) => b.classList.toggle("on", parseInt(b.dataset.r, 10) === rounds));
+}
+function readMenuSettings() {
+  G.zoneFilter = $("zone-filter").value;
+  G.countryFilter = $("country-filter").value;
+}
+function readOnlineSettings() {
+  const selected = $("online-rounds-seg").querySelector("button.on");
+  G.rounds = selected ? parseInt(selected.dataset.r, 10) : G.rounds;
+  G.zoneFilter = $("online-zone-filter").value;
+  G.countryFilter = $("online-country-filter").value;
+  $("online-country-field").classList.toggle("hidden", G.zoneFilter !== "country");
+}
+function mirrorSettingsToOnline() {
+  setRoundSeg("online-rounds-seg", G.rounds);
+  $("online-zone-filter").value = G.zoneFilter;
+  $("online-country-filter").value = G.countryFilter;
+  $("online-country-field").classList.toggle("hidden", G.zoneFilter !== "country");
+}
+function applyRemoteSettings(m) {
+  G.rounds = m.rounds || G.rounds;
+  G.zoneFilter = m.zone || G.zoneFilter;
+  G.countryFilter = m.country || G.countryFilter;
+  mirrorSettingsToOnline();
+  $("room-settings").textContent = settingsText();
+}
 function pickRegion() {
   return weightedPick(activePool().items);
 }
@@ -281,6 +334,8 @@ function uncover() { $("pano-cover").classList.add("hidden"); }
 
 async function startSolo() {
   if (!mapsReady) { setMapsState("⏳ La carte charge encore…"); return; }
+  savePlayerName();
+  readMenuSettings();
   G.mode = "solo"; G.online.active = false;
   showScreen("game");
   resetLocations();
@@ -296,6 +351,7 @@ function beginRoundsLocal() {
   G.current = 0; G.scores = []; G.submitted = false;
   G.online.oppScores = [];
   $("hud-opp").classList.toggle("hidden", !G.online.active);
+  updateNameLabels();
   showScreen("game");
   loadRound();
 }
@@ -400,6 +456,7 @@ function drawResult(loc) {
 
 function revealRound() {
   showScreen("result");
+  updateNameLabels();
   ensureResultMap();
   const loc = G.locations[G.current];
   resMap.invalidateSize();
@@ -440,6 +497,7 @@ function advance() {
 
 function showFinal() {
   showScreen("final");
+  updateNameLabels();
   const me = sum(G.scores);
   const max = G.rounds * 5000;
   $("final-me").textContent = me.toLocaleString("fr-FR");
@@ -463,7 +521,7 @@ function showFinal() {
 function updateOppHud() {
   if (!G.online.active) return;
   $("hud-opp").classList.remove("hidden");
-  $("hud-opp").textContent = "Adversaire : " + sum(G.online.oppScores) + " pts";
+  $("hud-opp").textContent = (G.online.oppName || "Adversaire") + " : " + sum(G.online.oppScores) + " pts";
 }
 
 /* ===========================================================
@@ -485,7 +543,7 @@ function onlineReset() {
   try { if (G.online.peer) G.online.peer.destroy(); } catch (e) {}
   clearInterval(G.online.ka);
   G.online = { active: false, peer: null, conn: null, isHost: false, code: null,
-               started: false, oppGuess: null, oppDone: false, oppScores: [], iWantNext: false, oppWantNext: false, ka: null };
+               started: false, oppName: "Adversaire", oppGuess: null, oppDone: false, oppScores: [], iWantNext: false, oppWantNext: false, ka: null };
 }
 function sendMsg(m) { try { if (G.online.conn && G.online.conn.open) G.online.conn.send(m); } catch (e) {} }
 function roomPeerId(code) {
@@ -495,6 +553,8 @@ function roomPeerId(code) {
 function createRoom() {
   if (!mapsReady) { $("online-error").textContent = "La carte charge encore, patiente une seconde."; return; }
   if (typeof Peer === "undefined") { $("online-error").textContent = "Module réseau indisponible."; return; }
+  savePlayerName();
+  readOnlineSettings();
   onlineReset();
   const code = genCode();
   G.online.code = code; G.online.isHost = true;
@@ -506,6 +566,7 @@ function createRoom() {
   $("room-code").textContent = "----";
   $("btn-copy").textContent = "Copier le lien";
   $("btn-copy").disabled = true;
+  $("room-settings").textContent = settingsText();
   $("online-status").textContent = "Création de la salle…";
 
   const peer = new Peer(roomPeerId(code), { debug: 0, config: ICE });
@@ -531,6 +592,7 @@ function createRoom() {
 function joinRoom(codeArg) {
   if (!mapsReady) { $("online-error").textContent = "La carte charge encore, patiente une seconde."; return; }
   if (typeof Peer === "undefined") { $("online-error").textContent = "Module réseau indisponible."; return; }
+  savePlayerName();
   const code = (codeArg || $("join-code").value || "").trim().toUpperCase();
   if (code.length < 4) { $("online-error").textContent = "Entre le code à 4 caractères."; return; }
   onlineReset();
@@ -543,6 +605,7 @@ function joinRoom(codeArg) {
   $("room-code").textContent = code;
   $("btn-copy").textContent = "Copier le lien";
   $("btn-copy").disabled = true;
+  $("room-settings").textContent = "";
   $("online-status").textContent = "Connexion à la salle…";
 
   let attempts = 0;
@@ -607,6 +670,7 @@ function setupConn(conn) {
     flashStatus("⚠️ Adversaire déconnecté");
   });
   conn.on("error", () => flashStatus("⚠️ Problème de connexion"));
+  sendMsg({ type: "hello", name: G.playerName });
 
   if (G.online.isHost) {
     $("online-status").textContent = "Joueur 2 connecté — prêt à lancer";
@@ -638,19 +702,25 @@ async function hostStartGame() {
 function onData(m) {
   if (!m || !m.type || m.type === "ping") return;
 
-  if (m.type === "room") {
+  if (m.type === "hello") {
+    G.online.oppName = cleanName(m.name || "Adversaire");
+    updateNameLabels();
+    updateOppHud();
+    if ($("online").classList.contains("show")) {
+      $("online-status").textContent = G.online.isHost
+        ? G.online.oppName + " connecté — prêt à lancer"
+        : "Connecté — en attente de l'hôte";
+    }
+
+  } else if (m.type === "room") {
     if (!G.online.isHost) {
-      G.rounds = m.rounds || G.rounds;
-      G.zoneFilter = m.zone || G.zoneFilter;
-      G.countryFilter = m.country || G.countryFilter;
+      applyRemoteSettings(m);
       $("online-status").textContent = "Connecté — en attente de l'hôte";
     }
 
   } else if (m.type === "start") {
     if (!G.online.isHost) {
-      G.rounds = m.rounds || G.rounds;
-      G.zoneFilter = m.zone || G.zoneFilter;
-      G.countryFilter = m.country || G.countryFilter;
+      applyRemoteSettings(m);
       $("online-status").textContent = "L'hôte lance la partie…";
     }
 
@@ -668,12 +738,13 @@ function onData(m) {
     G.online.oppScores[m.round] = m.pts;
     updateOppHud();
     $("opp-flag").classList.remove("hidden");
+    $("opp-flag").textContent = (G.online.oppName || "Ton adversaire") + " a deviné";
     if (G.submitted) revealRound();
 
   } else if (m.type === "next") {
     G.online.oppWantNext = true;
     if (G.online.iWantNext) advance();
-    else if ($("result").classList.contains("show")) $("next-wait").textContent = "L'adversaire est prêt…";
+    else if ($("result").classList.contains("show")) $("next-wait").textContent = (G.online.oppName || "L'adversaire") + " est prêt…";
 
   } else if (m.type === "replay") {
     if (G.online.isHost) hostReplay();
@@ -715,11 +786,24 @@ function goHome() { onlineReset(); G.online.active = false; showScreen("menu"); 
    Wiring UI
    =========================================================== */
 function wire() {
+  try {
+    const savedName = localStorage.getItem("geoq-name");
+    if (savedName) { G.playerName = cleanName(savedName); $("player-name").value = G.playerName; }
+  } catch (e) {}
+  if (!$("player-name").value) $("player-name").value = G.playerName;
+  $("player-name").addEventListener("change", savePlayerName);
+  $("player-name").addEventListener("blur", savePlayerName);
+
   // segmented manches
   $("rounds-seg").addEventListener("click", (e) => {
     const b = e.target.closest("button[data-r]"); if (!b) return;
     $("rounds-seg").querySelectorAll("button").forEach((x) => x.classList.remove("on"));
     b.classList.add("on"); G.rounds = parseInt(b.dataset.r, 10);
+  });
+  $("online-rounds-seg").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-r]"); if (!b) return;
+    $("online-rounds-seg").querySelectorAll("button").forEach((x) => x.classList.remove("on"));
+    b.classList.add("on");
   });
   $("zone-filter").addEventListener("change", () => {
     G.zoneFilter = $("zone-filter").value;
@@ -728,9 +812,19 @@ function wire() {
   $("country-filter").addEventListener("change", () => {
     G.countryFilter = $("country-filter").value;
   });
+  $("online-zone-filter").addEventListener("change", () => {
+    $("online-country-field").classList.toggle("hidden", $("online-zone-filter").value !== "country");
+  });
 
   $("btn-solo").addEventListener("click", startSolo);
-  $("btn-online").addEventListener("click", () => { backToOnlineChoice(); $("online-error").textContent = ""; showScreen("online"); });
+  $("btn-online").addEventListener("click", () => {
+    savePlayerName();
+    readMenuSettings();
+    mirrorSettingsToOnline();
+    backToOnlineChoice();
+    $("online-error").textContent = "";
+    showScreen("online");
+  });
   $("btn-create").addEventListener("click", createRoom);
   $("btn-join").addEventListener("click", () => joinRoom());
   $("btn-start-room").addEventListener("click", hostStartGame);
