@@ -418,6 +418,7 @@ function onlineReset() {
                oppGuess: null, oppDone: false, oppScores: [], iWantNext: false, oppWantNext: false, ka: null };
 }
 function sendMsg(m) { try { if (G.online.conn && G.online.conn.open) G.online.conn.send(m); } catch (e) {} }
+function roomPeerId(code) { return "geoq-" + code; }
 
 function createRoom() {
   if (!mapsReady) { $("online-error").textContent = "La carte charge encore, patiente une seconde."; return; }
@@ -433,7 +434,7 @@ function createRoom() {
   $("btn-copy").disabled = true;
   $("online-status").textContent = "Création de la salle…";
 
-  const peer = new Peer("geoq-" + code, { debug: 0, config: ICE });
+  const peer = new Peer(roomPeerId(code), { debug: 0, config: ICE });
   G.online.peer = peer;
   peer.on("open", () => {
     if (G.online.peer !== peer || !G.online.isHost) return;
@@ -441,7 +442,11 @@ function createRoom() {
     $("btn-copy").disabled = false;
     $("online-status").textContent = "En attente d'un adversaire…";
   });
-  peer.on("connection", (conn) => conn.on("open", () => setupConn(conn)));
+  peer.on("connection", (conn) => {
+    $("online-status").textContent = "Adversaire connecté…";
+    conn.on("open", () => setupConn(conn));
+    conn.on("error", () => flashStatus("Problème de connexion avec l'adversaire"));
+  });
   peer.on("error", (e) => {
     $("online-error").textContent = e.type === "unavailable-id" ? "Code déjà pris, réessaie." : "Erreur réseau : " + e.type;
     backToOnlineChoice();
@@ -464,40 +469,53 @@ function joinRoom(codeArg) {
   $("btn-copy").disabled = true;
   $("online-status").textContent = "Connexion à la salle…";
 
-  const peer = new Peer({ debug: 0, config: ICE });
-  G.online.peer = peer;
   let attempts = 0;
-  const deadline = Date.now() + 18000;
-  const retryConnect = () => {
-    if (G.online.active || G.online.peer !== peer) return;
-    attempts++;
-    $("online-status").textContent = attempts > 1 ? "Nouvelle tentative de connexion…" : "Connexion à la salle…";
-    const conn = peer.connect("geoq-" + code, { reliable: true });
-    conn.on("open", () => setupConn(conn));
-    conn.on("error", () => {
-      if (!G.online.active && Date.now() < deadline) setTimeout(retryConnect, 1000);
-    });
+  const deadline = Date.now() + 25000;
+  const failJoin = (text) => {
+    if (G.online.active || G.online.isHost) return;
+    $("online-error").textContent = text;
+    backToOnlineChoice();
   };
-  peer.on("open", () => {
-    if (G.online.peer !== peer || G.online.isHost) return;
-    retryConnect();
-    setTimeout(() => {
-      if (!G.online.active && G.online.peer === peer) {
-        $("online-error").textContent = "Salle introuvable, vérifie le code.";
-        backToOnlineChoice();
-      }
-    }, 19000);
-  });
-  peer.on("error", (e) => {
-    if (G.online.peer !== peer) return;
-    if (e.type === "peer-unavailable" && Date.now() < deadline) {
-      setTimeout(retryConnect, 1000);
+  const retryConnect = () => {
+    if (G.online.active || G.online.isHost || G.online.code !== code) return;
+    if (Date.now() >= deadline) {
+      failJoin("Salle introuvable ou connexion impossible. Vérifie le code.");
       return;
     }
-    $("online-error").textContent = e.type === "peer-unavailable" ? "Salle introuvable, vérifie le code." : "Erreur réseau : " + e.type;
-    backToOnlineChoice();
-  });
-  peer.on("disconnected", () => { try { peer.reconnect(); } catch (e) {} });
+    try { if (G.online.peer) G.online.peer.destroy(); } catch (e) {}
+    attempts++;
+    $("online-status").textContent = attempts > 1 ? "Nouvelle tentative de connexion…" : "Connexion à la salle…";
+
+    const peer = new Peer({ debug: 0, config: ICE });
+    G.online.peer = peer;
+    const scheduleRetry = () => {
+      if (!G.online.active && G.online.peer === peer && Date.now() < deadline) setTimeout(retryConnect, 900);
+      else if (!G.online.active && G.online.peer === peer) failJoin("Salle introuvable ou connexion impossible. Vérifie le code.");
+    };
+
+    peer.on("open", () => {
+      if (G.online.peer !== peer || G.online.isHost) return;
+      const conn = peer.connect(roomPeerId(code), { reliable: true, serialization: "json" });
+      let opened = false;
+      const timer = setTimeout(() => { if (!opened) scheduleRetry(); }, 6000);
+      conn.on("open", () => {
+        opened = true;
+        clearTimeout(timer);
+        setupConn(conn);
+      });
+      conn.on("error", () => {
+        clearTimeout(timer);
+        scheduleRetry();
+      });
+      conn.on("close", () => {
+        clearTimeout(timer);
+        if (!G.online.active) scheduleRetry();
+      });
+    });
+    peer.on("error", scheduleRetry);
+    peer.on("disconnected", scheduleRetry);
+  };
+  retryConnect();
 }
 
 function setupConn(conn) {
