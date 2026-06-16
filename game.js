@@ -42,6 +42,8 @@ const G = {
   gmap: null,
   marker: null,
   startPov: null,
+  locationWaiters: {},
+  locationBatch: 0,
   online: {
     active: false, peer: null, conn: null, isHost: false, code: null,
     oppGuess: null, oppDone: false, oppScores: [],
@@ -134,6 +136,35 @@ async function makeLocations(n, onProgress) {
   }
   return locs;
 }
+function resetLocations() {
+  G.locations = [];
+  G.locationWaiters = {};
+  G.locationBatch++;
+}
+function setLocationAt(index, loc) {
+  G.locations[index] = loc;
+  (G.locationWaiters[index] || []).forEach((resolve) => resolve(loc));
+  delete G.locationWaiters[index];
+}
+function waitForLocation(index) {
+  if (G.locations[index]) return Promise.resolve(G.locations[index]);
+  return new Promise((resolve) => {
+    if (!G.locationWaiters[index]) G.locationWaiters[index] = [];
+    G.locationWaiters[index].push(resolve);
+  });
+}
+async function preloadRemainingLocations(startIndex, sendOnline) {
+  const batch = G.locationBatch;
+  for (let i = startIndex; i < G.rounds; i++) {
+    if (batch !== G.locationBatch) return;
+    if (G.locations[i]) continue;
+    const loc = await findOneLocation();
+    if (batch !== G.locationBatch) return;
+    if (!loc) continue;
+    setLocationAt(i, loc);
+    if (sendOnline) sendMsg({ type: "location", index: i, loc: loc });
+  }
+}
 
 /* ===========================================================
    Panorama + carte de guess
@@ -182,10 +213,13 @@ async function startSolo() {
   if (!mapsReady) { setMapsState("⏳ La carte charge encore…"); return; }
   G.mode = "solo"; G.online.active = false;
   showScreen("game");
-  cover("Recherche des lieux… 0/" + G.rounds);
-  G.locations = await makeLocations(G.rounds, (i, n) => cover("Recherche des lieux… " + i + "/" + n));
-  if (!G.locations.length) { cover("Impossible de trouver des lieux. Réessaie."); return; }
+  resetLocations();
+  cover("Recherche du premier lieu…");
+  const first = await findOneLocation();
+  if (!first) { cover("Impossible de trouver un lieu. Réessaie."); return; }
+  setLocationAt(0, first);
   beginRoundsLocal();
+  preloadRemainingLocations(1, false);
 }
 
 function beginRoundsLocal() {
@@ -196,7 +230,8 @@ function beginRoundsLocal() {
   loadRound();
 }
 
-function loadRound() {
+async function loadRound() {
+  const round = G.current;
   G.guess = null; G.submitted = false;
   G.online.oppGuess = null; G.online.oppDone = false;
   G.online.iWantNext = false; G.online.oppWantNext = false;
@@ -205,14 +240,17 @@ function loadRound() {
   $("guess-hint").textContent = "Place ton marqueur sur la carte";
   $("opp-flag").classList.add("hidden");
 
-  const loc = G.locations[G.current];
-  $("hud-round").textContent = "Manche " + (G.current + 1) + "/" + G.rounds;
+  $("hud-round").textContent = "Manche " + (round + 1) + "/" + G.rounds;
   $("hud-score").textContent = sum(G.scores) + " pts";
   updateOppHud();
 
   ensureGuessMap();
   G.gmap.setView([20, 0], 1);
   setTimeout(() => G.gmap.invalidateSize(), 80);
+
+  if (!G.locations[round]) cover("Préparation de la manche…");
+  const loc = await waitForLocation(round);
+  if (G.current !== round || !$("game").classList.contains("show")) return;
 
   cover("Chargement du panorama…");
   G.startPov = { heading: Math.random() * 360, pitch: 0, zoom: 0 };
@@ -483,20 +521,26 @@ function setupConn(conn) {
 async function hostStartGame() {
   $("online-status").textContent = "Connecté — recherche des lieux…";
   showScreen("game");
-  cover("Recherche des lieux… 0/" + G.rounds);
-  const locs = await makeLocations(G.rounds, (i, n) => cover("Recherche des lieux… " + i + "/" + n));
-  if (!locs.length) { cover("Impossible de trouver des lieux."); return; }
-  G.locations = locs;
-  sendMsg({ type: "init", rounds: G.rounds, locations: locs });
+  resetLocations();
+  cover("Recherche du premier lieu…");
+  const first = await findOneLocation();
+  if (!first) { cover("Impossible de trouver un lieu."); return; }
+  setLocationAt(0, first);
+  sendMsg({ type: "init", rounds: G.rounds, locations: G.locations });
   beginRoundsLocal();
+  preloadRemainingLocations(1, true);
 }
 
 function onData(m) {
   if (!m || !m.type || m.type === "ping") return;
 
   if (m.type === "init") {
-    G.rounds = m.rounds; G.locations = m.locations;
+    G.rounds = m.rounds; resetLocations();
+    (m.locations || []).forEach((loc, i) => { if (loc) setLocationAt(i, loc); });
     beginRoundsLocal();
+
+  } else if (m.type === "location") {
+    if (m.loc && Number.isInteger(m.index)) setLocationAt(m.index, m.loc);
 
   } else if (m.type === "guess") {
     G.online.oppGuess = m; G.online.oppDone = true;
@@ -530,11 +574,13 @@ function replay() {
 }
 async function hostReplay() {
   showScreen("game"); cover("Nouvelle partie — recherche des lieux…");
-  const locs = await makeLocations(G.rounds, (i, n) => cover("Recherche des lieux… " + i + "/" + n));
-  if (!locs.length) { cover("Impossible de trouver des lieux."); return; }
-  G.locations = locs;
-  sendMsg({ type: "init", rounds: G.rounds, locations: locs });
+  resetLocations();
+  const first = await findOneLocation();
+  if (!first) { cover("Impossible de trouver un lieu."); return; }
+  setLocationAt(0, first);
+  sendMsg({ type: "init", rounds: G.rounds, locations: G.locations });
   beginRoundsLocal();
+  preloadRemainingLocations(1, true);
 }
 
 /* ---------- navigation online ---------- */
