@@ -8,8 +8,8 @@
 
 /* ---------- CONFIG ---------- */
 const CONFIG = {
-  // Clé injectée en production par docker-entrypoint.sh depuis GMAPS_KEY.
-  GMAPS_KEY: "__GMAPS_KEY__",
+  // Clé Google Maps JS API. À restreindre à https://geoguessr.planbadge.fr/*.
+  GMAPS_KEY: "AIzaSyA1Xjw7eCPNUXXEN_7lrPQ5LCrICE5Qr_k",
 };
 
 /* ---------- helpers ---------- */
