@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>GeoGuessr Spécial — Axel</title>
+  <meta name="description" content="Devine où tu te trouves dans le monde à partir d'une vue Street View. Solo ou multijoueur en ligne." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ====================== MENU ====================== -->
+  <section id="menu" class="screen show">
+    <div class="menu-bg"></div>
+    <div class="menu-card">
+      <h1 class="logo">🌍 GeoGuessr <span>Spécial</span></h1>
+      <p class="tagline">Lâché quelque part sur Terre. Devine où.</p>
+
+      <div class="field">
+        <label for="rounds">Manches</label>
+        <div class="seg" id="rounds-seg">
+          <button data-r="3">3</button>
+          <button data-r="5" class="on">5</button>
+          <button data-r="10">10</button>
+        </div>
+      </div>
+
+      <div class="menu-actions">
+        <button id="btn-solo" class="btn btn-primary">🎯 Jouer en solo</button>
+        <button id="btn-online" class="btn btn-ghost">🌐 Multijoueur en ligne</button>
+      </div>
+
+      <p class="hint" id="maps-state">Chargement de la carte…</p>
+    </div>
+    <footer class="credit">Axel &amp; Clément · déployé sur planbadge.fr</footer>
+  </section>
+
+  <!-- ====================== ONLINE SETUP ====================== -->
+  <section id="online" class="screen">
+    <div class="menu-bg"></div>
+    <div class="menu-card">
+      <button class="back" data-back="menu">‹ Retour</button>
+      <h2 class="panel-title">Multijoueur en ligne</h2>
+
+      <div id="online-choice" class="online-choice">
+        <button id="btn-create" class="btn btn-primary">Créer une partie</button>
+        <div class="or">ou</div>
+        <div class="join-row">
+          <input id="join-code" maxlength="4" placeholder="CODE" autocomplete="off" spellcheck="false" />
+          <button id="btn-join" class="btn btn-ghost">Rejoindre</button>
+        </div>
+      </div>
+
+      <div id="online-wait" class="online-wait">
+        <p class="wait-label">Partage ce code à ton adversaire</p>
+        <div class="room-display">
+          <div class="room-code" id="room-code">----</div>
+        </div>
+        <button class="btn btn-mini" id="btn-copy">Copier le lien</button>
+        <p class="status status-chip" id="online-status">Création de la salle…</p>
+      </div>
+
+      <p class="err" id="online-error"></p>
+    </div>
+    <footer class="credit">Connexion pair-à-pair chiffrée · WebRTC</footer>
+  </section>
+
+  <!-- ====================== GAME ====================== -->
+  <section id="game" class="screen game">
+    <div id="pano" class="pano"></div>
+    <div id="pano-cover" class="pano-cover">
+      <div class="spinner"></div>
+      <p id="pano-cover-text">Recherche d'un lieu…</p>
+    </div>
+
+    <!-- top HUD -->
+    <div class="hud">
+      <div class="hud-pill" id="hud-round">Manche 1/5</div>
+      <div class="hud-pill" id="hud-score">0 pts</div>
+      <div class="hud-pill hud-opp hidden" id="hud-opp">Adversaire : 0 pts</div>
+      <button class="hud-pill hud-quit" id="btn-quit">Quitter</button>
+    </div>
+
+    <!-- compass / reset view -->
+    <button class="reset-view" id="btn-reset-view" title="Revenir au point de départ">⟲</button>
+
+    <!-- guess panel -->
+    <div class="guess-panel" id="guess-panel">
+      <div class="guess-head">
+        <span id="guess-hint">Place ton marqueur sur la carte</span>
+        <button class="expand" id="btn-expand" title="Agrandir / réduire">⤢</button>
+      </div>
+      <div id="map" class="guessmap"></div>
+      <button id="btn-guess" class="btn btn-primary btn-guess" disabled>Deviner</button>
+      <div class="opp-flag hidden" id="opp-flag">✔ Ton adversaire a deviné</div>
+    </div>
+  </section>
+
+  <!-- ====================== ROUND RESULT ====================== -->
+  <section id="result" class="screen">
+    <div id="result-map" class="result-map"></div>
+    <div class="result-card">
+      <h2 id="result-title">Manche 1</h2>
+      <div class="result-rows">
+        <div class="result-row me">
+          <span class="who">Toi</span>
+          <span class="dist" id="result-dist">— km</span>
+          <span class="pts" id="result-pts">0 pts</span>
+        </div>
+        <div class="result-row opp hidden" id="result-opp-row">
+          <span class="who">Adversaire</span>
+          <span class="dist" id="result-opp-dist">— km</span>
+          <span class="pts" id="result-opp-pts">0 pts</span>
+        </div>
+      </div>
+      <button id="btn-next" class="btn btn-primary">Manche suivante ›</button>
+      <p class="status mini hidden" id="next-wait">En attente de l'adversaire…</p>
+    </div>
+  </section>
+
+  <!-- ====================== FINAL ====================== -->
+  <section id="final" class="screen">
+    <div class="menu-bg"></div>
+    <div class="menu-card final-card">
+      <div id="final-emoji" class="final-emoji">🏆</div>
+      <h2 id="final-title">Partie terminée</h2>
+      <div class="final-scores">
+        <div class="final-score me">
+          <span class="who">Toi</span>
+          <span class="big" id="final-me">0</span>
+          <span class="sub">/ <span id="final-max">25000</span></span>
+        </div>
+        <div class="final-score opp hidden" id="final-opp-block">
+          <span class="who">Adversaire</span>
+          <span class="big" id="final-opp">0</span>
+        </div>
+      </div>
+      <button id="btn-replay" class="btn btn-primary">Rejouer</button>
+      <button id="btn-home" class="btn btn-ghost">Menu principal</button>
+    </div>
+  </section>
+
+  <!-- Leaflet : cartes de guess / résultat (tuiles raster, pas de WebGL) -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <!-- PeerJS for multiplayer signaling (same lib as the chess project) -->
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
