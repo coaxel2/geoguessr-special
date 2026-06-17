@@ -510,8 +510,10 @@ input { font-family: inherit; }
   .guessmap { height: 130px; }
   .guess-panel.expanded { width: calc(100vw - 24px); }
   .guess-panel.expanded .guessmap { height: 50vh; }
-  .hud { gap: 6px; top: 12px; flex-wrap: wrap; justify-content: center; width: 100%; }
+  .hud { top: 12px; left: 12px; right: 12px; transform: none; width: auto; gap: 6px; flex-wrap: wrap; justify-content: flex-start; padding-right: 78px; }
   .hud-pill { padding: 7px 12px; font-size: 12.5px; }
+  .hud-quit { position: absolute; top: 0; right: 0; }     /* Quitter toujours en haut à droite, jamais chevauché */
+  .reset-view { top: auto; bottom: 30px; left: 12px; width: 42px; height: 42px; font-size: 18px; }  /* recentrage en bas à gauche sur mobile */
   .logo { font-size: 28px; }
   .room-code { font-size: 40px; letter-spacing: 8px; }
 }

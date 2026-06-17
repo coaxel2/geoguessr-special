@@ -954,16 +954,21 @@ function revealRound() {
 
   const last = G.current >= G.rounds - 1;
   $("btn-next").textContent = last ? "Voir le résultat ›" : "Manche suivante ›";
-  $("btn-next").classList.remove("hidden");
-  $("next-wait").classList.add("hidden");
+  if (G.online.active && !G.online.isHost) {     // l'invité attend que l'hôte lance la suite
+    $("btn-next").classList.add("hidden");
+    $("next-wait").textContent = "En attente de l'hôte…";
+    $("next-wait").classList.remove("hidden");
+  } else {
+    $("btn-next").classList.remove("hidden");
+    $("next-wait").classList.add("hidden");
+  }
 }
 
 function nextRound() {
   if (G.online.active) {
-    G.online.iWantNext = true;
+    if (!G.online.isHost) return;          // seul l'hôte (le chef) lance la manche suivante
     sendMsg({ type: "next", round: G.current });
-    if (G.online.oppWantNext) advance();
-    else { $("btn-next").classList.add("hidden"); $("next-wait").classList.remove("hidden"); }
+    advance();
   } else advance();
 }
 function advance() {
@@ -1261,9 +1266,7 @@ function onData(m) {
     else shrinkTimerTo30();
 
   } else if (m.type === "next") {
-    G.online.oppWantNext = true;
-    if (G.online.iWantNext) advance();
-    else if ($("result").classList.contains("show")) $("next-wait").textContent = (G.online.oppName || "L'adversaire") + " est prêt…";
+    if ($("result").classList.contains("show")) advance();   // l'hôte a lancé la manche suivante
 
   } else if (m.type === "replay") {
     G.online.oppWantReplay = true;
