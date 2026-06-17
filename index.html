@@ -7,14 +7,14 @@
   <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests" />
   <title>Geoloc — devine où tu te trouves dans le monde</title>
   <meta name="description" content="Geoloc : largué quelque part en vue Street View, devine où tu te trouves sur la carte. Solo ou multijoueur en ligne." />
-  <link rel="icon" type="image/svg+xml" href="favicon.svg?v=24" />
+  <link rel="icon" type="image/svg+xml" href="favicon.svg?v=25" />
   <meta name="theme-color" content="#0f1419" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="preconnect" href="https://api.dicebear.com" />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-  <link rel="stylesheet" href="style.css?v=24" />
+  <link rel="stylesheet" href="style.css?v=25" />
 </head>
 <body>
 
@@ -263,10 +263,10 @@
             </select>
           </div>
         </div>
+        <div class="room-players" id="room-players"></div>
         <p class="status mini" id="room-settings"></p>
         <p class="status status-chip" id="online-status">Création de la salle…</p>
         <button class="btn btn-primary hidden" id="btn-start-room" disabled>Lancer la partie</button>
-        <button class="btn btn-ghost hidden" id="btn-kick-player">Exclure le joueur</button>
       </div>
 
       <p class="err" id="online-error"></p>
@@ -311,20 +311,7 @@
     <div id="result-map" class="result-map"></div>
     <div class="result-card">
       <h2 id="result-title">Manche 1</h2>
-      <div class="result-rows">
-        <div class="result-row me">
-          <span class="av" id="result-me-av" data-size="34"></span>
-          <span class="who" id="result-me-name">Toi</span>
-          <span class="dist" id="result-dist">— km</span>
-          <span class="pts" id="result-pts">0 pts</span>
-        </div>
-        <div class="result-row opp hidden" id="result-opp-row">
-          <span class="av" id="result-opp-av" data-size="34"></span>
-          <span class="who" id="result-opp-name">Adversaire</span>
-          <span class="dist" id="result-opp-dist">— km</span>
-          <span class="pts" id="result-opp-pts">0 pts</span>
-        </div>
-      </div>
+      <div class="result-rows" id="result-rows"></div>
       <button id="btn-next" class="btn btn-primary">Manche suivante ›</button>
       <p class="status mini hidden" id="next-wait">En attente de l'adversaire…</p>
     </div>
@@ -336,20 +323,9 @@
     <div class="menu-card final-card">
       <div id="final-emoji" class="final-emoji">🏆</div>
       <h2 id="final-title">Partie terminée</h2>
-      <div class="final-scores">
-        <div class="final-score me">
-          <span class="av" id="final-me-av" data-size="44"></span>
-          <span class="who" id="final-me-name">Toi</span>
-          <span class="big" id="final-me">0</span>
-          <span class="sub">/ <span id="final-max">25000</span></span>
-        </div>
-        <div class="final-score opp hidden" id="final-opp-block">
-          <span class="av" id="final-opp-av" data-size="44"></span>
-          <span class="who" id="final-opp-name">Adversaire</span>
-          <span class="big" id="final-opp">0</span>
-        </div>
-      </div>
+      <div class="final-scores" id="final-scores"></div>
       <button id="btn-replay" class="btn btn-primary">Rejouer</button>
+      <p class="status mini hidden" id="final-wait">En attente de l'hôte pour rejouer…</p>
       <button id="btn-home" class="btn btn-ghost">Menu principal</button>
     </div>
   </section>
@@ -378,6 +354,6 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <!-- PeerJS for multiplayer signaling (same lib as the chess project) -->
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js" integrity="sha384-nlUQ8ZqCbvStErob+biJNzSgltf6urV3VGqhfIfzhmg9RXmpeRm76ELw0pYnKlTR" crossorigin="anonymous"></script>
-  <script src="game.js?v=24"></script>
+  <script src="game.js?v=25"></script>
 </body>
 </html>

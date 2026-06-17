@@ -472,18 +472,20 @@ input { font-family: inherit; }
   margin-top: auto;
 }
 #result-title { font-size: 20px; margin-bottom: 16px; }
-.result-rows { display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px; }
+.result-rows { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; max-height: 46vh; overflow-y: auto; }
 .result-row {
-  display: grid; grid-template-columns: auto 1fr auto auto; gap: 12px; align-items: center;
+  display: grid; grid-template-columns: auto auto auto 1fr auto auto; gap: 10px; align-items: center;
   background: rgba(0,0,0,.22); border: 1px solid var(--stroke);
-  border-radius: 13px; padding: 12px 14px;
+  border-radius: 13px; padding: 10px 12px;
 }
-.result-row .av { width: 34px; height: 34px; border-radius: 9px; }
-.result-row .who { font-weight: 600; }
+.result-row.me { border-color: rgba(46,230,166,.5); background: rgba(46,230,166,.08); }
+.result-row .rank { font-weight: 800; color: var(--muted); font-size: 14px; min-width: 16px; text-align: center; }
+.result-row .dot { width: 10px; height: 10px; border-radius: 50%; }
+.result-row .rav { width: 30px; height: 30px; border-radius: 9px; object-fit: cover; }
+.result-row .who { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .result-row.me .who { color: var(--accent); }
-.result-row.opp .who { color: var(--accent-2); }
-.result-row .dist { color: var(--muted); font-size: 14px; }
-.result-row .pts { font-weight: 800; font-size: 17px; }
+.result-row .dist { color: var(--muted); font-size: 13px; }
+.result-row .pts { font-weight: 800; font-size: 16px; }
 #btn-next { width: 100%; }
 
 /* ===========================================================
@@ -492,14 +494,34 @@ input { font-family: inherit; }
 .final-card { padding-top: 30px; }
 .final-emoji { font-size: 56px; margin-bottom: 6px; }
 #final-title { font-size: 24px; margin-bottom: 22px; }
-.final-scores { display: flex; justify-content: center; gap: 30px; margin-bottom: 26px; }
-.final-score { display: flex; flex-direction: column; align-items: center; }
-.final-score .av { width: 44px; height: 44px; border-radius: 12px; margin-bottom: 10px; box-shadow: 0 6px 16px rgba(0,0,0,.35); }
-.final-score .who { color: var(--muted); font-size: 13px; text-transform: uppercase; letter-spacing: 1px; }
-.final-score .big { font-size: 46px; font-weight: 800; line-height: 1.1; }
+.final-scores { display: flex; flex-direction: column; gap: 8px; margin-bottom: 22px; max-height: 44vh; overflow-y: auto; }
+.final-score {
+  display: grid; grid-template-columns: auto auto 1fr auto; gap: 12px; align-items: center;
+  background: rgba(0,0,0,.22); border: 1px solid var(--stroke); border-radius: 13px; padding: 10px 14px;
+}
+.final-score.me { border-color: rgba(46,230,166,.5); background: rgba(46,230,166,.08); }
+.final-score .frank { font-size: 20px; min-width: 28px; text-align: center; }
+.final-score .fav { width: 38px; height: 38px; border-radius: 11px; object-fit: cover; box-shadow: 0 6px 16px rgba(0,0,0,.35); }
+.final-score .who { font-weight: 600; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); font-size: 15px; }
+.final-score .big { font-size: 26px; font-weight: 800; line-height: 1.1; }
 .final-score.me .big { background: linear-gradient(100deg, var(--accent), var(--accent-2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
-.final-score .sub { color: var(--muted); font-size: 13px; }
 .final-card .btn { width: 100%; margin-top: 10px; }
+
+/* salon : liste des joueurs + croix d'exclusion */
+.room-players { display: flex; flex-direction: column; gap: 7px; margin: 12px 0 6px; }
+.lobby-player {
+  display: grid; grid-template-columns: auto 1fr auto auto; gap: 10px; align-items: center;
+  background: rgba(0,0,0,.22); border: 1px solid var(--stroke); border-radius: 12px; padding: 8px 10px;
+}
+.lobby-player.me { border-color: rgba(46,230,166,.45); }
+.lobby-av { width: 32px; height: 32px; border-radius: 9px; object-fit: cover; }
+.lobby-name { font-weight: 600; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lobby-tag { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--gold); font-weight: 700; }
+.lobby-kick {
+  width: 28px; height: 28px; border-radius: 8px; border: 1px solid rgba(255,107,107,.4);
+  background: rgba(255,107,107,.12); color: var(--danger); font-size: 14px; font-weight: 700; cursor: pointer; transition: .15s;
+}
+.lobby-kick:hover { background: rgba(255,107,107,.28); }
 
 /* ---------- utilities ---------- */
 .hidden { display: none !important; }

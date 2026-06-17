@@ -108,23 +108,15 @@ function selectAvatar(i) {
   if (grid) grid.querySelectorAll(".avatar-opt").forEach((b) =>
     b.classList.toggle("on", parseInt(b.dataset.i, 10) === i));
   setAvatar("avatar-current", i);
-  updateNameLabels();
-  // en lobby : prévenir l'adversaire du nouvel avatar choisi
-  if (G.online.active) sendMsg({ type: "hello", name: G.playerName, av: G.avatarChoice });
+  // en lobby : mettre à jour mon avatar et prévenir les autres joueurs
+  if (G.online.active) {
+    const meP = myPlayer(); if (meP) meP.av = i;
+    if (G.online.isHost) broadcastRoster();
+    else sendToHost({ type: "hello", name: G.playerName, av: i });
+  }
+  renderLobby();
 }
-function updateNameLabels() {
-  const opp = G.online.oppName || "Adversaire";
-  const me = G.playerName || "Toi";
-  if ($("result-me-name")) $("result-me-name").textContent = me;
-  if ($("result-opp-name")) $("result-opp-name").textContent = opp;
-  if ($("final-me-name")) $("final-me-name").textContent = me;
-  if ($("final-opp-name")) $("final-opp-name").textContent = opp;
-  setAvatar("result-me-av", G.avatarChoice);
-  setAvatar("result-opp-av", G.online.oppAvatarChoice);
-  setAvatar("final-me-av", G.avatarChoice);
-  setAvatar("final-opp-av", G.online.oppAvatarChoice);
-  setAvatar("hud-opp-av", G.online.oppAvatarChoice);
-}
+function updatePlayerLabels() { updateMultiHud(); }
 
 /* ---------- état global ---------- */
 const G = {
@@ -149,12 +141,9 @@ const G = {
   timeLimit: 0,
   timer: null,
   online: {
-    active: false, peer: null, conn: null, isHost: false, code: null,
-    started: false,
-    oppName: "Adversaire", oppAvatarChoice: 0,
-    oppGuess: null, oppDone: false, oppScores: [],
-    iWantNext: false, oppWantNext: false,
-    iWantReplay: false, oppWantReplay: false, ka: null,
+    active: false, peer: null, isHost: false, code: null, started: false,
+    myId: null, hostConn: null, conns: {}, players: {}, order: [],
+    revealed: false, iWantReplay: false, ka: null,
   },
 };
 
@@ -615,7 +604,7 @@ function sendRoomSettings() {
   if (!G.online.isHost || G.online.started) return;
   readRoomSettings();
   $("room-settings").textContent = settingsText();
-  sendMsg({ type: "room", rounds: G.rounds, zone: G.zoneFilter, country: G.countryFilter, time: G.timeLimit });
+  broadcast({ type: "settings", rounds: G.rounds, zone: G.zoneFilter, country: G.countryFilter, time: G.timeLimit });
 }
 function applyRemoteSettings(m) {
   G.rounds = m.rounds || G.rounds;
@@ -756,10 +745,10 @@ async function startSolo() {
 
 function beginRoundsLocal() {
   G.current = 0; G.scores = []; G.submitted = false;
-  G.online.oppScores = [];
-  G.online.iWantReplay = false; G.online.oppWantReplay = false;
+  playerList().forEach((p) => { p.scores = []; p.guess = null; p.done = false; });
+  G.online.revealed = false;
   $("hud-opp").classList.toggle("hidden", !G.online.active);
-  updateNameLabels();
+  updatePlayerLabels();
   showScreen("game");
   loadRound();
 }
@@ -767,8 +756,7 @@ function beginRoundsLocal() {
 async function loadRound() {
   const round = G.current;
   G.guess = null; G.submitted = false;
-  G.online.oppGuess = null; G.online.oppDone = false;
-  G.online.iWantNext = false; G.online.oppWantNext = false;
+  if (G.online.active) resetRoundFlags();
   if (G.marker && G.gmap) { G.gmap.removeLayer(G.marker); G.marker = null; }
   $("btn-guess").disabled = true;
   $("guess-hint").textContent = "Place ton marqueur sur la carte";
@@ -776,7 +764,7 @@ async function loadRound() {
 
   $("hud-round").textContent = "Manche " + (round + 1) + "/" + G.rounds;
   $("hud-score").textContent = sum(G.scores) + " pts";
-  updateOppHud();
+  updateMultiHud();
 
   ensureGuessMap();
   G.gmap.setView([20, 0], 1);
@@ -810,12 +798,41 @@ function submitGuess() {
   G.scores[G.current] = scoreFor(d);
 
   if (G.online.active) {
-    sendMsg({ type: "guess", round: G.current, lat: G.guess.lat, lng: G.guess.lng, dist: d, pts: G.scores[G.current] });
-    if (G.online.oppDone) revealRound();
-    else $("guess-hint").textContent = "✔ Deviné — en attente de l'adversaire…";
+    const g = { round: G.current, lat: G.guess.lat, lng: G.guess.lng, dist: d, pts: G.scores[G.current] };
+    $("guess-hint").textContent = "✔ Deviné — en attente des autres joueurs…";
+    registerGuess(meId(), g);
+    if (G.online.isHost) hostOnGuess(meId());
+    else sendToHost({ type: "guess", round: g.round, lat: g.lat, lng: g.lng, dist: g.dist, pts: g.pts });
   } else {
     revealRound();
   }
+}
+
+/* ---- arbitrage de la manche par l'hôte (N joueurs) ---- */
+function hostOnGuess(fromId) {
+  broadcast({ type: "progress", id: fromId, done: doneCount(), total: activePlayerCount() });
+  updateMultiHud();
+  if (!G.submitted && fromId !== meId()) shrinkTimerTo30();   // l'hôte n'a pas encore deviné
+  if (allDone()) hostReveal();
+}
+function hostReveal() {
+  if (G.online.revealed) return;
+  G.online.revealed = true;
+  const results = G.online.order.map((id) => {
+    const g = G.online.players[id].guess || {};
+    return { id, lat: g.lat != null ? g.lat : null, lng: g.lng != null ? g.lng : null, dist: g.dist != null ? g.dist : null, pts: g.pts || 0 };
+  });
+  broadcast({ type: "reveal", round: G.current, results });
+  applyReveal(G.current, results);
+}
+function applyReveal(round, results) {
+  (results || []).forEach((r) => {
+    const p = G.online.players[r.id]; if (!p) return;
+    p.guess = { lat: r.lat, lng: r.lng, dist: r.dist, pts: r.pts };
+    p.done = true; p.scores[round] = r.pts;
+  });
+  G.online.revealed = true;
+  revealRound();
 }
 
 function distM(a, b) {
@@ -888,9 +905,11 @@ function timeUp() {
   G.lastDist = null;
   $("btn-guess").disabled = true;
   if (G.online.active) {
-    sendMsg({ type: "guess", round: G.current, lat: null, lng: null, dist: null, pts: 0 });
-    if (G.online.oppDone) revealRound();
-    else $("guess-hint").textContent = "⏱ Temps écoulé — en attente de l'adversaire…";
+    const g = { round: G.current, lat: null, lng: null, dist: null, pts: 0 };
+    $("guess-hint").textContent = "⏱ Temps écoulé — en attente des autres…";
+    registerGuess(meId(), g);
+    if (G.online.isHost) hostOnGuess(meId());
+    else sendToHost({ type: "guess", round: g.round, lat: g.lat, lng: g.lng, dist: g.dist, pts: g.pts });
   } else revealRound();
 }
 // multi : dès que l'adversaire a deviné, 30 s pour conclure (même en illimité)
@@ -917,15 +936,18 @@ function drawResult(loc) {
   const actual = [loc.lat, loc.lng];
   const pts = [actual];
   resOverlays.push(pin(actual, "#ffd35c", 9).addTo(resMap).bindTooltip("Lieu réel"));
-  if (G.guess) {
-    const g = [G.guess.lat, G.guess.lng]; pts.push(g);
-    resOverlays.push(pin(g, "#2ee6a6").addTo(resMap).bindTooltip("Toi"));
-    resOverlays.push(L.polyline([g, actual], { color: "#2ee6a6", weight: 2, dashArray: "4 6" }).addTo(resMap));
-  }
-  if (G.online.active && G.online.oppGuess && G.online.oppGuess.lat != null) {
-    const o = [G.online.oppGuess.lat, G.online.oppGuess.lng]; pts.push(o);
-    resOverlays.push(pin(o, "#19b7e6").addTo(resMap).bindTooltip("Adversaire"));
-    resOverlays.push(L.polyline([o, actual], { color: "#19b7e6", weight: 2, dashArray: "4 6" }).addTo(resMap));
+  const drawFor = (la, ln, color, label) => {
+    const g = [la, ln]; pts.push(g);
+    resOverlays.push(pin(g, color).addTo(resMap).bindTooltip(label));
+    resOverlays.push(L.polyline([g, actual], { color: color, weight: 2, dashArray: "4 6" }).addTo(resMap));
+  };
+  if (G.online.active) {
+    playerList().forEach((p) => {
+      const g = p.guess;
+      if (g && g.lat != null) drawFor(g.lat, g.lng, playerColor(p.id), p.id === meId() ? "Toi" : p.name);
+    });
+  } else if (G.guess) {
+    drawFor(G.guess.lat, G.guess.lng, "#2ee6a6", "Toi");
   }
   if (pts.length > 1) resMap.fitBounds(L.latLngBounds(pts).pad(0.35), { maxZoom: 12 });
   else resMap.setView(actual, 5);
@@ -934,7 +956,6 @@ function drawResult(loc) {
 function revealRound() {
   clearTimer();
   showScreen("result");
-  updateNameLabels();
   ensureResultMap();
   const loc = G.locations[G.current];
   resMap.invalidateSize();
@@ -942,18 +963,10 @@ function revealRound() {
   setTimeout(() => { resMap.invalidateSize(); drawResult(loc); }, 160);
 
   $("result-title").textContent = "Manche " + (G.current + 1) + " / " + G.rounds;
-  $("result-dist").textContent = fmtDist(G.lastDist);
-  $("result-pts").textContent = G.scores[G.current] + " pts";
-
-  const oppRow = $("result-opp-row");
-  if (G.online.active && G.online.oppGuess) {
-    oppRow.classList.remove("hidden");
-    $("result-opp-dist").textContent = fmtDist(G.online.oppGuess.dist);
-    $("result-opp-pts").textContent = G.online.oppGuess.pts + " pts";
-  } else oppRow.classList.add("hidden");
+  renderResultRows();
 
   const last = G.current >= G.rounds - 1;
-  $("btn-next").textContent = last ? "Voir le résultat ›" : "Manche suivante ›";
+  $("btn-next").textContent = last ? "Voir le classement ›" : "Manche suivante ›";
   if (G.online.active && !G.online.isHost) {     // l'invité attend que l'hôte lance la suite
     $("btn-next").classList.add("hidden");
     $("next-wait").textContent = "En attente de l'hôte…";
@@ -962,6 +975,34 @@ function revealRound() {
     $("btn-next").classList.remove("hidden");
     $("next-wait").classList.add("hidden");
   }
+}
+function renderResultRows() {
+  const box = $("result-rows"); if (!box) return;
+  const round = G.current;
+  let rows;
+  if (G.online.active) {
+    rows = playerList().map((p) => ({
+      name: p.id === meId() ? (G.playerName || "Toi") : p.name, av: p.av, me: p.id === meId(),
+      color: playerColor(p.id), dist: p.guess ? p.guess.dist : null, pts: (p.scores[round] || 0),
+    }));
+  } else {
+    rows = [{ name: G.playerName || "Toi", av: G.avatarChoice, me: true, color: "#2ee6a6", dist: G.lastDist, pts: (G.scores[round] || 0) }];
+  }
+  rows.sort((a, b) => b.pts - a.pts);
+  box.innerHTML = "";
+  rows.forEach((r, i) => {
+    const row = document.createElement("div");
+    row.className = "result-row" + (r.me ? " me" : "");
+    row.innerHTML =
+      '<span class="rank">' + (i + 1) + "</span>" +
+      '<span class="dot" style="background:' + r.color + '"></span>' +
+      '<img class="rav" src="' + avatarURL(r.av) + '" alt="" draggable="false" />' +
+      '<span class="who"></span>' +
+      '<span class="dist">' + fmtDist(r.dist) + "</span>" +
+      '<span class="pts">' + r.pts + " pts</span>";
+    row.querySelector(".who").textContent = r.name;
+    box.appendChild(row);
+  });
 }
 
 function nextRound() {
@@ -972,7 +1013,6 @@ function nextRound() {
   } else advance();
 }
 function advance() {
-  G.online.iWantNext = false; G.online.oppWantNext = false;
   G.current++;
   if (G.current >= G.rounds) showFinal();
   else { showScreen("game"); loadRound(); }
@@ -980,33 +1020,74 @@ function advance() {
 
 function showFinal() {
   showScreen("final");
-  updateNameLabels();
-  const me = sum(G.scores);
   const max = G.rounds * 5000;
-  $("final-me").textContent = me.toLocaleString("fr-FR");
-  $("final-max").textContent = max.toLocaleString("fr-FR");
+  let rows;
+  if (G.online.active) {
+    rows = playerList().map((p) => ({ name: p.id === meId() ? (G.playerName || "Toi") : p.name, av: p.av, me: p.id === meId(), total: sum(p.scores) }));
+  } else {
+    rows = [{ name: G.playerName || "Toi", av: G.avatarChoice, me: true, total: sum(G.scores) }];
+  }
+  rows.sort((a, b) => b.total - a.total);
+  const myRank = Math.max(0, rows.findIndex((r) => r.me));
+  const myTotal = rows[myRank] ? rows[myRank].total : sum(G.scores);
 
   if (G.online.active) {
-    const opp = sum(G.online.oppScores);
-    $("final-opp-block").classList.remove("hidden");
-    $("final-opp").textContent = opp.toLocaleString("fr-FR");
-    if (me > opp) { $("final-emoji").textContent = "🏆"; $("final-title").textContent = "Victoire !"; }
-    else if (me < opp) { $("final-emoji").textContent = "😵"; $("final-title").textContent = "Défaite…"; }
-    else { $("final-emoji").textContent = "🤝"; $("final-title").textContent = "Égalité !"; }
+    if (myRank === 0) { $("final-emoji").textContent = "🏆"; $("final-title").textContent = "Victoire !"; }
+    else if (myRank === 1) { $("final-emoji").textContent = "🥈"; $("final-title").textContent = "2ᵉ place !"; }
+    else if (myRank === 2) { $("final-emoji").textContent = "🥉"; $("final-title").textContent = "3ᵉ place"; }
+    else { $("final-emoji").textContent = "🎯"; $("final-title").textContent = (myRank + 1) + "ᵉ sur " + rows.length; }
   } else {
-    $("final-opp-block").classList.add("hidden");
-    const pct = me / max;
+    const pct = myTotal / max;
     $("final-emoji").textContent = pct > .8 ? "🌟" : pct > .5 ? "🎯" : "🧭";
     $("final-title").textContent = "Partie terminée";
+  }
+
+  const box = $("final-scores");
+  if (box) {
+    box.innerHTML = "";
+    const medals = ["🥇", "🥈", "🥉"];
+    rows.forEach((r, i) => {
+      const row = document.createElement("div");
+      row.className = "final-score" + (r.me ? " me" : "");
+      row.innerHTML =
+        '<span class="frank">' + (G.online.active ? (medals[i] || ((i + 1) + "ᵉ")) : "") + "</span>" +
+        '<img class="fav" src="' + avatarURL(r.av) + '" alt="" draggable="false" />' +
+        '<span class="who"></span>' +
+        '<span class="big">' + r.total.toLocaleString("fr-FR") + "</span>";
+      row.querySelector(".who").textContent = r.name;
+      box.appendChild(row);
+    });
   }
   updateReplayUI();
 }
 
-function updateOppHud() {
+function updateMultiHud(prog) {
+  const el = $("hud-opp"); if (!el) return;
+  if (!G.online.active) { el.classList.add("hidden"); return; }
+  el.classList.remove("hidden");
+  const total = (prog && prog.total) || activePlayerCount();
+  const done = (prog && typeof prog.done === "number") ? prog.done : doneCount();
+  const av = $("hud-opp-av"); if (av) av.style.display = "none";
+  const txt = $("hud-opp-txt");
+  if (txt) txt.textContent = done > 0 ? ("✔ " + done + "/" + total + " ont deviné") : ("👥 " + total + " joueurs");
+}
+// liste des joueurs du salon : avatar + nom + croix d'exclusion (hôte uniquement)
+function renderLobby() {
+  const box = $("room-players"); if (!box) return;
+  box.innerHTML = "";
   if (!G.online.active) return;
-  $("hud-opp").classList.remove("hidden");
-  $("hud-opp-txt").textContent = (G.online.oppName || "Adversaire") + " : " + sum(G.online.oppScores) + " pts";
-  setAvatar("hud-opp-av", G.online.oppAvatarChoice);
+  playerList().forEach((p) => {
+    const row = document.createElement("div");
+    row.className = "lobby-player" + (p.id === meId() ? " me" : "");
+    let html = '<img class="lobby-av" src="' + avatarURL(p.av) + '" alt="" draggable="false" />' +
+               '<span class="lobby-name"></span>';
+    if (p.isHost) html += '<span class="lobby-tag">hôte</span>';
+    if (G.online.isHost && !G.online.started && p.id !== meId())
+      html += '<button class="lobby-kick" data-kick="' + p.id + '" title="Exclure ce joueur">✕</button>';
+    row.innerHTML = html;
+    row.querySelector(".lobby-name").textContent = p.id === meId() ? ((G.playerName || "Toi") + " (toi)") : p.name;
+    box.appendChild(row);
+  });
 }
 
 /* ===========================================================
@@ -1027,30 +1108,82 @@ function genCode() {
 function onlineReset() {
   try { if (G.online.peer) G.online.peer.destroy(); } catch (e) {}
   clearInterval(G.online.ka);
-  G.online = { active: false, peer: null, conn: null, isHost: false, code: null,
-               started: false, oppName: "Adversaire", oppAvatarChoice: 0, oppGuess: null, oppDone: false, oppScores: [],
-               iWantNext: false, oppWantNext: false, iWantReplay: false, oppWantReplay: false, ka: null };
+  G.online = { active: false, peer: null, isHost: false, code: null, started: false,
+               myId: null, hostConn: null, conns: {}, players: {}, order: [],
+               revealed: false, iWantReplay: false, ka: null };
 }
-function sendMsg(m) { try { if (G.online.conn && G.online.conn.open) G.online.conn.send(m); } catch (e) {} }
+/* ---- réseau N joueurs : topologie en étoile, l'hôte relaie tout ---- */
+function meId() { return G.online.myId; }
+function myPlayer() { return G.online.players[meId()] || null; }
+function playerList() { return G.online.order.map((id) => G.online.players[id]).filter(Boolean); }
+function activePlayerCount() { return G.online.order.length; }
+// invité → hôte (l'hôte n'envoie pas à lui-même, il applique localement)
+function sendToHost(m) { try { if (!G.online.isHost && G.online.hostConn && G.online.hostConn.open) G.online.hostConn.send(m); } catch (e) {} }
+// hôte → tous les invités (option : sauf un id)
+function broadcast(m, exceptId) {
+  if (!G.online.isHost) return;
+  Object.keys(G.online.conns).forEach((id) => {
+    if (id === exceptId) return;
+    try { const c = G.online.conns[id]; if (c && c.open) c.send(m); } catch (e) {}
+  });
+}
+// compat (réglages/hello) : diffuse si hôte, sinon envoie à l'hôte
+function sendMsg(m) { if (G.online.isHost) broadcast(m); else sendToHost(m); }
+function buildRoster() {
+  return G.online.order.map((id) => { const p = G.online.players[id]; return { id, name: p.name, av: p.av, isHost: !!p.isHost }; });
+}
+function broadcastRoster() { if (G.online.isHost) broadcast({ type: "roster", players: buildRoster() }); renderLobby(); updateMultiHud(); }
+function applyRoster(list) {
+  const old = G.online.players;
+  G.online.players = {}; G.online.order = [];
+  (list || []).forEach((p) => {
+    const prev = old[p.id] || {};
+    G.online.players[p.id] = { id: p.id, name: p.name, av: p.av, isHost: !!p.isHost,
+                               scores: prev.scores || [], guess: prev.guess || null, done: prev.done || false };
+    G.online.order.push(p.id);
+  });
+  renderLobby(); updateMultiHud(); updatePlayerLabels();
+}
+function registerGuess(id, g) {
+  const p = G.online.players[id]; if (!p) return;
+  p.guess = g; p.done = true; if (Number.isInteger(g.round)) p.scores[g.round] = g.pts;
+}
+function resetRoundFlags() { playerList().forEach((p) => { p.guess = null; p.done = false; }); G.online.revealed = false; }
+function doneCount() { return playerList().filter((p) => p.done).length; }
+function allDone() { return activePlayerCount() > 0 && playerList().every((p) => p.done); }
+function playerColor(id) {
+  if (id === meId()) return "#2ee6a6";
+  const PAL = ["#19b7e6", "#ff9f43", "#ee5a9b", "#a77dff", "#ffd35c", "#6be585", "#ff6b6b", "#5fa8ff"];
+  const i = G.online.order.filter((x) => x !== meId()).indexOf(id);
+  return PAL[((i % PAL.length) + PAL.length) % PAL.length];
+}
 function roomPeerId(code) {
   return "geoq2-" + location.hostname.replace(/[^a-z0-9-]/gi, "-") + "-" + code;
 }
-function resetRoomAfterGuestLeft(text) {
-  G.online.active = false;
-  G.online.conn = null;
-  G.online.started = false;
-  G.online.oppName = "Adversaire";
-  clearInterval(G.online.ka);
-  $("btn-start-room").classList.add("hidden");
-  $("btn-start-room").disabled = true;
-  $("btn-kick-player").classList.add("hidden");
-  $("online-status").textContent = text || "En attente d'un adversaire…";
+function updateLobbyControls() {
+  if (!$("online").classList.contains("show")) return;
+  if (!G.online.isHost) return;
+  const guests = activePlayerCount() - 1;
+  $("btn-start-room").classList.toggle("hidden", G.online.started);
+  $("btn-start-room").disabled = guests < 1;
+  if (!G.online.started)
+    $("online-status").textContent = guests < 1 ? "En attente de joueurs…" : (activePlayerCount() + " joueurs connectés — prêt à lancer");
 }
-function kickPlayer() {
-  if (!G.online.isHost || !G.online.active || G.online.started) return;
-  sendMsg({ type: "kick" });
-  try { if (G.online.conn) G.online.conn.close(); } catch (e) {}
-  resetRoomAfterGuestLeft("Joueur exclu — en attente d'un adversaire…");
+// l'hôte retire un joueur (déconnexion ou exclusion) et rediffuse la liste
+function hostDropConn(id) {
+  try { const c = G.online.conns[id]; if (c) c.close(); } catch (e) {}
+  delete G.online.conns[id];
+  if (G.online.players[id]) { delete G.online.players[id]; G.online.order = G.online.order.filter((x) => x !== id); }
+  broadcastRoster();
+  if (G.online.started) {
+    if (!G.online.revealed && allDone()) hostReveal();
+    flashStatus("Un joueur a quitté la partie");
+  } else updateLobbyControls();
+}
+function kickPlayer(id) {
+  if (!G.online.isHost || G.online.started || id === meId()) return;
+  try { const c = G.online.conns[id]; if (c) { c.send({ type: "kick" }); setTimeout(() => { try { c.close(); } catch (e) {} }, 120); } } catch (e) {}
+  hostDropConn(id);
 }
 
 function createRoom() {
@@ -1066,7 +1199,6 @@ function createRoom() {
   $("online-wait").classList.add("show");
   $("btn-start-room").classList.add("hidden");
   $("btn-start-room").disabled = true;
-  $("btn-kick-player").classList.add("hidden");
   $("room-options").classList.remove("hidden");
   mirrorSettingsToRoom();
   $("room-code").textContent = "----";
@@ -1075,24 +1207,41 @@ function createRoom() {
   $("room-settings").textContent = settingsText();
   $("online-status").textContent = "Création de la salle…";
 
-  const peer = new Peer(roomPeerId(code), { debug: 0, secure: true, config: ICE });
+  const id = roomPeerId(code);
+  const peer = new Peer(id, { debug: 0, secure: true, config: ICE });
   G.online.peer = peer;
+  G.online.active = true;
+  G.online.myId = id;
+  G.online.players[id] = { id, name: G.playerName, av: G.avatarChoice, scores: [], guess: null, done: false, isHost: true };
+  G.online.order = [id];
+  renderLobby();
   peer.on("open", () => {
     if (G.online.peer !== peer || !G.online.isHost) return;
     $("room-code").textContent = code;
     $("btn-copy").disabled = false;
-    $("online-status").textContent = "En attente d'un adversaire…";
+    $("online-status").textContent = "En attente de joueurs…";
   });
-  peer.on("connection", (conn) => {
-    $("online-status").textContent = "Adversaire connecté…";
-    conn.on("open", () => setupConn(conn));
-    conn.on("error", () => flashStatus("Problème de connexion avec l'adversaire"));
-  });
+  peer.on("connection", (conn) => hostAcceptConn(conn));
   peer.on("error", (e) => {
     $("online-error").textContent = e.type === "unavailable-id" ? "Code déjà pris, réessaie." : "Erreur réseau : " + e.type;
     backToOnlineChoice();
   });
   peer.on("disconnected", () => { try { peer.reconnect(); } catch (e) {} });
+  clearInterval(G.online.ka);
+  G.online.ka = setInterval(() => broadcast({ type: "ping" }), 12000);
+}
+// l'hôte accepte une nouvelle connexion entrante (plusieurs invités possibles)
+function hostAcceptConn(conn) {
+  conn.on("open", () => {
+    if (!G.online.isHost) { try { conn.close(); } catch (e) {} return; }
+    if (G.online.started) { try { conn.send({ type: "kick", reason: "started" }); setTimeout(() => conn.close(), 120); } catch (e) {} return; }
+    G.online.conns[conn.peer] = conn;
+    $("online-status").textContent = "Un joueur se connecte…";
+    conn.on("data", (m) => onData(m, conn.peer));
+    conn.on("close", () => { if (G.online.conns[conn.peer]) hostDropConn(conn.peer); });
+    conn.on("error", () => {});
+  });
+  conn.on("error", () => {});
 }
 
 function joinRoom(codeArg) {
@@ -1108,7 +1257,6 @@ function joinRoom(codeArg) {
   $("online-wait").classList.add("show");
   $("btn-start-room").classList.add("hidden");
   $("btn-start-room").disabled = true;
-  $("btn-kick-player").classList.add("hidden");
   $("room-options").classList.add("hidden");
   $("room-code").textContent = code;
   $("btn-copy").textContent = "Copier le lien";
@@ -1148,7 +1296,7 @@ function joinRoom(codeArg) {
       conn.on("open", () => {
         opened = true;
         clearTimeout(timer);
-        setupConn(conn);
+        setupGuestConn(conn, peer);
       });
       conn.on("error", () => {
         clearTimeout(timer);
@@ -1165,113 +1313,117 @@ function joinRoom(codeArg) {
   retryConnect();
 }
 
-function setupConn(conn) {
-  G.online.conn = conn;
+function setupGuestConn(conn, peer) {
+  G.online.hostConn = conn;
   G.online.active = true;
   G.online.started = false;
+  G.online.myId = (peer && peer.id) || (G.online.peer && G.online.peer.id);
   clearInterval(G.online.ka);
   G.online.ka = setInterval(() => { try { if (conn.open) conn.send({ type: "ping" }); } catch (e) {} }, 12000);
 
-  conn.on("data", onData);
+  // s'inscrire localement, puis se présenter à l'hôte (qui diffuse le roster complet)
+  G.online.players = {}; G.online.order = [];
+  G.online.players[meId()] = { id: meId(), name: G.playerName, av: G.avatarChoice, scores: [], guess: null, done: false, isHost: false };
+  G.online.order = [meId()];
+
+  conn.on("data", (m) => onData(m, "host"));
   conn.on("close", () => {
     clearInterval(G.online.ka);
-    if (G.online.isHost && !G.online.started && $("online").classList.contains("show")) resetRoomAfterGuestLeft("Joueur déconnecté — en attente d'un adversaire…");
-    else if (!G.online.isHost && !G.online.started && $("online").classList.contains("show")) {
-      $("online-error").textContent = "La salle a été fermée.";
-      backToOnlineChoice();
-    } else flashStatus("⚠️ Adversaire déconnecté");
+    if (!G.online.started && $("online").classList.contains("show")) {
+      $("online-error").textContent = "La salle a été fermée."; backToOnlineChoice();
+    } else flashStatus("⚠️ Hôte déconnecté — partie terminée");
   });
   conn.on("error", () => flashStatus("⚠️ Problème de connexion"));
-  sendMsg({ type: "hello", name: G.playerName, av: G.avatarChoice });
-
-  if (G.online.isHost) {
-    $("online-status").textContent = "Joueur 2 connecté — prêt à lancer";
-    $("btn-start-room").classList.remove("hidden");
-    $("btn-start-room").disabled = false;
-    $("btn-kick-player").classList.remove("hidden");
-    sendMsg({ type: "room", rounds: G.rounds, zone: G.zoneFilter, country: G.countryFilter, time: G.timeLimit });
-  } else {
-    $("online-status").textContent = "Connecté — en attente de l'hôte";
-  }
+  sendToHost({ type: "hello", name: G.playerName, av: G.avatarChoice });
+  $("online-status").textContent = "Connecté — en attente de l'hôte";
+  renderLobby();
 }
 
 async function hostStartGame() {
   if (!G.online.active || !G.online.isHost || G.online.started) return;
+  if (activePlayerCount() < 2) { $("online-status").textContent = "Il faut au moins un autre joueur pour lancer."; return; }
   readRoomSettings();
   G.online.started = true;
   $("btn-start-room").disabled = true;
-  $("btn-kick-player").classList.add("hidden");
+  $("btn-start-room").classList.add("hidden");
   $("room-options").classList.add("hidden");
-  sendMsg({ type: "start", rounds: G.rounds, zone: G.zoneFilter, country: G.countryFilter, time: G.timeLimit });
-  $("online-status").textContent = "Connecté — recherche des lieux…";
+  broadcast({ type: "start", rounds: G.rounds, zone: G.zoneFilter, country: G.countryFilter, time: G.timeLimit });
+  $("online-status").textContent = "Recherche des lieux…";
   showScreen("game");
   resetLocations();
   cover("Recherche du premier lieu…");
   const first = await findOneLocation();
   if (!first) { cover("Impossible de trouver un lieu."); return; }
   setLocationAt(0, first);
-  sendMsg({ type: "init", rounds: G.rounds, locations: G.locations });
+  broadcast({ type: "init", rounds: G.rounds, locations: G.locations });
   beginRoundsLocal();
   preloadRemainingLocations(1, true);
 }
 
-function onData(m) {
+function onData(m, fromId) {
   if (!m || !m.type || m.type === "ping") return;
 
   if (m.type === "hello") {
-    G.online.oppName = cleanName(m.name || "Adversaire");
-    G.online.oppAvatarChoice = m.av || 0;
-    updateNameLabels();
-    updateOppHud();
-    if ($("online").classList.contains("show")) {
-      $("online-status").textContent = G.online.isHost
-        ? G.online.oppName + " connecté — prêt à lancer"
-        : "Connecté — en attente de l'hôte";
+    // [hôte] un invité se présente → l'ajouter au roster et le diffuser à tous
+    if (G.online.isHost && fromId && fromId !== "host") {
+      const exists = !!G.online.players[fromId];
+      const prev = G.online.players[fromId] || {};
+      G.online.players[fromId] = { id: fromId, name: cleanName(m.name || "Joueur"), av: m.av || 0,
+        scores: prev.scores || [], guess: prev.guess || null, done: prev.done || false, isHost: false };
+      if (!exists) G.online.order.push(fromId);
+      broadcastRoster();
+      const c = G.online.conns[fromId];
+      try { if (c && c.open) c.send({ type: "settings", rounds: G.rounds, time: G.timeLimit, zone: G.zoneFilter, country: G.countryFilter }); } catch (e) {}
+      updateLobbyControls();
     }
 
-  } else if (m.type === "room") {
-    if (!G.online.isHost) {
-      applyRemoteSettings(m);
-      $("online-status").textContent = "Connecté — en attente de l'hôte";
-    }
+  } else if (m.type === "roster") {
+    if (!G.online.isHost) applyRoster(m.players);
+
+  } else if (m.type === "settings") {
+    if (!G.online.isHost) { applyRemoteSettings(m); $("online-status").textContent = "Connecté — en attente de l'hôte"; }
 
   } else if (m.type === "start") {
-    if (!G.online.isHost) {
-      applyRemoteSettings(m);
-      $("online-status").textContent = "L'hôte lance la partie…";
-    }
+    if (!G.online.isHost) { applyRemoteSettings(m); G.online.started = true; $("online-status").textContent = "L'hôte lance la partie…"; }
 
   } else if (m.type === "kick") {
-    $("online-error").textContent = "Tu as été exclu de la salle.";
-    onlineReset();
-    backToOnlineChoice();
-    showScreen("online");
+    $("online-error").textContent = m.reason === "started" ? "La partie a déjà commencé sans toi." : "Tu as été exclu de la salle.";
+    onlineReset(); backToOnlineChoice(); showScreen("online");
 
   } else if (m.type === "init") {
-    G.online.started = true;
-    G.rounds = m.rounds; resetLocations();
-    (m.locations || []).forEach((loc, i) => { if (loc) setLocationAt(i, loc); });
-    beginRoundsLocal();
+    if (!G.online.isHost) {
+      G.online.started = true; G.rounds = m.rounds; resetLocations();
+      (m.locations || []).forEach((loc, i) => { if (loc) setLocationAt(i, loc); });
+      beginRoundsLocal();
+    }
 
   } else if (m.type === "location") {
-    if (m.loc && Number.isInteger(m.index)) setLocationAt(m.index, m.loc);
+    if (!G.online.isHost && m.loc && Number.isInteger(m.index)) setLocationAt(m.index, m.loc);
 
   } else if (m.type === "guess") {
-    G.online.oppGuess = m; G.online.oppDone = true;
-    G.online.oppScores[m.round] = m.pts;
-    updateOppHud();
-    $("opp-flag").classList.remove("hidden");
-    $("opp-flag").textContent = (G.online.oppName || "Ton adversaire") + " a deviné";
-    if (G.submitted) revealRound();
-    else shrinkTimerTo30();
+    // [hôte] un invité a deviné → enregistrer et arbitrer
+    if (G.online.isHost && fromId && fromId !== "host") {
+      registerGuess(fromId, { round: m.round, lat: m.lat, lng: m.lng, dist: m.dist, pts: m.pts });
+      hostOnGuess(fromId);
+    }
+
+  } else if (m.type === "progress") {
+    // [invité] l'hôte signale qu'un joueur a deviné → HUD + règle des 30 s
+    if (!G.online.isHost) {
+      updateMultiHud(m);
+      if (!G.submitted) shrinkTimerTo30();
+      $("opp-flag").classList.remove("hidden");
+      $("opp-flag").textContent = (m.done || 0) + "/" + (m.total || activePlayerCount()) + " ont deviné";
+    }
+
+  } else if (m.type === "reveal") {
+    if (!G.online.isHost) applyReveal(m.round, m.results);
 
   } else if (m.type === "next") {
-    if ($("result").classList.contains("show")) advance();   // l'hôte a lancé la manche suivante
+    if (!G.online.isHost && $("result").classList.contains("show")) advance();   // l'hôte a lancé la manche suivante
 
-  } else if (m.type === "replay") {
-    G.online.oppWantReplay = true;
-    if ($("final").classList.contains("show")) updateReplayUI();
-    maybeStartReplay();
+  } else if (m.type === "replaystart") {
+    if (!G.online.isHost) { showScreen("game"); cover("Nouvelle partie — l'hôte prépare les lieux…"); }
   }
 }
 
@@ -1284,35 +1436,25 @@ function flashStatus(txt) {
 
 function replay() {
   if (!G.online.active) { startSolo(); return; }
-  // multijoueur : il faut que LES DEUX joueurs cliquent « Rejouer » (2/2)
-  G.online.iWantReplay = true;
-  sendMsg({ type: "replay" });
-  updateReplayUI();
-  maybeStartReplay();
-}
-function maybeStartReplay() {
-  if (!(G.online.iWantReplay && G.online.oppWantReplay)) return;
-  G.online.iWantReplay = false; G.online.oppWantReplay = false;
-  // l'hôte (re)génère les lieux et les envoie ; l'invité attend l'init
-  if (G.online.isHost) hostReplay();
-  else { showScreen("game"); cover("Nouvelle partie — l'hôte prépare les lieux…"); }
+  if (!G.online.isHost) return;     // seul l'hôte relance la partie
+  hostReplay();
 }
 function updateReplayUI() {
   const btn = $("btn-replay");
   if (!btn) return;
-  if (!G.online.active) { btn.disabled = false; btn.textContent = "Rejouer"; return; }
-  const ready = (G.online.iWantReplay ? 1 : 0) + (G.online.oppWantReplay ? 1 : 0);
-  if (ready === 0) { btn.disabled = false; btn.textContent = "Rejouer"; }
-  else if (G.online.iWantReplay) { btn.disabled = true; btn.textContent = "En attente… " + ready + "/2"; }
-  else { btn.disabled = false; btn.textContent = "Rejouer (" + ready + "/2)"; }
+  if (!G.online.active || G.online.isHost) { btn.classList.remove("hidden"); btn.disabled = false; btn.textContent = "Rejouer"; }
+  else btn.classList.add("hidden");   // l'invité attend que l'hôte relance
+  const w = $("final-wait");
+  if (w) w.classList.toggle("hidden", !(G.online.active && !G.online.isHost));
 }
 async function hostReplay() {
+  broadcast({ type: "replaystart" });
   showScreen("game"); cover("Nouvelle partie — recherche des lieux…");
   resetLocations();
   const first = await findOneLocation();
   if (!first) { cover("Impossible de trouver un lieu."); return; }
   setLocationAt(0, first);
-  sendMsg({ type: "init", rounds: G.rounds, locations: G.locations });
+  broadcast({ type: "init", rounds: G.rounds, locations: G.locations });
   beginRoundsLocal();
   preloadRemainingLocations(1, true);
 }
@@ -1324,7 +1466,6 @@ function backToOnlineChoice() {
   $("room-options").classList.add("hidden");
   $("btn-start-room").classList.add("hidden");
   $("btn-start-room").disabled = true;
-  $("btn-kick-player").classList.add("hidden");
   $("room-settings").textContent = "";
 }
 function goHome() { clearTimer(); onlineReset(); G.online.active = false; showScreen("menu"); }
@@ -1428,7 +1569,11 @@ function wire() {
   $("btn-create").addEventListener("click", createRoom);
   $("btn-join").addEventListener("click", () => joinRoom());
   $("btn-start-room").addEventListener("click", hostStartGame);
-  $("btn-kick-player").addEventListener("click", kickPlayer);
+  // croix d'exclusion : délégation sur la liste des joueurs du salon
+  $("room-players").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-kick]"); if (!b) return;
+    kickPlayer(b.dataset.kick);
+  });
   $("join-code").addEventListener("keydown", (e) => { if (e.key === "Enter") joinRoom(); });
   $("btn-copy").addEventListener("click", copyLink);
 
