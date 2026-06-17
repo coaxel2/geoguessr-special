@@ -42,6 +42,7 @@ function savePlayerName() {
     if (G.playerName) localStorage.setItem("geoq-name", G.playerName);
     else localStorage.removeItem("geoq-name");
   } catch (e) {}
+  setAvatar("player-avatar", G.playerName, G.avatarSeed);
   return !!G.playerName;
 }
 function requirePlayerName(errorId) {
@@ -100,11 +101,22 @@ function identiconSVG(name, size) {
          '<rect width="' + size + '" height="' + size + '" rx="' + (size * 0.24).toFixed(1) +
          '" fill="rgba(255,255,255,.05)"/><g fill="' + fg + '">' + rects + '</g></svg>';
 }
-function setAvatar(elId, name) {
+function avatarKey(name, seed) {
+  return (((name || "").trim().toLowerCase()) || "?") + "#" + (seed || 0);
+}
+function setAvatar(elId, name, seed) {
   const el = $(elId);
   if (!el) return;
   const size = el.dataset && el.dataset.size ? parseInt(el.dataset.size, 10) : 40;
-  el.innerHTML = identiconSVG(name, size);
+  el.innerHTML = identiconSVG(avatarKey(name, seed), size);
+}
+function cycleAvatar() {
+  G.avatarSeed = (G.avatarSeed + 1) % 10000;
+  try { localStorage.setItem("geoq-av", String(G.avatarSeed)); } catch (e) {}
+  setAvatar("player-avatar", G.playerName || $("player-name").value, G.avatarSeed);
+  // si déjà en ligne (lobby), prévenir l'adversaire du nouvel avatar
+  if (G.online.active) sendMsg({ type: "hello", name: G.playerName, av: G.avatarSeed });
+  updateNameLabels();
 }
 function updateNameLabels() {
   const opp = G.online.oppName || "Adversaire";
@@ -113,9 +125,11 @@ function updateNameLabels() {
   if ($("result-opp-name")) $("result-opp-name").textContent = opp;
   if ($("final-me-name")) $("final-me-name").textContent = me;
   if ($("final-opp-name")) $("final-opp-name").textContent = opp;
-  setAvatar("result-me-av", me); setAvatar("result-opp-av", opp);
-  setAvatar("final-me-av", me); setAvatar("final-opp-av", opp);
-  setAvatar("hud-opp-av", opp);
+  setAvatar("result-me-av", G.playerName, G.avatarSeed);
+  setAvatar("result-opp-av", opp, G.online.oppAvatarSeed);
+  setAvatar("final-me-av", G.playerName, G.avatarSeed);
+  setAvatar("final-opp-av", opp, G.online.oppAvatarSeed);
+  setAvatar("hud-opp-av", opp, G.online.oppAvatarSeed);
 }
 
 /* ---------- état global ---------- */
@@ -129,6 +143,7 @@ const G = {
   submitted: false,
   lastDist: null,
   playerName: "",
+  avatarSeed: 0,
   pano: null,
   gmap: null,
   marker: null,
@@ -140,7 +155,7 @@ const G = {
   online: {
     active: false, peer: null, conn: null, isHost: false, code: null,
     started: false,
-    oppName: "Adversaire",
+    oppName: "Adversaire", oppAvatarSeed: 0,
     oppGuess: null, oppDone: false, oppScores: [],
     iWantNext: false, oppWantNext: false,
     iWantReplay: false, oppWantReplay: false, ka: null,
@@ -636,7 +651,7 @@ function onlineReset() {
   try { if (G.online.peer) G.online.peer.destroy(); } catch (e) {}
   clearInterval(G.online.ka);
   G.online = { active: false, peer: null, conn: null, isHost: false, code: null,
-               started: false, oppName: "Adversaire", oppGuess: null, oppDone: false, oppScores: [],
+               started: false, oppName: "Adversaire", oppAvatarSeed: 0, oppGuess: null, oppDone: false, oppScores: [],
                iWantNext: false, oppWantNext: false, iWantReplay: false, oppWantReplay: false, ka: null };
 }
 function sendMsg(m) { try { if (G.online.conn && G.online.conn.open) G.online.conn.send(m); } catch (e) {} }
@@ -790,7 +805,7 @@ function setupConn(conn) {
     } else flashStatus("⚠️ Adversaire déconnecté");
   });
   conn.on("error", () => flashStatus("⚠️ Problème de connexion"));
-  sendMsg({ type: "hello", name: G.playerName });
+  sendMsg({ type: "hello", name: G.playerName, av: G.avatarSeed });
 
   if (G.online.isHost) {
     $("online-status").textContent = "Joueur 2 connecté — prêt à lancer";
@@ -828,6 +843,7 @@ function onData(m) {
 
   if (m.type === "hello") {
     G.online.oppName = cleanName(m.name || "Adversaire");
+    G.online.oppAvatarSeed = m.av || 0;
     updateNameLabels();
     updateOppHud();
     if ($("online").classList.contains("show")) {
@@ -944,11 +960,13 @@ function wire() {
   try {
     const savedName = localStorage.getItem("geoq-name");
     if (savedName) { G.playerName = cleanName(savedName); $("player-name").value = G.playerName; }
+    G.avatarSeed = parseInt(localStorage.getItem("geoq-av"), 10) || 0;
   } catch (e) {}
   $("player-name").addEventListener("change", savePlayerName);
   $("player-name").addEventListener("blur", savePlayerName);
-  $("player-name").addEventListener("input", () => setAvatar("player-avatar", $("player-name").value));
-  setAvatar("player-avatar", G.playerName);
+  $("player-name").addEventListener("input", () => setAvatar("player-avatar", $("player-name").value, G.avatarSeed));
+  $("player-avatar").addEventListener("click", cycleAvatar);
+  setAvatar("player-avatar", G.playerName, G.avatarSeed);
 
   // segmented manches
   $("rounds-seg").addEventListener("click", (e) => {
