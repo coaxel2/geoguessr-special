@@ -440,7 +440,48 @@ function zoneShape(z, co) {
   if (z === "france-cities") return { boxes: [[42.3, 51.1, -5.1, 8.3, 1]] };
   return null; // monde / grandes villes du monde : pas de contour
 }
-// Mini-carte non interactive : tuile + contour de la zone, cadrée pour bien la voir.
+// Frontières réelles (GeoJSON), chargées une seule fois à la demande.
+const BORDERS = { countries: null, frRegions: null, promise: null };
+function loadBorders() {
+  if (BORDERS.promise) return BORDERS.promise;
+  const urlC = "https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@master/geojson/ne_110m_admin_0_countries.geojson";
+  const urlF = "https://cdn.jsdelivr.net/gh/gregoiredavid/france-geojson@master/regions-version-simplifiee.geojson";
+  BORDERS.promise = Promise.all([
+    fetch(urlC).then((r) => r.json()).catch(() => null),
+    fetch(urlF).then((r) => r.json()).catch(() => null),
+  ]).then(([c, f]) => { BORDERS.countries = c; BORDERS.frRegions = f; });
+  return BORDERS.promise;
+}
+const COUNTRY_ADMIN = {
+  france: ["France"], usa: ["United States of America"], canada: ["Canada"],
+  "uk-ireland": ["United Kingdom", "Ireland"], "spain-portugal": ["Spain", "Portugal"],
+  italy: ["Italy"], germany: ["Germany"], japan: ["Japan"], "south-korea": ["South Korea"],
+  australia: ["Australia"], "new-zealand": ["New Zealand"], brazil: ["Brazil"],
+  "argentina-chile": ["Argentina", "Chile"], "south-africa": ["South Africa"], mexico: ["Mexico"],
+};
+const CONTINENT_OF = {
+  europe: "Europe", "north-america": "North America", "south-america": "South America",
+  asia: "Asia", oceania: "Oceania", africa: "Africa",
+};
+// Features GeoJSON des vraies frontières d'une zone (null si pas pertinent / pas chargé).
+function zoneFeatures(z, co) {
+  const C = BORDERS.countries, F = BORDERS.frRegions;
+  if (C && C.features) {
+    if (z === "country" && COUNTRY_ADMIN[co]) {
+      const names = COUNTRY_ADMIN[co];
+      return C.features.filter((ft) => names.indexOf(ft.properties.ADMIN) >= 0);
+    }
+    if (CONTINENT_OF[z]) return C.features.filter((ft) => ft.properties.CONTINENT === CONTINENT_OF[z]);
+    if (z === "france-cities") return C.features.filter((ft) => ft.properties.ADMIN === "France");
+  }
+  if (F && F.features && FR_REGION_ZONES[z]) {
+    const entry = FR_REGIONS.find((r) => r[0] === z);
+    const nm = (entry ? entry[1] : "").replace(/['’]/g, "'");
+    return F.features.filter((ft) => (ft.properties.nom || "").replace(/['’]/g, "'") === nm);
+  }
+  return null;
+}
+// Mini-carte non interactive : tuile + frontière réelle, cadrée sur la bbox "métropole".
 function makeMiniMap(el, la, lo, zoom, zoneVal, co) {
   if (!el || el._zmap || typeof L === "undefined") return null;
   const m = L.map(el, {
@@ -449,22 +490,33 @@ function makeMiniMap(el, la, lo, zoom, zoneVal, co) {
     inertia: false, fadeAnimation: false,
   });
   L.tileLayer(TILE_URL, TILE_OPT).addTo(m);
-  const st = { color: "#2ee6a6", weight: 2, fillColor: "#2ee6a6", fillOpacity: 0.12 };
+  const st = { color: "#2ee6a6", weight: 2, fillColor: "#2ee6a6", fillOpacity: 0.14 };
   const s = zoneShape(zoneVal, co);
+  // Cadrage = bbox/cercle "métropole" (évite Guyane, Alaska… qui dézoomeraient tout)
   let bounds = null;
   if (s && s.circle) {
-    bounds = L.circle(s.circle, Object.assign({ radius: s.r }, st)).addTo(m).getBounds();
+    bounds = L.latLng(s.circle[0], s.circle[1]).toBounds(s.r * 2.2);
   } else if (s && s.boxes) {
     let a = 90, b2 = -90, c2 = 180, d2 = -180;
     s.boxes.forEach((bx) => { a = Math.min(a, bx[0]); b2 = Math.max(b2, bx[1]); c2 = Math.min(c2, bx[2]); d2 = Math.max(d2, bx[3]); });
-    bounds = L.rectangle([[a, c2], [b2, d2]], st).addTo(m).getBounds();
+    bounds = L.latLngBounds([[a, c2], [b2, d2]]);
+  }
+  // Contour : vraies frontières si chargées, sinon cercle/rectangle de secours
+  const feats = zoneFeatures(zoneVal, co);
+  if (feats && feats.length) {
+    const gj = L.geoJSON({ type: "FeatureCollection", features: feats }, { style: st }).addTo(m);
+    if (!bounds) bounds = gj.getBounds();
+  } else if (s && s.circle) {
+    L.circle([s.circle[0], s.circle[1]], Object.assign({ radius: s.r }, st)).addTo(m);
+  } else if (s && s.boxes) {
+    let a = 90, b2 = -90, c2 = 180, d2 = -180;
+    s.boxes.forEach((bx) => { a = Math.min(a, bx[0]); b2 = Math.max(b2, bx[1]); c2 = Math.min(c2, bx[2]); d2 = Math.max(d2, bx[3]); });
+    L.rectangle([[a, c2], [b2, d2]], st).addTo(m);
   }
   if (bounds) m.fitBounds(bounds, { padding: [8, 8], maxZoom: 12 });
   else m.setView([la, lo], zoom);
   el._zmap = m;
-  setTimeout(() => {
-    try { m.invalidateSize(); if (bounds) m.fitBounds(bounds, { padding: [8, 8], maxZoom: 12 }); } catch (e) {}
-  }, 60);
+  setTimeout(() => { try { m.invalidateSize(); if (bounds) m.fitBounds(bounds, { padding: [8, 8], maxZoom: 12 }); } catch (e) {} }, 60);
   return m;
 }
 // Crée les mini-cartes des zones à la demande (quand la carte entre dans la vue)
@@ -1213,7 +1265,8 @@ function wire() {
   // sélecteur de zone visuel
   buildZoneModal();
   updateZoneTrigger();
-  $("zone-trigger").addEventListener("click", () => { $("zone-modal").hidden = false; initZoneMaps(); });
+  loadBorders().then(() => updateZoneTrigger());
+  $("zone-trigger").addEventListener("click", () => { $("zone-modal").hidden = false; loadBorders().then(initZoneMaps); });
   $("zone-modal-close").addEventListener("click", () => { $("zone-modal").hidden = true; });
   $("zone-modal").addEventListener("click", (e) => { if (e.target.id === "zone-modal") $("zone-modal").hidden = true; });
   $("zone-groups").addEventListener("click", (e) => {
