@@ -355,13 +355,13 @@ function tileURL(lat, lng, z) {
 }
 // Catalogue trié par catégorie. {l:label, z:zoneFilter, co:countryFilter?, la,lo:centre, tz:zoom tuile}
 function zoneGroups() {
-  const frReg = FR_REGIONS.map((r) => ({ l: r[1], z: r[0], la: (r[2] + r[3]) / 2, lo: (r[4] + r[5]) / 2, tz: 7 }));
-  const frCity = CITIES_FR.map((c) => ({ l: c[1], z: c[0], la: c[2], lo: c[3], tz: 11 }));
-  const wCity = CITIES_WORLD.map((c) => ({ l: c[1], z: c[0], la: c[2], lo: c[3], tz: 11 }));
+  const frReg = FR_REGIONS.map((r) => ({ l: r[1], z: r[0], la: (r[2] + r[3]) / 2, lo: (r[4] + r[5]) / 2, tz: 6 }));
+  const frCity = CITIES_FR.map((c) => ({ l: c[1], z: c[0], la: c[2], lo: c[3], tz: 10 }));
+  const wCity = CITIES_WORLD.map((c) => ({ l: c[1], z: c[0], la: c[2], lo: c[3], tz: 10 }));
   return [
     ["Le monde", [
-      { l: "Monde entier", z: "world", la: 25, lo: 0, tz: 0 },
-      { l: "Grandes villes du monde", z: "world-cities", la: 25, lo: 0, tz: 0 },
+      { l: "Monde entier", z: "world", la: 25, lo: 0, tz: 1 },
+      { l: "Grandes villes du monde", z: "world-cities", la: 25, lo: 0, tz: 1 },
       { l: "France — grandes villes", z: "france-cities", la: 46.6, lo: 2.4, tz: 5 },
     ]],
     ["Continents", [
@@ -415,7 +415,7 @@ function buildZoneModal() {
       b.type = "button"; b.className = "zone-card";
       b.dataset.z = e.z; b.dataset.co = e.co || "";
       b.innerHTML =
-        '<span class="zone-card-map" style="background-image:url(' + tileURL(e.la, e.lo, e.tz) + ')"></span>' +
+        '<div class="zone-card-map" data-la="' + e.la + '" data-lo="' + e.lo + '" data-lz="' + e.tz + '"></div>' +
         '<span class="zone-card-label">' + e.l + "</span>";
       grid.appendChild(b);
     });
@@ -431,15 +431,49 @@ function highlightZone() {
       (b.dataset.z !== "country" || b.dataset.co === G.countryFilter));
   });
 }
+// Mini-carte Leaflet centrée précisément (setView) — non interactive.
+function makeMiniMap(el, la, lo, z) {
+  if (!el || el._zmap || typeof L === "undefined") return null;
+  const m = L.map(el, {
+    zoomControl: false, attributionControl: false, dragging: false, scrollWheelZoom: false,
+    doubleClickZoom: false, boxZoom: false, keyboard: false, touchZoom: false, tap: false,
+    inertia: false, fadeAnimation: false,
+  });
+  m.setView([la, lo], z);
+  L.tileLayer(TILE_URL, TILE_OPT).addTo(m);
+  el._zmap = m;
+  setTimeout(() => { try { m.invalidateSize(); } catch (e) {} }, 60);
+  return m;
+}
+// Crée les mini-cartes des zones à la demande (quand la carte entre dans la vue)
+let zoneObserver = null;
+function initZoneMaps() {
+  const root = document.querySelector("#zone-modal .modal-card");
+  if (!root) return;
+  if (!zoneObserver) {
+    zoneObserver = new IntersectionObserver((ents) => {
+      ents.forEach((en) => {
+        if (!en.isIntersecting) return;
+        const d = en.target.dataset;
+        makeMiniMap(en.target, parseFloat(d.la), parseFloat(d.lo), parseInt(d.lz, 10));
+        zoneObserver.unobserve(en.target);
+      });
+    }, { root: root, rootMargin: "150px" });
+  }
+  document.querySelectorAll("#zone-groups .zone-card-map").forEach((el) => {
+    if (!el._zmap) zoneObserver.observe(el);
+  });
+}
 function updateZoneTrigger() {
   if ($("zone-trigger-txt")) $("zone-trigger-txt").textContent = zoneLabel();
-  const map = $("zone-trigger-map");
-  if (map) {
-    let cur = null;
-    zoneGroups().forEach((g) => g[1].forEach((e) => {
-      if (e.z === G.zoneFilter && (!e.co || e.co === G.countryFilter)) cur = e;
-    }));
-    if (cur) map.style.backgroundImage = "url(" + tileURL(cur.la, cur.lo, cur.tz) + ")";
+  let cur = null;
+  zoneGroups().forEach((g) => g[1].forEach((e) => {
+    if (e.z === G.zoneFilter && (!e.co || e.co === G.countryFilter)) cur = e;
+  }));
+  const el = $("zone-trigger-map");
+  if (el && cur) {
+    if (el._zmap) el._zmap.setView([cur.la, cur.lo], cur.tz);
+    else makeMiniMap(el, cur.la, cur.lo, cur.tz);
   }
 }
 function selectZone(z, co) {
@@ -1157,7 +1191,7 @@ function wire() {
   // sélecteur de zone visuel
   buildZoneModal();
   updateZoneTrigger();
-  $("zone-trigger").addEventListener("click", () => { $("zone-modal").hidden = false; });
+  $("zone-trigger").addEventListener("click", () => { $("zone-modal").hidden = false; initZoneMaps(); });
   $("zone-modal-close").addEventListener("click", () => { $("zone-modal").hidden = true; });
   $("zone-modal").addEventListener("click", (e) => { if (e.target.id === "zone-modal") $("zone-modal").hidden = true; });
   $("zone-groups").addEventListener("click", (e) => {
