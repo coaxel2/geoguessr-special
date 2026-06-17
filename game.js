@@ -106,6 +106,7 @@ function selectAvatar(i) {
   const grid = $("avatar-grid");
   if (grid) grid.querySelectorAll(".avatar-opt").forEach((b) =>
     b.classList.toggle("on", parseInt(b.dataset.i, 10) === i));
+  setAvatar("avatar-current", i);
   updateNameLabels();
   // en lobby : prévenir l'adversaire du nouvel avatar choisi
   if (G.online.active) sendMsg({ type: "hello", name: G.playerName, av: G.avatarChoice });
@@ -226,6 +227,36 @@ const COUNTRY_REGIONS = {
   "south-africa": [[-34, -26, 18, 31, 4]],
   mexico: [[19, 26, -105, -98, 4]],
 };
+// Villes précises jouables — chacune devient une zone "city-<clé>".
+// [clé, label, lat, lng, rayon (m)]
+const CITIES = [
+  ["city-bordeaux", "Bordeaux", 44.8378, -0.5792, 9000],
+  ["city-paris", "Paris", 48.8566, 2.3522, 12000],
+  ["city-lyon", "Lyon", 45.7640, 4.8357, 9000],
+  ["city-marseille", "Marseille", 43.2965, 5.3698, 9000],
+  ["city-toulouse", "Toulouse", 43.6047, 1.4442, 8000],
+  ["city-nice", "Nice", 43.7102, 7.2620, 7000],
+  ["city-nantes", "Nantes", 47.2184, -1.5536, 8000],
+  ["city-strasbourg", "Strasbourg", 48.5734, 7.7521, 7000],
+  ["city-lille", "Lille", 50.6292, 3.0573, 7000],
+  ["city-montpellier", "Montpellier", 43.6119, 3.8772, 7000],
+  ["city-rennes", "Rennes", 48.1173, -1.6778, 7000],
+  ["city-grenoble", "Grenoble", 45.1885, 5.7245, 7000],
+  ["city-londres", "Londres", 51.5074, -0.1278, 14000],
+  ["city-new-york", "New York", 40.7128, -74.0060, 16000],
+  ["city-tokyo", "Tokyo", 35.6762, 139.6503, 18000],
+  ["city-berlin", "Berlin", 52.5200, 13.4050, 13000],
+  ["city-madrid", "Madrid", 40.4168, -3.7038, 12000],
+  ["city-rome", "Rome", 41.9028, 12.4964, 11000],
+  ["city-amsterdam", "Amsterdam", 52.3676, 4.9041, 9000],
+  ["city-barcelone", "Barcelone", 41.3851, 2.1734, 10000],
+  ["city-montreal", "Montréal", 45.5019, -73.5674, 12000],
+  ["city-sydney", "Sydney", -33.8688, 151.2093, 14000],
+  ["city-los-angeles", "Los Angeles", 34.0522, -118.2437, 18000],
+  ["city-singapour", "Singapour", 1.3521, 103.8198, 11000],
+];
+const CITY_ZONES = {};
+CITIES.forEach((c) => { CITY_ZONES[c[0]] = [c[2], c[3], c[4]]; });
 const WORLD_CITIES = [
   [40.7128, -74.0060, 23000, 3], [34.0522, -118.2437, 30000, 2], [41.8781, -87.6298, 22000, 2],
   [51.5074, -0.1278, 22000, 3], [48.8566, 2.3522, 18000, 3], [52.5200, 13.4050, 18000, 2],
@@ -263,8 +294,22 @@ function randomPointNear(lat, lng, meters) {
 function activePool() {
   if (G.zoneFilter === "world-cities") return { type: "city", items: WORLD_CITIES };
   if (G.zoneFilter === "france-cities") return { type: "city", items: FRANCE_CITIES };
+  if (CITY_ZONES[G.zoneFilter]) return { type: "city", items: [CITY_ZONES[G.zoneFilter]] };
   if (G.zoneFilter === "country") return { type: "region", items: COUNTRY_REGIONS[G.countryFilter] || COUNTRY_REGIONS.france };
   return { type: "region", items: ZONE_REGIONS[G.zoneFilter] || REGIONS };
+}
+// Ajoute les villes précises dans les 3 sélecteurs de zone (menu / online / salon)
+function fillCityOptions() {
+  ["zone-filter", "online-zone-filter", "room-zone-filter"].forEach((id) => {
+    const sel = $(id);
+    if (!sel || sel.dataset.citiesDone) return;
+    CITIES.forEach((c) => {
+      const o = document.createElement("option");
+      o.value = c[0]; o.textContent = "🏙 " + c[1];
+      sel.appendChild(o);
+    });
+    sel.dataset.citiesDone = "1";
+  });
 }
 function setRoundSeg(id, rounds) {
   $(id).querySelectorAll("button").forEach((b) => b.classList.toggle("on", parseInt(b.dataset.r, 10) === rounds));
@@ -949,6 +994,7 @@ function goHome() { onlineReset(); G.online.active = false; showScreen("menu"); 
    Wiring UI
    =========================================================== */
 function wire() {
+  fillCityOptions();
   try {
     const savedName = localStorage.getItem("geoq-name");
     if (savedName) { G.playerName = cleanName(savedName); $("player-name").value = G.playerName; }
@@ -958,10 +1004,15 @@ function wire() {
   $("player-name").addEventListener("change", savePlayerName);
   $("player-name").addEventListener("blur", savePlayerName);
   buildAvatarGrid();
+  setAvatar("avatar-current", G.avatarChoice);
   $("avatar-grid").addEventListener("click", (e) => {
     const b = e.target.closest(".avatar-opt"); if (!b) return;
     selectAvatar(parseInt(b.dataset.i, 10));
   });
+  $("avatar-trigger").addEventListener("click", () => { buildAvatarGrid(); $("avatar-modal").hidden = false; });
+  $("avatar-close").addEventListener("click", () => { $("avatar-modal").hidden = true; });
+  $("avatar-done").addEventListener("click", () => { $("avatar-modal").hidden = true; });
+  $("avatar-modal").addEventListener("click", (e) => { if (e.target.id === "avatar-modal") $("avatar-modal").hidden = true; });
 
   // segmented manches
   $("rounds-seg").addEventListener("click", (e) => {
