@@ -227,9 +227,8 @@ const COUNTRY_REGIONS = {
   "south-africa": [[-34, -26, 18, 31, 4]],
   mexico: [[19, 26, -105, -98, 4]],
 };
-// Villes précises jouables — chacune devient une zone "city-<clé>".
-// [clé, label, lat, lng, rayon (m)]
-const CITIES = [
+// Villes précises jouables (zone "city-<clé>") : [clé, label, lat, lng, rayon m]
+const CITIES_FR = [
   ["city-bordeaux", "Bordeaux", 44.8378, -0.5792, 9000],
   ["city-paris", "Paris", 48.8566, 2.3522, 12000],
   ["city-lyon", "Lyon", 45.7640, 4.8357, 9000],
@@ -242,6 +241,8 @@ const CITIES = [
   ["city-montpellier", "Montpellier", 43.6119, 3.8772, 7000],
   ["city-rennes", "Rennes", 48.1173, -1.6778, 7000],
   ["city-grenoble", "Grenoble", 45.1885, 5.7245, 7000],
+];
+const CITIES_WORLD = [
   ["city-londres", "Londres", 51.5074, -0.1278, 14000],
   ["city-new-york", "New York", 40.7128, -74.0060, 16000],
   ["city-tokyo", "Tokyo", 35.6762, 139.6503, 18000],
@@ -255,8 +256,26 @@ const CITIES = [
   ["city-los-angeles", "Los Angeles", 34.0522, -118.2437, 18000],
   ["city-singapour", "Singapour", 1.3521, 103.8198, 11000],
 ];
+// 13 régions métropolitaines (zone "fr-<clé>") : [clé, label, latMin, latMax, lngMin, lngMax]
+const FR_REGIONS = [
+  ["fr-idf", "Île-de-France", 48.12, 49.24, 1.45, 3.56],
+  ["fr-naq", "Nouvelle-Aquitaine", 42.78, 47.18, -1.79, 2.62],
+  ["fr-ara", "Auvergne-Rhône-Alpes", 44.12, 46.80, 2.06, 7.19],
+  ["fr-occ", "Occitanie", 42.33, 45.05, -0.33, 4.85],
+  ["fr-hdf", "Hauts-de-France", 48.84, 51.09, 1.38, 4.26],
+  ["fr-ges", "Grand Est", 47.42, 50.17, 3.39, 8.23],
+  ["fr-pac", "Provence-Alpes-Côte d'Azur", 43.00, 45.13, 4.23, 7.72],
+  ["fr-pdl", "Pays de la Loire", 46.27, 48.57, -2.55, 0.92],
+  ["fr-nor", "Normandie", 48.18, 50.07, -1.95, 1.80],
+  ["fr-bre", "Bretagne", 47.28, 48.90, -5.14, -1.02],
+  ["fr-bfc", "Bourgogne-Franche-Comté", 46.16, 48.40, 2.84, 7.14],
+  ["fr-cvl", "Centre-Val de Loire", 46.35, 48.94, 0.05, 3.13],
+  ["fr-cor", "Corse", 41.33, 43.03, 8.53, 9.56],
+];
 const CITY_ZONES = {};
-CITIES.forEach((c) => { CITY_ZONES[c[0]] = [c[2], c[3], c[4]]; });
+[].concat(CITIES_FR, CITIES_WORLD).forEach((c) => { CITY_ZONES[c[0]] = [c[2], c[3], c[4]]; });
+const FR_REGION_ZONES = {};
+FR_REGIONS.forEach((r) => { FR_REGION_ZONES[r[0]] = [[r[2], r[3], r[4], r[5], 1]]; });
 const WORLD_CITIES = [
   [40.7128, -74.0060, 23000, 3], [34.0522, -118.2437, 30000, 2], [41.8781, -87.6298, 22000, 2],
   [51.5074, -0.1278, 22000, 3], [48.8566, 2.3522, 18000, 3], [52.5200, 13.4050, 18000, 2],
@@ -295,20 +314,31 @@ function activePool() {
   if (G.zoneFilter === "world-cities") return { type: "city", items: WORLD_CITIES };
   if (G.zoneFilter === "france-cities") return { type: "city", items: FRANCE_CITIES };
   if (CITY_ZONES[G.zoneFilter]) return { type: "city", items: [CITY_ZONES[G.zoneFilter]] };
+  if (FR_REGION_ZONES[G.zoneFilter]) return { type: "region", items: FR_REGION_ZONES[G.zoneFilter] };
   if (G.zoneFilter === "country") return { type: "region", items: COUNTRY_REGIONS[G.countryFilter] || COUNTRY_REGIONS.france };
   return { type: "region", items: ZONE_REGIONS[G.zoneFilter] || REGIONS };
 }
-// Ajoute les villes précises dans les 3 sélecteurs de zone (menu / online / salon)
-function fillCityOptions() {
+// Ajoute villes (FR / Monde) et régions de France en sous-groupes, dans les 3 sélecteurs
+function fillZoneOptions() {
+  const groups = [
+    ["Villes de France", CITIES_FR.map((c) => [c[0], "🏙 " + c[1]])],
+    ["Villes du monde", CITIES_WORLD.map((c) => [c[0], "🏙 " + c[1]])],
+    ["Régions de France", FR_REGIONS.map((r) => [r[0], "📍 " + r[1]])],
+  ];
   ["zone-filter", "online-zone-filter", "room-zone-filter"].forEach((id) => {
     const sel = $(id);
-    if (!sel || sel.dataset.citiesDone) return;
-    CITIES.forEach((c) => {
-      const o = document.createElement("option");
-      o.value = c[0]; o.textContent = "🏙 " + c[1];
-      sel.appendChild(o);
+    if (!sel || sel.dataset.zonesDone) return;
+    groups.forEach(([label, items]) => {
+      const og = document.createElement("optgroup");
+      og.label = label;
+      items.forEach(([val, txt]) => {
+        const o = document.createElement("option");
+        o.value = val; o.textContent = txt;
+        og.appendChild(o);
+      });
+      sel.appendChild(og);
     });
-    sel.dataset.citiesDone = "1";
+    sel.dataset.zonesDone = "1";
   });
 }
 function setRoundSeg(id, rounds) {
@@ -994,7 +1024,7 @@ function goHome() { onlineReset(); G.online.active = false; showScreen("menu"); 
    Wiring UI
    =========================================================== */
 function wire() {
-  fillCityOptions();
+  fillZoneOptions();
   try {
     const savedName = localStorage.getItem("geoq-name");
     if (savedName) { G.playerName = cleanName(savedName); $("player-name").value = G.playerName; }
