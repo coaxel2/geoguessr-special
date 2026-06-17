@@ -698,7 +698,7 @@ function createRoom() {
   $("room-settings").textContent = settingsText();
   $("online-status").textContent = "Création de la salle…";
 
-  const peer = new Peer(roomPeerId(code), { debug: 0, config: ICE });
+  const peer = new Peer(roomPeerId(code), { debug: 0, secure: true, config: ICE });
   G.online.peer = peer;
   peer.on("open", () => {
     if (G.online.peer !== peer || !G.online.isHost) return;
@@ -756,7 +756,7 @@ function joinRoom(codeArg) {
     attempts++;
     $("online-status").textContent = attempts > 1 ? "Nouvelle tentative de connexion…" : "Connexion à la salle…";
 
-    const peer = new Peer({ debug: 0, config: ICE });
+    const peer = new Peer({ debug: 0, secure: true, config: ICE });
     G.online.peer = peer;
     const scheduleRetry = () => {
       if (!G.online.active && G.online.peer === peer && Date.now() < deadline) setTimeout(retryConnect, 900);
