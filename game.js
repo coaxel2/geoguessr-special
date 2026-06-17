@@ -415,7 +415,7 @@ function buildZoneModal() {
       b.type = "button"; b.className = "zone-card";
       b.dataset.z = e.z; b.dataset.co = e.co || "";
       b.innerHTML =
-        '<div class="zone-card-map" data-la="' + e.la + '" data-lo="' + e.lo + '" data-lz="' + e.tz + '"></div>' +
+        '<div class="zone-card-map" data-la="' + e.la + '" data-lo="' + e.lo + '" data-lz="' + e.tz + '" data-z="' + e.z + '" data-co="' + (e.co || "") + '"></div>' +
         '<span class="zone-card-label">' + e.l + "</span>";
       grid.appendChild(b);
     });
@@ -431,18 +431,40 @@ function highlightZone() {
       (b.dataset.z !== "country" || b.dataset.co === G.countryFilter));
   });
 }
-// Mini-carte Leaflet centrée précisément (setView) — non interactive.
-function makeMiniMap(el, la, lo, z) {
+// Contour (frontière) de la zone, si elle a une étendue distincte.
+function zoneShape(z, co) {
+  if (CITY_ZONES[z]) { const c = CITY_ZONES[z]; return { circle: [c[0], c[1]], r: c[2] }; }
+  if (FR_REGION_ZONES[z]) return { boxes: FR_REGION_ZONES[z] };
+  if (ZONE_REGIONS[z]) return { boxes: ZONE_REGIONS[z] };
+  if (z === "country" && COUNTRY_REGIONS[co]) return { boxes: COUNTRY_REGIONS[co] };
+  if (z === "france-cities") return { boxes: [[42.3, 51.1, -5.1, 8.3, 1]] };
+  return null; // monde / grandes villes du monde : pas de contour
+}
+// Mini-carte non interactive : tuile + contour de la zone, cadrée pour bien la voir.
+function makeMiniMap(el, la, lo, zoom, zoneVal, co) {
   if (!el || el._zmap || typeof L === "undefined") return null;
   const m = L.map(el, {
     zoomControl: false, attributionControl: false, dragging: false, scrollWheelZoom: false,
     doubleClickZoom: false, boxZoom: false, keyboard: false, touchZoom: false, tap: false,
     inertia: false, fadeAnimation: false,
   });
-  m.setView([la, lo], z);
   L.tileLayer(TILE_URL, TILE_OPT).addTo(m);
+  const st = { color: "#2ee6a6", weight: 2, fillColor: "#2ee6a6", fillOpacity: 0.12 };
+  const s = zoneShape(zoneVal, co);
+  let bounds = null;
+  if (s && s.circle) {
+    bounds = L.circle(s.circle, Object.assign({ radius: s.r }, st)).addTo(m).getBounds();
+  } else if (s && s.boxes) {
+    let a = 90, b2 = -90, c2 = 180, d2 = -180;
+    s.boxes.forEach((bx) => { a = Math.min(a, bx[0]); b2 = Math.max(b2, bx[1]); c2 = Math.min(c2, bx[2]); d2 = Math.max(d2, bx[3]); });
+    bounds = L.rectangle([[a, c2], [b2, d2]], st).addTo(m).getBounds();
+  }
+  if (bounds) m.fitBounds(bounds, { padding: [8, 8], maxZoom: 12 });
+  else m.setView([la, lo], zoom);
   el._zmap = m;
-  setTimeout(() => { try { m.invalidateSize(); } catch (e) {} }, 60);
+  setTimeout(() => {
+    try { m.invalidateSize(); if (bounds) m.fitBounds(bounds, { padding: [8, 8], maxZoom: 12 }); } catch (e) {}
+  }, 60);
   return m;
 }
 // Crée les mini-cartes des zones à la demande (quand la carte entre dans la vue)
@@ -455,7 +477,7 @@ function initZoneMaps() {
       ents.forEach((en) => {
         if (!en.isIntersecting) return;
         const d = en.target.dataset;
-        makeMiniMap(en.target, parseFloat(d.la), parseFloat(d.lo), parseInt(d.lz, 10));
+        makeMiniMap(en.target, parseFloat(d.la), parseFloat(d.lo), parseInt(d.lz, 10), d.z, d.co);
         zoneObserver.unobserve(en.target);
       });
     }, { root: root, rootMargin: "150px" });
@@ -472,8 +494,8 @@ function updateZoneTrigger() {
   }));
   const el = $("zone-trigger-map");
   if (el && cur) {
-    if (el._zmap) el._zmap.setView([cur.la, cur.lo], cur.tz);
-    else makeMiniMap(el, cur.la, cur.lo, cur.tz);
+    if (el._zmap) { try { el._zmap.remove(); } catch (e) {} el._zmap = null; el.innerHTML = ""; }
+    makeMiniMap(el, cur.la, cur.lo, cur.tz, cur.z, cur.co);
   }
 }
 function selectZone(z, co) {
