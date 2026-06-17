@@ -533,26 +533,34 @@ function initZoneMaps() {
     if (!el._zmap) zoneObserver.observe(el);
   });
 }
+// Met à jour les 3 déclencheurs de zone (menu / online / salon) : texte + mini-carte
 function updateZoneTrigger() {
-  if ($("zone-trigger-txt")) $("zone-trigger-txt").textContent = zoneLabel();
   let cur = null;
   zoneGroups().forEach((g) => g[1].forEach((e) => {
     if (e.z === G.zoneFilter && (!e.co || e.co === G.countryFilter)) cur = e;
   }));
-  const el = $("zone-trigger-map");
-  if (el && cur) {
-    if (el._zmap) { try { el._zmap.remove(); } catch (e) {} el._zmap = null; el.innerHTML = ""; }
-    makeMiniMap(el, cur.la, cur.lo, cur.tz, cur.z, cur.co);
-  }
+  ["zone", "online-zone", "room-zone"].forEach((pre) => {
+    const txt = $(pre + "-trigger-txt");
+    if (txt) txt.textContent = zoneLabel();
+    const el = $(pre + "-trigger-map");
+    if (el && cur) {
+      if (el._zmap) { try { el._zmap.remove(); } catch (e) {} el._zmap = null; el.innerHTML = ""; }
+      makeMiniMap(el, cur.la, cur.lo, cur.tz, cur.z, cur.co);
+    }
+  });
 }
 function selectZone(z, co) {
   G.zoneFilter = z;
   if (co) G.countryFilter = co;
-  const zs = $("zone-filter"); if (zs) zs.value = z;       // garde les selects cachés synchro
-  const cs = $("country-filter"); if (cs && co) cs.value = co;
+  // synchronise les 3 sélecteurs cachés (compat read/mirror)
+  ["zone-filter", "online-zone-filter", "room-zone-filter"].forEach((id) => { const s = $(id); if (s) s.value = z; });
+  if (co) ["country-filter", "online-country-filter", "room-country-filter"].forEach((id) => { const s = $(id); if (s) s.value = co; });
   highlightZone();
   updateZoneTrigger();
   $("zone-modal").hidden = true;
+  if ($("room-settings")) $("room-settings").textContent = settingsText();
+  // en salon (hôte) : prévenir le joueur 2 de la nouvelle zone
+  if (G.online.active && G.online.isHost && !G.online.started) sendRoomSettings();
 }
 function setRoundSeg(id, rounds) {
   $(id).querySelectorAll("button").forEach((b) => b.classList.toggle("on", parseInt(b.dataset.r, 10) === rounds));
@@ -569,26 +577,24 @@ function readOnlineSettings() {
   G.rounds = selectedRounds("online-rounds-seg");
   G.zoneFilter = $("online-zone-filter").value;
   G.countryFilter = $("online-country-filter").value;
-  $("online-country-field").classList.toggle("hidden", G.zoneFilter !== "country");
 }
 function readRoomSettings() {
   G.rounds = selectedRounds("room-rounds-seg");
   G.zoneFilter = $("room-zone-filter").value;
   G.countryFilter = $("room-country-filter").value;
-  $("room-country-field").classList.toggle("hidden", G.zoneFilter !== "country");
 }
 function mirrorSettingsToOnline() {
   setRoundSeg("online-rounds-seg", G.rounds);
   $("online-zone-filter").value = G.zoneFilter;
   $("online-country-filter").value = G.countryFilter;
-  $("online-country-field").classList.toggle("hidden", G.zoneFilter !== "country");
+  updateZoneTrigger();
 }
 function mirrorSettingsToRoom() {
   setRoundSeg("room-rounds-seg", G.rounds);
   $("room-zone-filter").value = G.zoneFilter;
   $("room-country-filter").value = G.countryFilter;
-  $("room-country-field").classList.toggle("hidden", G.zoneFilter !== "country");
   $("room-settings").textContent = settingsText();
+  updateZoneTrigger();
 }
 function sendRoomSettings() {
   if (!G.online.isHost || G.online.started) return;
@@ -1261,9 +1267,12 @@ function wire() {
   buildZoneModal();
   updateZoneTrigger();
   loadZones().then(() => updateZoneTrigger());
-  $("zone-trigger").addEventListener("click", () => {
-    if ($("zone-search")) { $("zone-search").value = ""; filterZones(""); }
-    $("zone-modal").hidden = false; loadZones().then(initZoneMaps);
+  ["zone-trigger", "online-zone-trigger", "room-zone-trigger"].forEach((id) => {
+    const t = $(id);
+    if (t) t.addEventListener("click", () => {
+      if ($("zone-search")) { $("zone-search").value = ""; filterZones(""); }
+      $("zone-modal").hidden = false; loadZones().then(initZoneMaps);
+    });
   });
   if ($("zone-search")) $("zone-search").addEventListener("input", (e) => filterZones(e.target.value));
   $("zone-modal-close").addEventListener("click", () => { $("zone-modal").hidden = true; });

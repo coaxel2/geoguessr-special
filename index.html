@@ -7,14 +7,14 @@
   <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests" />
   <title>Geoloc — devine où tu te trouves dans le monde</title>
   <meta name="description" content="Geoloc : largué quelque part en vue Street View, devine où tu te trouves sur la carte. Solo ou multijoueur en ligne." />
-  <link rel="icon" type="image/svg+xml" href="favicon.svg?v=21" />
+  <link rel="icon" type="image/svg+xml" href="favicon.svg?v=22" />
   <meta name="theme-color" content="#0f1419" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="preconnect" href="https://api.dicebear.com" />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-  <link rel="stylesheet" href="style.css?v=21" />
+  <link rel="stylesheet" href="style.css?v=22" />
 </head>
 <body>
 
@@ -122,6 +122,15 @@
         </div>
 
         <div class="field">
+          <label>Zone</label>
+          <button type="button" class="zone-trigger" id="online-zone-trigger">
+            <div class="zone-trigger-map" id="online-zone-trigger-map"></div>
+            <span class="zone-trigger-txt" id="online-zone-trigger-txt">Monde entier</span>
+            <span class="avatar-trigger-go">›</span>
+          </button>
+        </div>
+
+        <div class="field hidden">
           <label for="online-zone-filter">Zone</label>
           <select id="online-zone-filter" class="select">
             <option value="world">Monde entier</option>
@@ -182,6 +191,15 @@
             </div>
           </div>
           <div class="field">
+            <label>Zone</label>
+            <button type="button" class="zone-trigger" id="room-zone-trigger">
+              <div class="zone-trigger-map" id="room-zone-trigger-map"></div>
+              <span class="zone-trigger-txt" id="room-zone-trigger-txt">Monde entier</span>
+              <span class="avatar-trigger-go">›</span>
+            </button>
+          </div>
+
+          <div class="field hidden">
             <label for="room-zone-filter">Zone</label>
             <select id="room-zone-filter" class="select">
               <option value="world">Monde entier</option>
@@ -331,6 +349,6 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <!-- PeerJS for multiplayer signaling (same lib as the chess project) -->
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js" integrity="sha384-nlUQ8ZqCbvStErob+biJNzSgltf6urV3VGqhfIfzhmg9RXmpeRm76ELw0pYnKlTR" crossorigin="anonymous"></script>
-  <script src="game.js?v=21"></script>
+  <script src="game.js?v=22"></script>
 </body>
 </html>
