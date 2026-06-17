@@ -8,8 +8,12 @@
 
 /* ---------- CONFIG ---------- */
 const CONFIG = {
-  // Clé Google Maps JS API. À restreindre à https://geoguessr2.planbadge.fr/*.
-  GMAPS_KEY: "AIzaSyA1Xjw7eCPNUXXEN_7lrPQ5LCrICE5Qr_k",
+  // Clé Google Maps JS API — JAMAIS en dur ici (le dépôt est public).
+  // Placeholder remplacé au démarrage du conteneur par docker-entrypoint.sh
+  // depuis la variable d'env GMAPS_KEY (définie dans Coolify).
+  // ⚠️ Une clé Maps JS est visible côté navigateur de toute façon : la vraie
+  // protection est la restriction par référent HTTP (*.planbadge.fr) côté Google Cloud.
+  GMAPS_KEY: "__GMAPS_KEY__",
 };
 
 /* ---------- helpers ---------- */
@@ -28,24 +32,45 @@ function fmtDist(m) {
 }
 function setMapsState(txt) { const e = $("maps-state"); if (e) e.textContent = txt; }
 function cleanName(v) {
-  return (v || "").trim().replace(/\s+/g, " ").slice(0, 18) || "Joueur";
+  const name = (v || "").trim().replace(/\s+/g, " ").slice(0, 18);
+  return /^joueur$/i.test(name) ? "" : name;
 }
 function savePlayerName() {
   G.playerName = cleanName($("player-name").value);
   $("player-name").value = G.playerName;
-  try { localStorage.setItem("geoq-name", G.playerName); } catch (e) {}
+  try {
+    if (G.playerName) localStorage.setItem("geoq-name", G.playerName);
+    else localStorage.removeItem("geoq-name");
+  } catch (e) {}
+  return !!G.playerName;
+}
+function requirePlayerName(errorId) {
+  if (savePlayerName()) return true;
+  const msg = "Entre un pseudo avant de jouer.";
+  if (errorId && $(errorId)) $(errorId).textContent = msg;
+  else setMapsState(msg);
+  $("player-name").focus();
+  return false;
 }
 function labelForSelect(id) {
   const el = $(id);
   return el && el.selectedOptions[0] ? el.selectedOptions[0].textContent : "";
 }
+function labelForValue(id, value) {
+  const el = $(id);
+  if (!el) return "";
+  const opt = Array.from(el.options).find((o) => o.value === value);
+  return opt ? opt.textContent : "";
+}
 function settingsText() {
-  const zone = G.zoneFilter === "country" ? labelForSelect("online-country-filter") : labelForSelect("online-zone-filter");
+  const zone = G.zoneFilter === "country"
+    ? (labelForValue("room-country-filter", G.countryFilter) || labelForValue("online-country-filter", G.countryFilter))
+    : (labelForValue("room-zone-filter", G.zoneFilter) || labelForValue("online-zone-filter", G.zoneFilter));
   return G.rounds + " manches · " + (zone || "Monde entier");
 }
 function updateNameLabels() {
   const opp = G.online.oppName || "Adversaire";
-  const me = G.playerName || "Joueur";
+  const me = G.playerName || "Toi";
   if ($("result-me-name")) $("result-me-name").textContent = me;
   if ($("result-opp-name")) $("result-opp-name").textContent = opp;
   if ($("final-me-name")) $("final-me-name").textContent = me;
@@ -62,7 +87,7 @@ const G = {
   guess: null,
   submitted: false,
   lastDist: null,
-  playerName: "Joueur",
+  playerName: "",
   pano: null,
   gmap: null,
   marker: null,
@@ -195,16 +220,25 @@ function activePool() {
 function setRoundSeg(id, rounds) {
   $(id).querySelectorAll("button").forEach((b) => b.classList.toggle("on", parseInt(b.dataset.r, 10) === rounds));
 }
+function selectedRounds(id) {
+  const selected = $(id).querySelector("button.on");
+  return selected ? parseInt(selected.dataset.r, 10) : G.rounds;
+}
 function readMenuSettings() {
   G.zoneFilter = $("zone-filter").value;
   G.countryFilter = $("country-filter").value;
 }
 function readOnlineSettings() {
-  const selected = $("online-rounds-seg").querySelector("button.on");
-  G.rounds = selected ? parseInt(selected.dataset.r, 10) : G.rounds;
+  G.rounds = selectedRounds("online-rounds-seg");
   G.zoneFilter = $("online-zone-filter").value;
   G.countryFilter = $("online-country-filter").value;
   $("online-country-field").classList.toggle("hidden", G.zoneFilter !== "country");
+}
+function readRoomSettings() {
+  G.rounds = selectedRounds("room-rounds-seg");
+  G.zoneFilter = $("room-zone-filter").value;
+  G.countryFilter = $("room-country-filter").value;
+  $("room-country-field").classList.toggle("hidden", G.zoneFilter !== "country");
 }
 function mirrorSettingsToOnline() {
   setRoundSeg("online-rounds-seg", G.rounds);
@@ -212,11 +246,25 @@ function mirrorSettingsToOnline() {
   $("online-country-filter").value = G.countryFilter;
   $("online-country-field").classList.toggle("hidden", G.zoneFilter !== "country");
 }
+function mirrorSettingsToRoom() {
+  setRoundSeg("room-rounds-seg", G.rounds);
+  $("room-zone-filter").value = G.zoneFilter;
+  $("room-country-filter").value = G.countryFilter;
+  $("room-country-field").classList.toggle("hidden", G.zoneFilter !== "country");
+  $("room-settings").textContent = settingsText();
+}
+function sendRoomSettings() {
+  if (!G.online.isHost || G.online.started) return;
+  readRoomSettings();
+  $("room-settings").textContent = settingsText();
+  sendMsg({ type: "room", rounds: G.rounds, zone: G.zoneFilter, country: G.countryFilter });
+}
 function applyRemoteSettings(m) {
   G.rounds = m.rounds || G.rounds;
   G.zoneFilter = m.zone || G.zoneFilter;
   G.countryFilter = m.country || G.countryFilter;
   mirrorSettingsToOnline();
+  mirrorSettingsToRoom();
   $("room-settings").textContent = settingsText();
 }
 function pickRegion() {
@@ -334,7 +382,7 @@ function uncover() { $("pano-cover").classList.add("hidden"); }
 
 async function startSolo() {
   if (!mapsReady) { setMapsState("⏳ La carte charge encore…"); return; }
-  savePlayerName();
+  if (!requirePlayerName()) return;
   readMenuSettings();
   G.mode = "solo"; G.online.active = false;
   showScreen("game");
@@ -549,11 +597,28 @@ function sendMsg(m) { try { if (G.online.conn && G.online.conn.open) G.online.co
 function roomPeerId(code) {
   return "geoq2-" + location.hostname.replace(/[^a-z0-9-]/gi, "-") + "-" + code;
 }
+function resetRoomAfterGuestLeft(text) {
+  G.online.active = false;
+  G.online.conn = null;
+  G.online.started = false;
+  G.online.oppName = "Adversaire";
+  clearInterval(G.online.ka);
+  $("btn-start-room").classList.add("hidden");
+  $("btn-start-room").disabled = true;
+  $("btn-kick-player").classList.add("hidden");
+  $("online-status").textContent = text || "En attente d'un adversaire…";
+}
+function kickPlayer() {
+  if (!G.online.isHost || !G.online.active || G.online.started) return;
+  sendMsg({ type: "kick" });
+  try { if (G.online.conn) G.online.conn.close(); } catch (e) {}
+  resetRoomAfterGuestLeft("Joueur exclu — en attente d'un adversaire…");
+}
 
 function createRoom() {
   if (!mapsReady) { $("online-error").textContent = "La carte charge encore, patiente une seconde."; return; }
   if (typeof Peer === "undefined") { $("online-error").textContent = "Module réseau indisponible."; return; }
-  savePlayerName();
+  if (!requirePlayerName("online-error")) return;
   readOnlineSettings();
   onlineReset();
   const code = genCode();
@@ -563,6 +628,9 @@ function createRoom() {
   $("online-wait").classList.add("show");
   $("btn-start-room").classList.add("hidden");
   $("btn-start-room").disabled = true;
+  $("btn-kick-player").classList.add("hidden");
+  $("room-options").classList.remove("hidden");
+  mirrorSettingsToRoom();
   $("room-code").textContent = "----";
   $("btn-copy").textContent = "Copier le lien";
   $("btn-copy").disabled = true;
@@ -592,7 +660,7 @@ function createRoom() {
 function joinRoom(codeArg) {
   if (!mapsReady) { $("online-error").textContent = "La carte charge encore, patiente une seconde."; return; }
   if (typeof Peer === "undefined") { $("online-error").textContent = "Module réseau indisponible."; return; }
-  savePlayerName();
+  if (!requirePlayerName("online-error")) return;
   const code = (codeArg || $("join-code").value || "").trim().toUpperCase();
   if (code.length < 4) { $("online-error").textContent = "Entre le code à 4 caractères."; return; }
   onlineReset();
@@ -602,6 +670,8 @@ function joinRoom(codeArg) {
   $("online-wait").classList.add("show");
   $("btn-start-room").classList.add("hidden");
   $("btn-start-room").disabled = true;
+  $("btn-kick-player").classList.add("hidden");
+  $("room-options").classList.add("hidden");
   $("room-code").textContent = code;
   $("btn-copy").textContent = "Copier le lien";
   $("btn-copy").disabled = true;
@@ -667,7 +737,11 @@ function setupConn(conn) {
   conn.on("data", onData);
   conn.on("close", () => {
     clearInterval(G.online.ka);
-    flashStatus("⚠️ Adversaire déconnecté");
+    if (G.online.isHost && !G.online.started && $("online").classList.contains("show")) resetRoomAfterGuestLeft("Joueur déconnecté — en attente d'un adversaire…");
+    else if (!G.online.isHost && !G.online.started && $("online").classList.contains("show")) {
+      $("online-error").textContent = "La salle a été fermée.";
+      backToOnlineChoice();
+    } else flashStatus("⚠️ Adversaire déconnecté");
   });
   conn.on("error", () => flashStatus("⚠️ Problème de connexion"));
   sendMsg({ type: "hello", name: G.playerName });
@@ -676,6 +750,7 @@ function setupConn(conn) {
     $("online-status").textContent = "Joueur 2 connecté — prêt à lancer";
     $("btn-start-room").classList.remove("hidden");
     $("btn-start-room").disabled = false;
+    $("btn-kick-player").classList.remove("hidden");
     sendMsg({ type: "room", rounds: G.rounds, zone: G.zoneFilter, country: G.countryFilter });
   } else {
     $("online-status").textContent = "Connecté — en attente de l'hôte";
@@ -684,8 +759,11 @@ function setupConn(conn) {
 
 async function hostStartGame() {
   if (!G.online.active || !G.online.isHost || G.online.started) return;
+  readRoomSettings();
   G.online.started = true;
   $("btn-start-room").disabled = true;
+  $("btn-kick-player").classList.add("hidden");
+  $("room-options").classList.add("hidden");
   sendMsg({ type: "start", rounds: G.rounds, zone: G.zoneFilter, country: G.countryFilter });
   $("online-status").textContent = "Connecté — recherche des lieux…";
   showScreen("game");
@@ -723,6 +801,12 @@ function onData(m) {
       applyRemoteSettings(m);
       $("online-status").textContent = "L'hôte lance la partie…";
     }
+
+  } else if (m.type === "kick") {
+    $("online-error").textContent = "Tu as été exclu de la salle.";
+    onlineReset();
+    backToOnlineChoice();
+    showScreen("online");
 
   } else if (m.type === "init") {
     G.online.started = true;
@@ -779,6 +863,11 @@ async function hostReplay() {
 function backToOnlineChoice() {
   $("online-wait").classList.remove("show");
   $("online-choice").style.display = "flex";
+  $("room-options").classList.add("hidden");
+  $("btn-start-room").classList.add("hidden");
+  $("btn-start-room").disabled = true;
+  $("btn-kick-player").classList.add("hidden");
+  $("room-settings").textContent = "";
 }
 function goHome() { onlineReset(); G.online.active = false; showScreen("menu"); }
 
@@ -790,7 +879,6 @@ function wire() {
     const savedName = localStorage.getItem("geoq-name");
     if (savedName) { G.playerName = cleanName(savedName); $("player-name").value = G.playerName; }
   } catch (e) {}
-  if (!$("player-name").value) $("player-name").value = G.playerName;
   $("player-name").addEventListener("change", savePlayerName);
   $("player-name").addEventListener("blur", savePlayerName);
 
@@ -805,6 +893,12 @@ function wire() {
     $("online-rounds-seg").querySelectorAll("button").forEach((x) => x.classList.remove("on"));
     b.classList.add("on");
   });
+  $("room-rounds-seg").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-r]"); if (!b) return;
+    $("room-rounds-seg").querySelectorAll("button").forEach((x) => x.classList.remove("on"));
+    b.classList.add("on");
+    sendRoomSettings();
+  });
   $("zone-filter").addEventListener("change", () => {
     G.zoneFilter = $("zone-filter").value;
     $("country-field").classList.toggle("hidden", G.zoneFilter !== "country");
@@ -815,10 +909,15 @@ function wire() {
   $("online-zone-filter").addEventListener("change", () => {
     $("online-country-field").classList.toggle("hidden", $("online-zone-filter").value !== "country");
   });
+  $("room-zone-filter").addEventListener("change", () => {
+    $("room-country-field").classList.toggle("hidden", $("room-zone-filter").value !== "country");
+    sendRoomSettings();
+  });
+  $("room-country-filter").addEventListener("change", sendRoomSettings);
 
   $("btn-solo").addEventListener("click", startSolo);
   $("btn-online").addEventListener("click", () => {
-    savePlayerName();
+    if (!requirePlayerName()) return;
     readMenuSettings();
     mirrorSettingsToOnline();
     backToOnlineChoice();
@@ -828,6 +927,7 @@ function wire() {
   $("btn-create").addEventListener("click", createRoom);
   $("btn-join").addEventListener("click", () => joinRoom());
   $("btn-start-room").addEventListener("click", hostStartGame);
+  $("btn-kick-player").addEventListener("click", kickPlayer);
   $("join-code").addEventListener("keydown", (e) => { if (e.key === "Enter") joinRoom(); });
   $("btn-copy").addEventListener("click", copyLink);
 
@@ -852,7 +952,14 @@ function wire() {
   // auto-join via ?join=CODE
   const params = new URLSearchParams(location.search);
   const j = params.get("join");
-  if (j) { showScreen("online"); $("join-code").value = j.toUpperCase().slice(0, 4); }
+  if (j) {
+    $("join-code").value = j.toUpperCase().slice(0, 4);
+    if (G.playerName) showScreen("online");
+    else {
+      setMapsState("Entre un pseudo, puis ouvre le multijoueur pour rejoindre la salle.");
+      showScreen("menu");
+    }
+  }
 }
 
 function copyLink() {

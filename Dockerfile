@@ -4,7 +4,7 @@
 FROM nginx:alpine
 
 # Fichiers de l'application
-COPY index.html style.css game.js /usr/share/nginx/html/
+COPY index.html style.css game.js favicon.svg /usr/share/nginx/html/
 
 # Script d'injection de la clé (exécuté par le mécanisme docker-entrypoint.d de nginx)
 COPY docker-entrypoint.sh /docker-entrypoint.d/40-inject-gmaps-key.sh

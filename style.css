@@ -251,6 +251,18 @@ input { font-family: inherit; }
 .online-wait { display: none; flex-direction: column; align-items: center; gap: 14px; }
 .online-wait.show { display: flex; }
 .online-wait .btn-primary { width: 100%; }
+.online-wait .btn-ghost { width: 100%; }
+.room-options {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--stroke);
+  border-radius: 16px;
+  background: rgba(0,0,0,.18);
+}
+.room-options .field { margin-bottom: 0; }
 .wait-label { color: var(--muted); font-size: 14px; }
 .room-display {
   width: 100%;
