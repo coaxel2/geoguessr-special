@@ -228,19 +228,20 @@ const COUNTRY_REGIONS = {
   mexico: [[19, 26, -105, -98, 4]],
 };
 // Villes précises jouables (zone "city-<clé>") : [clé, label, lat, lng, rayon m]
+// [clé, label, lat, lng, rayon m, code INSEE (pour le contour de commune)]
 const CITIES_FR = [
-  ["city-bordeaux", "Bordeaux", 44.8378, -0.5792, 9000],
-  ["city-paris", "Paris", 48.8566, 2.3522, 12000],
-  ["city-lyon", "Lyon", 45.7640, 4.8357, 9000],
-  ["city-marseille", "Marseille", 43.2965, 5.3698, 9000],
-  ["city-toulouse", "Toulouse", 43.6047, 1.4442, 8000],
-  ["city-nice", "Nice", 43.7102, 7.2620, 7000],
-  ["city-nantes", "Nantes", 47.2184, -1.5536, 8000],
-  ["city-strasbourg", "Strasbourg", 48.5734, 7.7521, 7000],
-  ["city-lille", "Lille", 50.6292, 3.0573, 7000],
-  ["city-montpellier", "Montpellier", 43.6119, 3.8772, 7000],
-  ["city-rennes", "Rennes", 48.1173, -1.6778, 7000],
-  ["city-grenoble", "Grenoble", 45.1885, 5.7245, 7000],
+  ["city-bordeaux", "Bordeaux", 44.8378, -0.5792, 9000, "33063"],
+  ["city-paris", "Paris", 48.8566, 2.3522, 12000, "75056"],
+  ["city-lyon", "Lyon", 45.7640, 4.8357, 9000, "69123"],
+  ["city-marseille", "Marseille", 43.2965, 5.3698, 9000, "13055"],
+  ["city-toulouse", "Toulouse", 43.6047, 1.4442, 8000, "31555"],
+  ["city-nice", "Nice", 43.7102, 7.2620, 7000, "06088"],
+  ["city-nantes", "Nantes", 47.2184, -1.5536, 8000, "44109"],
+  ["city-strasbourg", "Strasbourg", 48.5734, 7.7521, 7000, "67482"],
+  ["city-lille", "Lille", 50.6292, 3.0573, 7000, "59350"],
+  ["city-montpellier", "Montpellier", 43.6119, 3.8772, 7000, "34172"],
+  ["city-rennes", "Rennes", 48.1173, -1.6778, 7000, "35238"],
+  ["city-grenoble", "Grenoble", 45.1885, 5.7245, 7000, "38185"],
 ];
 const CITIES_WORLD = [
   ["city-londres", "Londres", 51.5074, -0.1278, 14000],
@@ -441,15 +442,22 @@ function zoneShape(z, co) {
   return null; // monde / grandes villes du monde : pas de contour
 }
 // Frontières réelles (GeoJSON), chargées une seule fois à la demande.
-const BORDERS = { countries: null, frRegions: null, promise: null };
+const BORDERS = { countries: null, frRegions: null, cities: {}, promise: null };
 function loadBorders() {
   if (BORDERS.promise) return BORDERS.promise;
   const urlC = "https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@master/geojson/ne_110m_admin_0_countries.geojson";
   const urlF = "https://cdn.jsdelivr.net/gh/gregoiredavid/france-geojson@master/regions-version-simplifiee.geojson";
+  const cityReqs = CITIES_FR.map((c) =>
+    fetch("https://geo.api.gouv.fr/communes?code=" + c[5] + "&fields=contour&format=geojson&geometry=contour")
+      .then((r) => r.json()).then((g) => ({ code: c[5], feat: g.features && g.features[0] })).catch(() => null));
   BORDERS.promise = Promise.all([
     fetch(urlC).then((r) => r.json()).catch(() => null),
     fetch(urlF).then((r) => r.json()).catch(() => null),
-  ]).then(([c, f]) => { BORDERS.countries = c; BORDERS.frRegions = f; });
+    Promise.all(cityReqs),
+  ]).then(([c, f, cities]) => {
+    BORDERS.countries = c; BORDERS.frRegions = f;
+    (cities || []).forEach((x) => { if (x && x.feat) BORDERS.cities[x.code] = x.feat; });
+  });
   return BORDERS.promise;
 }
 const COUNTRY_ADMIN = {
@@ -466,6 +474,11 @@ const CONTINENT_OF = {
 // Features GeoJSON des vraies frontières d'une zone (null si pas pertinent / pas chargé).
 function zoneFeatures(z, co) {
   const C = BORDERS.countries, F = BORDERS.frRegions;
+  // villes françaises : contour de la commune (sinon null → cercle de secours)
+  if (CITY_ZONES[z]) {
+    const cf = CITIES_FR.find((c) => c[0] === z);
+    return (cf && BORDERS.cities[cf[5]]) ? [BORDERS.cities[cf[5]]] : null;
+  }
   if (C && C.features) {
     if (z === "country" && COUNTRY_ADMIN[co]) {
       const names = COUNTRY_ADMIN[co];
@@ -482,6 +495,11 @@ function zoneFeatures(z, co) {
   return null;
 }
 // Mini-carte non interactive : tuile + frontière réelle, cadrée sur la bbox "métropole".
+function bboxOf(boxes) {
+  let a = 90, b2 = -90, c2 = 180, d2 = -180;
+  boxes.forEach((bx) => { a = Math.min(a, bx[0]); b2 = Math.max(b2, bx[1]); c2 = Math.min(c2, bx[2]); d2 = Math.max(d2, bx[3]); });
+  return L.latLngBounds([[a, c2], [b2, d2]]);
+}
 function makeMiniMap(el, la, lo, zoom, zoneVal, co) {
   if (!el || el._zmap || typeof L === "undefined") return null;
   const m = L.map(el, {
@@ -490,32 +508,31 @@ function makeMiniMap(el, la, lo, zoom, zoneVal, co) {
     inertia: false, fadeAnimation: false,
   });
   L.tileLayer(TILE_URL, TILE_OPT).addTo(m);
-  const st = { color: "#2ee6a6", weight: 2, fillColor: "#2ee6a6", fillOpacity: 0.14 };
-  const s = zoneShape(zoneVal, co);
-  // Cadrage = bbox/cercle "métropole" (évite Guyane, Alaska… qui dézoomeraient tout)
-  let bounds = null;
-  if (s && s.circle) {
-    bounds = L.latLng(s.circle[0], s.circle[1]).toBounds(s.r * 2.2);
-  } else if (s && s.boxes) {
-    let a = 90, b2 = -90, c2 = 180, d2 = -180;
-    s.boxes.forEach((bx) => { a = Math.min(a, bx[0]); b2 = Math.max(b2, bx[1]); c2 = Math.min(c2, bx[2]); d2 = Math.max(d2, bx[3]); });
-    bounds = L.latLngBounds([[a, c2], [b2, d2]]);
+  el._zmap = m;
+  // Monde entier / grandes villes du monde : aucun trait, dézoom maximal
+  if (zoneVal === "world" || zoneVal === "world-cities") {
+    m.fitWorld();
+    setTimeout(() => { try { m.invalidateSize(); m.fitWorld(); } catch (e) {} }, 60);
+    return m;
   }
-  // Contour : vraies frontières si chargées, sinon cercle/rectangle de secours
+  const stLine = { color: "#2ee6a6", weight: 2, fillColor: "#2ee6a6", fillOpacity: 0.14 };
+  const stMass = { color: "#2ee6a6", weight: 0, fillColor: "#2ee6a6", fillOpacity: 0.5 };  // continents : silhouette pleine
+  const s = zoneShape(zoneVal, co);
+  // Cadrage = bbox "métropole" (pays/continents/régions) pour éviter Guyane/Alaska
+  let bounds = (s && s.boxes) ? bboxOf(s.boxes) : null;
   const feats = zoneFeatures(zoneVal, co);
   if (feats && feats.length) {
-    const gj = L.geoJSON({ type: "FeatureCollection", features: feats }, { style: st }).addTo(m);
-    if (!bounds) bounds = gj.getBounds();
+    const continent = !!CONTINENT_OF[zoneVal];
+    const gj = L.geoJSON({ type: "FeatureCollection", features: feats }, { style: continent ? stMass : stLine }).addTo(m);
+    if (!bounds) bounds = gj.getBounds();                 // villes FR : cadre sur la commune
   } else if (s && s.circle) {
-    L.circle([s.circle[0], s.circle[1]], Object.assign({ radius: s.r }, st)).addTo(m);
+    L.circle([s.circle[0], s.circle[1]], Object.assign({ radius: s.r }, stLine)).addTo(m);  // villes du monde
+    if (!bounds) bounds = L.latLng(s.circle[0], s.circle[1]).toBounds(s.r * 2.2);
   } else if (s && s.boxes) {
-    let a = 90, b2 = -90, c2 = 180, d2 = -180;
-    s.boxes.forEach((bx) => { a = Math.min(a, bx[0]); b2 = Math.max(b2, bx[1]); c2 = Math.min(c2, bx[2]); d2 = Math.max(d2, bx[3]); });
-    L.rectangle([[a, c2], [b2, d2]], st).addTo(m);
+    L.rectangle(bounds, stLine).addTo(m);                 // secours si frontières non chargées
   }
   if (bounds) m.fitBounds(bounds, { padding: [8, 8], maxZoom: 12 });
   else m.setView([la, lo], zoom);
-  el._zmap = m;
   setTimeout(() => { try { m.invalidateSize(); if (bounds) m.fitBounds(bounds, { padding: [8, 8], maxZoom: 12 }); } catch (e) {} }, 60);
   return m;
 }
