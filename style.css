@@ -241,6 +241,13 @@ input { font-family: inherit; }
 .zone-card-map { display: block; width: 100%; height: 70px; background: #0c1430; position: relative; pointer-events: none; }
 .zone-card-map .leaflet-container, .zone-trigger-map .leaflet-container { width: 100%; height: 100%; background: #0c1430; }
 .zone-card-label { display: block; padding: 7px 10px; font-size: 12.5px; font-weight: 600; line-height: 1.2; }
+.zone-search {
+  width: 100%; margin-bottom: 10px; color: var(--text);
+  background: rgba(0,0,0,.3); border: 1px solid var(--stroke-strong); border-radius: 12px;
+  padding: 11px 14px; font: inherit; font-weight: 600; outline: none;
+}
+.zone-search:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(46,230,166,.18); }
+.zone-search::placeholder { color: rgba(147,161,189,.6); }
 @media (max-width: 560px) { .zone-grid { grid-template-columns: repeat(2, 1fr); } }
 
 /* ---------- Buttons ---------- */

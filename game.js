@@ -406,9 +406,11 @@ function buildZoneModal() {
   const wrap = $("zone-groups");
   if (!wrap || wrap.dataset.built) return;
   zoneGroups().forEach((g) => {
+    const sec = document.createElement("div");
+    sec.className = "zone-section";
     const h = document.createElement("div");
     h.className = "zone-cat"; h.textContent = g[0];
-    wrap.appendChild(h);
+    sec.appendChild(h);
     const grid = document.createElement("div");
     grid.className = "zone-grid";
     g[1].forEach((e) => {
@@ -420,10 +422,25 @@ function buildZoneModal() {
         '<span class="zone-card-label">' + e.l + "</span>";
       grid.appendChild(b);
     });
-    wrap.appendChild(grid);
+    sec.appendChild(grid);
+    wrap.appendChild(sec);
   });
   wrap.dataset.built = "1";
   highlightZone();
+}
+// Filtre les zones par texte (recherche). Cache les sections devenues vides.
+function filterZones(q) {
+  q = (q || "").trim().toLowerCase();
+  document.querySelectorAll("#zone-groups .zone-section").forEach((sec) => {
+    let any = false;
+    sec.querySelectorAll(".zone-card").forEach((b) => {
+      const lbl = b.querySelector(".zone-card-label");
+      const ok = !q || (lbl && lbl.textContent.toLowerCase().indexOf(q) >= 0);
+      b.style.display = ok ? "" : "none";
+      if (ok) any = true;
+    });
+    sec.style.display = any ? "" : "none";
+  });
 }
 function highlightZone() {
   const wrap = $("zone-groups"); if (!wrap) return;
@@ -442,57 +459,20 @@ function zoneShape(z, co) {
   return null; // monde / grandes villes du monde : pas de contour
 }
 // Frontières réelles (GeoJSON), chargées une seule fois à la demande.
-const BORDERS = { countries: null, frRegions: null, cities: {}, promise: null };
-function loadBorders() {
-  if (BORDERS.promise) return BORDERS.promise;
-  const urlC = "https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@master/geojson/ne_110m_admin_0_countries.geojson";
-  const urlF = "https://cdn.jsdelivr.net/gh/gregoiredavid/france-geojson@master/regions-version-simplifiee.geojson";
-  const cityReqs = CITIES_FR.map((c) =>
-    fetch("https://geo.api.gouv.fr/communes?code=" + c[5] + "&fields=contour&format=geojson&geometry=contour")
-      .then((r) => r.json()).then((g) => ({ code: c[5], feat: g.features && g.features[0] })).catch(() => null));
-  BORDERS.promise = Promise.all([
-    fetch(urlC).then((r) => r.json()).catch(() => null),
-    fetch(urlF).then((r) => r.json()).catch(() => null),
-    Promise.all(cityReqs),
-  ]).then(([c, f, cities]) => {
-    BORDERS.countries = c; BORDERS.frRegions = f;
-    (cities || []).forEach((x) => { if (x && x.feat) BORDERS.cities[x.code] = x.feat; });
-  });
-  return BORDERS.promise;
+// Géométries des zones (continents fusionnés en un trait, pays, régions, communes FR,
+// villes du monde) pré-calculées et embarquées dans zones-geo.json — un seul fetch local.
+let ZGEO = null;
+function loadZones() {
+  if (ZGEO) return Promise.resolve(ZGEO);
+  if (loadZones._p) return loadZones._p;
+  loadZones._p = fetch("zones-geo.json?v=21").then((r) => r.json())
+    .then((j) => { ZGEO = j; return j; }).catch(() => { ZGEO = {}; return ZGEO; });
+  return loadZones._p;
 }
-const COUNTRY_ADMIN = {
-  france: ["France"], usa: ["United States of America"], canada: ["Canada"],
-  "uk-ireland": ["United Kingdom", "Ireland"], "spain-portugal": ["Spain", "Portugal"],
-  italy: ["Italy"], germany: ["Germany"], japan: ["Japan"], "south-korea": ["South Korea"],
-  australia: ["Australia"], "new-zealand": ["New Zealand"], brazil: ["Brazil"],
-  "argentina-chile": ["Argentina", "Chile"], "south-africa": ["South Africa"], mexico: ["Mexico"],
-};
-const CONTINENT_OF = {
-  europe: "Europe", "north-america": "North America", "south-america": "South America",
-  asia: "Asia", oceania: "Oceania", africa: "Africa",
-};
-// Features GeoJSON des vraies frontières d'une zone (null si pas pertinent / pas chargé).
 function zoneFeatures(z, co) {
-  const C = BORDERS.countries, F = BORDERS.frRegions;
-  // villes françaises : contour de la commune (sinon null → cercle de secours)
-  if (CITY_ZONES[z]) {
-    const cf = CITIES_FR.find((c) => c[0] === z);
-    return (cf && BORDERS.cities[cf[5]]) ? [BORDERS.cities[cf[5]]] : null;
-  }
-  if (C && C.features) {
-    if (z === "country" && COUNTRY_ADMIN[co]) {
-      const names = COUNTRY_ADMIN[co];
-      return C.features.filter((ft) => names.indexOf(ft.properties.ADMIN) >= 0);
-    }
-    if (CONTINENT_OF[z]) return C.features.filter((ft) => ft.properties.CONTINENT === CONTINENT_OF[z]);
-    if (z === "france-cities") return C.features.filter((ft) => ft.properties.ADMIN === "France");
-  }
-  if (F && F.features && FR_REGION_ZONES[z]) {
-    const entry = FR_REGIONS.find((r) => r[0] === z);
-    const nm = (entry ? entry[1] : "").replace(/['’]/g, "'");
-    return F.features.filter((ft) => (ft.properties.nom || "").replace(/['’]/g, "'") === nm);
-  }
-  return null;
+  if (!ZGEO) return null;
+  const g = ZGEO[(z === "country") ? "country:" + co : z];
+  return g ? [{ type: "Feature", geometry: g }] : null;
 }
 // Mini-carte non interactive : tuile + frontière réelle, cadrée sur la bbox "métropole".
 function bboxOf(boxes) {
@@ -516,15 +496,13 @@ function makeMiniMap(el, la, lo, zoom, zoneVal, co) {
     return m;
   }
   const stLine = { color: "#2ee6a6", weight: 2, fillColor: "#2ee6a6", fillOpacity: 0.14 };
-  const stMass = { color: "#2ee6a6", weight: 0, fillColor: "#2ee6a6", fillOpacity: 0.5 };  // continents : silhouette pleine
   const s = zoneShape(zoneVal, co);
   // Cadrage = bbox "métropole" (pays/continents/régions) pour éviter Guyane/Alaska
   let bounds = (s && s.boxes) ? bboxOf(s.boxes) : null;
   const feats = zoneFeatures(zoneVal, co);
   if (feats && feats.length) {
-    const continent = !!CONTINENT_OF[zoneVal];
-    const gj = L.geoJSON({ type: "FeatureCollection", features: feats }, { style: continent ? stMass : stLine }).addTo(m);
-    if (!bounds) bounds = gj.getBounds();                 // villes FR : cadre sur la commune
+    const gj = L.geoJSON({ type: "FeatureCollection", features: feats }, { style: stLine }).addTo(m);
+    if (!bounds) bounds = gj.getBounds();                 // villes / régions : cadre sur le tracé
   } else if (s && s.circle) {
     L.circle([s.circle[0], s.circle[1]], Object.assign({ radius: s.r }, stLine)).addTo(m);  // villes du monde
     if (!bounds) bounds = L.latLng(s.circle[0], s.circle[1]).toBounds(s.r * 2.2);
@@ -1282,8 +1260,12 @@ function wire() {
   // sélecteur de zone visuel
   buildZoneModal();
   updateZoneTrigger();
-  loadBorders().then(() => updateZoneTrigger());
-  $("zone-trigger").addEventListener("click", () => { $("zone-modal").hidden = false; loadBorders().then(initZoneMaps); });
+  loadZones().then(() => updateZoneTrigger());
+  $("zone-trigger").addEventListener("click", () => {
+    if ($("zone-search")) { $("zone-search").value = ""; filterZones(""); }
+    $("zone-modal").hidden = false; loadZones().then(initZoneMaps);
+  });
+  if ($("zone-search")) $("zone-search").addEventListener("input", (e) => filterZones(e.target.value));
   $("zone-modal-close").addEventListener("click", () => { $("zone-modal").hidden = true; });
   $("zone-modal").addEventListener("click", (e) => { if (e.target.id === "zone-modal") $("zone-modal").hidden = true; });
   $("zone-groups").addEventListener("click", (e) => {
