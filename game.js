@@ -42,7 +42,6 @@ function savePlayerName() {
     if (G.playerName) localStorage.setItem("geoq-name", G.playerName);
     else localStorage.removeItem("geoq-name");
   } catch (e) {}
-  setAvatar("player-avatar", G.playerName, G.avatarSeed);
   return !!G.playerName;
 }
 function requirePlayerName(errorId) {
@@ -75,25 +74,41 @@ function settingsText() {
    l'avatar de l'autre à l'identique (même seed ⇒ même bonhomme). */
 const AV_STYLE = "avataaars";
 const AV_BG = "b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf,d1f4d9,ffeeb3";
-function avatarKey(name, seed) {
-  return (((name || "").trim().toLowerCase()) || "joueur") + "#" + (seed || 0);
-}
-function avatarURL(name, seed) {
+// Galerie d'avatars à CHOISIR (chaque graine = un bonhomme distinct et fixe).
+const AVATARS = ["Felix", "Luna", "Milo", "Zoe", "Oscar", "Nina", "Hugo", "Lea", "Tom", "Emma", "Sam", "Jade"];
+function avatarURL(choice) {
+  const seed = AVATARS[choice] || AVATARS[0];
   return "https://api.dicebear.com/9.x/" + AV_STYLE + "/svg?seed=" +
-         encodeURIComponent(avatarKey(name, seed)) + "&backgroundColor=" + AV_BG;
+         encodeURIComponent(seed) + "&backgroundColor=" + AV_BG;
 }
-function setAvatar(elId, name, seed) {
+function setAvatar(elId, choice) {
   const el = $(elId);
   if (!el) return;
-  el.innerHTML = '<img src="' + avatarURL(name, seed) + '" alt="" draggable="false" />';
+  el.innerHTML = '<img src="' + avatarURL(choice) + '" alt="" draggable="false" />';
 }
-function cycleAvatar() {
-  G.avatarSeed = (G.avatarSeed + 1) % 10000;
-  try { localStorage.setItem("geoq-av", String(G.avatarSeed)); } catch (e) {}
-  setAvatar("player-avatar", G.playerName || $("player-name").value, G.avatarSeed);
-  // si déjà en ligne (lobby), prévenir l'adversaire du nouvel avatar
-  if (G.online.active) sendMsg({ type: "hello", name: G.playerName, av: G.avatarSeed });
+function buildAvatarGrid() {
+  const grid = $("avatar-grid");
+  if (!grid) return;
+  grid.innerHTML = "";
+  AVATARS.forEach((seed, i) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "avatar-opt" + (i === G.avatarChoice ? " on" : "");
+    b.dataset.i = i;
+    b.setAttribute("aria-label", "Avatar " + (i + 1));
+    b.innerHTML = '<img src="' + avatarURL(i) + '" alt="" draggable="false" />';
+    grid.appendChild(b);
+  });
+}
+function selectAvatar(i) {
+  G.avatarChoice = i;
+  try { localStorage.setItem("geoq-av", String(i)); } catch (e) {}
+  const grid = $("avatar-grid");
+  if (grid) grid.querySelectorAll(".avatar-opt").forEach((b) =>
+    b.classList.toggle("on", parseInt(b.dataset.i, 10) === i));
   updateNameLabels();
+  // en lobby : prévenir l'adversaire du nouvel avatar choisi
+  if (G.online.active) sendMsg({ type: "hello", name: G.playerName, av: G.avatarChoice });
 }
 function updateNameLabels() {
   const opp = G.online.oppName || "Adversaire";
@@ -102,11 +117,11 @@ function updateNameLabels() {
   if ($("result-opp-name")) $("result-opp-name").textContent = opp;
   if ($("final-me-name")) $("final-me-name").textContent = me;
   if ($("final-opp-name")) $("final-opp-name").textContent = opp;
-  setAvatar("result-me-av", G.playerName, G.avatarSeed);
-  setAvatar("result-opp-av", opp, G.online.oppAvatarSeed);
-  setAvatar("final-me-av", G.playerName, G.avatarSeed);
-  setAvatar("final-opp-av", opp, G.online.oppAvatarSeed);
-  setAvatar("hud-opp-av", opp, G.online.oppAvatarSeed);
+  setAvatar("result-me-av", G.avatarChoice);
+  setAvatar("result-opp-av", G.online.oppAvatarChoice);
+  setAvatar("final-me-av", G.avatarChoice);
+  setAvatar("final-opp-av", G.online.oppAvatarChoice);
+  setAvatar("hud-opp-av", G.online.oppAvatarChoice);
 }
 
 /* ---------- état global ---------- */
@@ -120,7 +135,7 @@ const G = {
   submitted: false,
   lastDist: null,
   playerName: "",
-  avatarSeed: 0,
+  avatarChoice: 0,
   pano: null,
   gmap: null,
   marker: null,
@@ -132,7 +147,7 @@ const G = {
   online: {
     active: false, peer: null, conn: null, isHost: false, code: null,
     started: false,
-    oppName: "Adversaire", oppAvatarSeed: 0,
+    oppName: "Adversaire", oppAvatarChoice: 0,
     oppGuess: null, oppDone: false, oppScores: [],
     iWantNext: false, oppWantNext: false,
     iWantReplay: false, oppWantReplay: false, ka: null,
@@ -606,7 +621,7 @@ function updateOppHud() {
   if (!G.online.active) return;
   $("hud-opp").classList.remove("hidden");
   $("hud-opp-txt").textContent = (G.online.oppName || "Adversaire") + " : " + sum(G.online.oppScores) + " pts";
-  setAvatar("hud-opp-av", G.online.oppName);
+  setAvatar("hud-opp-av", G.online.oppAvatarChoice);
 }
 
 /* ===========================================================
@@ -628,7 +643,7 @@ function onlineReset() {
   try { if (G.online.peer) G.online.peer.destroy(); } catch (e) {}
   clearInterval(G.online.ka);
   G.online = { active: false, peer: null, conn: null, isHost: false, code: null,
-               started: false, oppName: "Adversaire", oppAvatarSeed: 0, oppGuess: null, oppDone: false, oppScores: [],
+               started: false, oppName: "Adversaire", oppAvatarChoice: 0, oppGuess: null, oppDone: false, oppScores: [],
                iWantNext: false, oppWantNext: false, iWantReplay: false, oppWantReplay: false, ka: null };
 }
 function sendMsg(m) { try { if (G.online.conn && G.online.conn.open) G.online.conn.send(m); } catch (e) {} }
@@ -782,7 +797,7 @@ function setupConn(conn) {
     } else flashStatus("⚠️ Adversaire déconnecté");
   });
   conn.on("error", () => flashStatus("⚠️ Problème de connexion"));
-  sendMsg({ type: "hello", name: G.playerName, av: G.avatarSeed });
+  sendMsg({ type: "hello", name: G.playerName, av: G.avatarChoice });
 
   if (G.online.isHost) {
     $("online-status").textContent = "Joueur 2 connecté — prêt à lancer";
@@ -820,7 +835,7 @@ function onData(m) {
 
   if (m.type === "hello") {
     G.online.oppName = cleanName(m.name || "Adversaire");
-    G.online.oppAvatarSeed = m.av || 0;
+    G.online.oppAvatarChoice = m.av || 0;
     updateNameLabels();
     updateOppHud();
     if ($("online").classList.contains("show")) {
@@ -937,17 +952,16 @@ function wire() {
   try {
     const savedName = localStorage.getItem("geoq-name");
     if (savedName) { G.playerName = cleanName(savedName); $("player-name").value = G.playerName; }
-    G.avatarSeed = parseInt(localStorage.getItem("geoq-av"), 10) || 0;
+    G.avatarChoice = parseInt(localStorage.getItem("geoq-av"), 10) || 0;
+    if (G.avatarChoice < 0 || G.avatarChoice >= AVATARS.length) G.avatarChoice = 0;
   } catch (e) {}
   $("player-name").addEventListener("change", savePlayerName);
   $("player-name").addEventListener("blur", savePlayerName);
-  let avTimer = null;
-  $("player-name").addEventListener("input", () => {
-    clearTimeout(avTimer);
-    avTimer = setTimeout(() => setAvatar("player-avatar", $("player-name").value, G.avatarSeed), 350);
+  buildAvatarGrid();
+  $("avatar-grid").addEventListener("click", (e) => {
+    const b = e.target.closest(".avatar-opt"); if (!b) return;
+    selectAvatar(parseInt(b.dataset.i, 10));
   });
-  $("player-avatar").addEventListener("click", cycleAvatar);
-  setAvatar("player-avatar", G.playerName, G.avatarSeed);
 
   // segmented manches
   $("rounds-seg").addEventListener("click", (e) => {
