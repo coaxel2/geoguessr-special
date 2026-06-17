@@ -1,5 +1,5 @@
 /* ===========================================================
-   GeoGuessr Spécial — feuille de style
+   Geoloc — feuille de style
    Thème sombre, glassmorphism, accents verts façon exploration
    =========================================================== */
 
@@ -180,6 +180,17 @@ input { font-family: inherit; }
 }
 .text-input::placeholder { color: rgba(147,161,189,.55); }
 
+/* ---------- Avatars (identicon déterministe) ---------- */
+.av { display: inline-flex; flex: none; line-height: 0; vertical-align: middle; overflow: hidden; }
+.av svg { display: block; }
+.name-row { display: flex; align-items: center; gap: 12px; }
+.name-row .text-input { flex: 1; }
+.av-lg {
+  width: 46px; height: 46px; border-radius: 14px;
+  box-shadow: 0 8px 20px rgba(0,0,0,.40), inset 0 0 0 1px var(--stroke-strong);
+}
+.av-sm { width: 20px; height: 20px; border-radius: 6px; }
+
 /* ---------- Buttons ---------- */
 .menu-actions { display: flex; flex-direction: column; gap: 12px; }
 .btn {
@@ -334,7 +345,8 @@ input { font-family: inherit; }
   box-shadow: 0 8px 20px rgba(0,0,0,.3);
   white-space: nowrap;
 }
-.hud-opp { color: var(--accent); }
+.hud-opp { color: var(--accent); display: inline-flex; align-items: center; gap: 7px; }
+.hud-opp .av { width: 20px; height: 20px; border-radius: 6px; }
 .hud-quit { color: var(--muted); }
 .hud-quit:hover { color: var(--danger); border-color: rgba(255,107,107,.4); }
 
@@ -397,10 +409,11 @@ input { font-family: inherit; }
 #result-title { font-size: 20px; margin-bottom: 16px; }
 .result-rows { display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px; }
 .result-row {
-  display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: center;
+  display: grid; grid-template-columns: auto 1fr auto auto; gap: 12px; align-items: center;
   background: rgba(0,0,0,.22); border: 1px solid var(--stroke);
   border-radius: 13px; padding: 12px 14px;
 }
+.result-row .av { width: 34px; height: 34px; border-radius: 9px; }
 .result-row .who { font-weight: 600; }
 .result-row.me .who { color: var(--accent); }
 .result-row.opp .who { color: var(--accent-2); }
@@ -416,6 +429,7 @@ input { font-family: inherit; }
 #final-title { font-size: 24px; margin-bottom: 22px; }
 .final-scores { display: flex; justify-content: center; gap: 30px; margin-bottom: 26px; }
 .final-score { display: flex; flex-direction: column; align-items: center; }
+.final-score .av { width: 44px; height: 44px; border-radius: 12px; margin-bottom: 10px; box-shadow: 0 6px 16px rgba(0,0,0,.35); }
 .final-score .who { color: var(--muted); font-size: 13px; text-transform: uppercase; letter-spacing: 1px; }
 .final-score .big { font-size: 46px; font-weight: 800; line-height: 1.1; }
 .final-score.me .big { background: linear-gradient(100deg, var(--accent), var(--accent-2)); -webkit-background-clip: text; background-clip: text; color: transparent; }

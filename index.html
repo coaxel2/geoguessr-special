@@ -3,15 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>GeoGuessr Spécial — Axel</title>
-  <meta name="description" content="Devine où tu te trouves dans le monde à partir d'une vue Street View. Solo ou multijoueur en ligne." />
-  <link rel="icon" type="image/svg+xml" href="favicon.svg?v=8" />
+  <title>Geoloc — devine où tu te trouves dans le monde</title>
+  <meta name="description" content="Geoloc : largué quelque part en vue Street View, devine où tu te trouves sur la carte. Solo ou multijoueur en ligne." />
+  <link rel="icon" type="image/svg+xml" href="favicon.svg?v=9" />
   <meta name="theme-color" content="#0f1419" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-  <link rel="stylesheet" href="style.css?v=8" />
+  <link rel="stylesheet" href="style.css?v=9" />
 </head>
 <body>
 
@@ -19,12 +19,15 @@
   <section id="menu" class="screen show">
     <div class="menu-bg"></div>
     <div class="menu-card">
-      <h1 class="logo">🌍 GeoGuessr <span>Spécial</span></h1>
+      <h1 class="logo">📍 Geo<span>loc</span></h1>
       <p class="tagline">Lâché quelque part sur Terre. Devine où.</p>
 
       <div class="field">
         <label for="player-name">Pseudo</label>
-        <input id="player-name" class="text-input" maxlength="18" placeholder="Joueur" autocomplete="nickname" spellcheck="false" />
+        <div class="name-row">
+          <span class="av av-lg" id="player-avatar" data-size="46"></span>
+          <input id="player-name" class="text-input" maxlength="18" placeholder="Joueur" autocomplete="nickname" spellcheck="false" />
+        </div>
       </div>
 
       <div class="field">
@@ -219,7 +222,7 @@
     <div class="hud">
       <div class="hud-pill" id="hud-round">Manche 1/5</div>
       <div class="hud-pill" id="hud-score">0 pts</div>
-      <div class="hud-pill hud-opp hidden" id="hud-opp">Adversaire : 0 pts</div>
+      <div class="hud-pill hud-opp hidden" id="hud-opp"><span class="av av-sm" id="hud-opp-av" data-size="20"></span><span id="hud-opp-txt">Adversaire : 0 pts</span></div>
       <button class="hud-pill hud-quit" id="btn-quit">Quitter</button>
     </div>
 
@@ -245,11 +248,13 @@
       <h2 id="result-title">Manche 1</h2>
       <div class="result-rows">
         <div class="result-row me">
+          <span class="av" id="result-me-av" data-size="34"></span>
           <span class="who" id="result-me-name">Toi</span>
           <span class="dist" id="result-dist">— km</span>
           <span class="pts" id="result-pts">0 pts</span>
         </div>
         <div class="result-row opp hidden" id="result-opp-row">
+          <span class="av" id="result-opp-av" data-size="34"></span>
           <span class="who" id="result-opp-name">Adversaire</span>
           <span class="dist" id="result-opp-dist">— km</span>
           <span class="pts" id="result-opp-pts">0 pts</span>
@@ -268,11 +273,13 @@
       <h2 id="final-title">Partie terminée</h2>
       <div class="final-scores">
         <div class="final-score me">
+          <span class="av" id="final-me-av" data-size="44"></span>
           <span class="who" id="final-me-name">Toi</span>
           <span class="big" id="final-me">0</span>
           <span class="sub">/ <span id="final-max">25000</span></span>
         </div>
         <div class="final-score opp hidden" id="final-opp-block">
+          <span class="av" id="final-opp-av" data-size="44"></span>
           <span class="who" id="final-opp-name">Adversaire</span>
           <span class="big" id="final-opp">0</span>
         </div>
@@ -286,6 +293,6 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <!-- PeerJS for multiplayer signaling (same lib as the chess project) -->
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js" integrity="sha384-nlUQ8ZqCbvStErob+biJNzSgltf6urV3VGqhfIfzhmg9RXmpeRm76ELw0pYnKlTR" crossorigin="anonymous"></script>
-  <script src="game.js?v=8"></script>
+  <script src="game.js?v=9"></script>
 </body>
 </html>

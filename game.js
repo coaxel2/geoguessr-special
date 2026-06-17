@@ -1,6 +1,6 @@
 /* ===========================================================
-   GeoGuessr Spécial — logique de jeu
-   - Street View + carte via Google Maps JS API
+   Geoloc — logique de jeu
+   - Street View via Google Maps JS API ; cartes de guess via Leaflet
    - Multijoueur P2P via PeerJS (repris du projet d'échecs)
    =========================================================== */
 
@@ -68,6 +68,44 @@ function settingsText() {
     : (labelForValue("room-zone-filter", G.zoneFilter) || labelForValue("online-zone-filter", G.zoneFilter));
   return G.rounds + " manches · " + (zone || "Monde entier");
 }
+/* ---------- avatar identicon (motif déterministe dérivé du pseudo) ----------
+   Pas besoin de l'envoyer en P2P : chaque client regénère l'avatar de l'autre
+   à partir du pseudo reçu (même pseudo ⇒ même motif et même couleur). */
+function hashStr(s) {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
+function identiconSVG(name, size) {
+  size = size || 40;
+  const seed = ((name || "?").trim().toLowerCase()) || "?";
+  let n = hashStr(seed);
+  const fg = "hsl(" + (n % 360) + " 60% 58%)";
+  const cell = size / 5;
+  let rects = "";
+  for (let col = 0; col < 3; col++) {
+    for (let row = 0; row < 5; row++) {
+      n = Math.imul(n, 48271) >>> 0;             // PRNG de Lehmer
+      if ((n & 1) === 0) {                        // ~50 % de cellules pleines
+        const cs = col === 2 ? [2] : [col, 4 - col];   // symétrie verticale
+        for (const c of cs) {
+          rects += '<rect x="' + (c * cell).toFixed(2) + '" y="' + (row * cell).toFixed(2) +
+                   '" width="' + cell.toFixed(2) + '" height="' + cell.toFixed(2) + '"/>';
+        }
+      }
+    }
+  }
+  return '<svg viewBox="0 0 ' + size + ' ' + size + '" width="' + size + '" height="' + size +
+         '" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
+         '<rect width="' + size + '" height="' + size + '" rx="' + (size * 0.24).toFixed(1) +
+         '" fill="rgba(255,255,255,.05)"/><g fill="' + fg + '">' + rects + '</g></svg>';
+}
+function setAvatar(elId, name) {
+  const el = $(elId);
+  if (!el) return;
+  const size = el.dataset && el.dataset.size ? parseInt(el.dataset.size, 10) : 40;
+  el.innerHTML = identiconSVG(name, size);
+}
 function updateNameLabels() {
   const opp = G.online.oppName || "Adversaire";
   const me = G.playerName || "Toi";
@@ -75,6 +113,9 @@ function updateNameLabels() {
   if ($("result-opp-name")) $("result-opp-name").textContent = opp;
   if ($("final-me-name")) $("final-me-name").textContent = me;
   if ($("final-opp-name")) $("final-opp-name").textContent = opp;
+  setAvatar("result-me-av", me); setAvatar("result-opp-av", opp);
+  setAvatar("final-me-av", me); setAvatar("final-opp-av", opp);
+  setAvatar("hud-opp-av", opp);
 }
 
 /* ---------- état global ---------- */
@@ -101,7 +142,8 @@ const G = {
     started: false,
     oppName: "Adversaire",
     oppGuess: null, oppDone: false, oppScores: [],
-    iWantNext: false, oppWantNext: false, ka: null,
+    iWantNext: false, oppWantNext: false,
+    iWantReplay: false, oppWantReplay: false, ka: null,
   },
 };
 
@@ -398,6 +440,7 @@ async function startSolo() {
 function beginRoundsLocal() {
   G.current = 0; G.scores = []; G.submitted = false;
   G.online.oppScores = [];
+  G.online.iWantReplay = false; G.online.oppWantReplay = false;
   $("hud-opp").classList.toggle("hidden", !G.online.active);
   updateNameLabels();
   showScreen("game");
@@ -564,12 +607,14 @@ function showFinal() {
     $("final-emoji").textContent = pct > .8 ? "🌟" : pct > .5 ? "🎯" : "🧭";
     $("final-title").textContent = "Partie terminée";
   }
+  updateReplayUI();
 }
 
 function updateOppHud() {
   if (!G.online.active) return;
   $("hud-opp").classList.remove("hidden");
-  $("hud-opp").textContent = (G.online.oppName || "Adversaire") + " : " + sum(G.online.oppScores) + " pts";
+  $("hud-opp-txt").textContent = (G.online.oppName || "Adversaire") + " : " + sum(G.online.oppScores) + " pts";
+  setAvatar("hud-opp-av", G.online.oppName);
 }
 
 /* ===========================================================
@@ -591,7 +636,8 @@ function onlineReset() {
   try { if (G.online.peer) G.online.peer.destroy(); } catch (e) {}
   clearInterval(G.online.ka);
   G.online = { active: false, peer: null, conn: null, isHost: false, code: null,
-               started: false, oppName: "Adversaire", oppGuess: null, oppDone: false, oppScores: [], iWantNext: false, oppWantNext: false, ka: null };
+               started: false, oppName: "Adversaire", oppGuess: null, oppDone: false, oppScores: [],
+               iWantNext: false, oppWantNext: false, iWantReplay: false, oppWantReplay: false, ka: null };
 }
 function sendMsg(m) { try { if (G.online.conn && G.online.conn.open) G.online.conn.send(m); } catch (e) {} }
 function roomPeerId(code) {
@@ -831,7 +877,9 @@ function onData(m) {
     else if ($("result").classList.contains("show")) $("next-wait").textContent = (G.online.oppName || "L'adversaire") + " est prêt…";
 
   } else if (m.type === "replay") {
-    if (G.online.isHost) hostReplay();
+    G.online.oppWantReplay = true;
+    if ($("final").classList.contains("show")) updateReplayUI();
+    maybeStartReplay();
   }
 }
 
@@ -843,10 +891,28 @@ function flashStatus(txt) {
 }
 
 function replay() {
-  if (G.online.active) {
-    if (G.online.isHost) hostReplay();
-    else { sendMsg({ type: "replay" }); showScreen("game"); cover("Nouvelle partie demandée…"); }
-  } else startSolo();
+  if (!G.online.active) { startSolo(); return; }
+  // multijoueur : il faut que LES DEUX joueurs cliquent « Rejouer » (2/2)
+  G.online.iWantReplay = true;
+  sendMsg({ type: "replay" });
+  updateReplayUI();
+  maybeStartReplay();
+}
+function maybeStartReplay() {
+  if (!(G.online.iWantReplay && G.online.oppWantReplay)) return;
+  G.online.iWantReplay = false; G.online.oppWantReplay = false;
+  // l'hôte (re)génère les lieux et les envoie ; l'invité attend l'init
+  if (G.online.isHost) hostReplay();
+  else { showScreen("game"); cover("Nouvelle partie — l'hôte prépare les lieux…"); }
+}
+function updateReplayUI() {
+  const btn = $("btn-replay");
+  if (!btn) return;
+  if (!G.online.active) { btn.disabled = false; btn.textContent = "Rejouer"; return; }
+  const ready = (G.online.iWantReplay ? 1 : 0) + (G.online.oppWantReplay ? 1 : 0);
+  if (ready === 0) { btn.disabled = false; btn.textContent = "Rejouer"; }
+  else if (G.online.iWantReplay) { btn.disabled = true; btn.textContent = "En attente… " + ready + "/2"; }
+  else { btn.disabled = false; btn.textContent = "Rejouer (" + ready + "/2)"; }
 }
 async function hostReplay() {
   showScreen("game"); cover("Nouvelle partie — recherche des lieux…");
@@ -881,6 +947,8 @@ function wire() {
   } catch (e) {}
   $("player-name").addEventListener("change", savePlayerName);
   $("player-name").addEventListener("blur", savePlayerName);
+  $("player-name").addEventListener("input", () => setAvatar("player-avatar", $("player-name").value));
+  setAvatar("player-avatar", G.playerName);
 
   // segmented manches
   $("rounds-seg").addEventListener("click", (e) => {
