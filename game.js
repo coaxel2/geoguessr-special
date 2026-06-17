@@ -69,46 +69,23 @@ function settingsText() {
     : (labelForValue("room-zone-filter", G.zoneFilter) || labelForValue("online-zone-filter", G.zoneFilter));
   return G.rounds + " manches · " + (zone || "Monde entier");
 }
-/* ---------- avatar identicon (motif déterministe dérivé du pseudo) ----------
-   Pas besoin de l'envoyer en P2P : chaque client regénère l'avatar de l'autre
-   à partir du pseudo reçu (même pseudo ⇒ même motif et même couleur). */
-function hashStr(s) {
-  let h = 2166136261;
-  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
-  return h >>> 0;
-}
-function identiconSVG(name, size) {
-  size = size || 40;
-  const seed = ((name || "?").trim().toLowerCase()) || "?";
-  let n = hashStr(seed);
-  const fg = "hsl(" + (n % 360) + " 60% 58%)";
-  const cell = size / 5;
-  let rects = "";
-  for (let col = 0; col < 3; col++) {
-    for (let row = 0; row < 5; row++) {
-      n = Math.imul(n, 48271) >>> 0;             // PRNG de Lehmer
-      if ((n & 1) === 0) {                        // ~50 % de cellules pleines
-        const cs = col === 2 ? [2] : [col, 4 - col];   // symétrie verticale
-        for (const c of cs) {
-          rects += '<rect x="' + (c * cell).toFixed(2) + '" y="' + (row * cell).toFixed(2) +
-                   '" width="' + cell.toFixed(2) + '" height="' + cell.toFixed(2) + '"/>';
-        }
-      }
-    }
-  }
-  return '<svg viewBox="0 0 ' + size + ' ' + size + '" width="' + size + '" height="' + size +
-         '" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
-         '<rect width="' + size + '" height="' + size + '" rx="' + (size * 0.24).toFixed(1) +
-         '" fill="rgba(255,255,255,.05)"/><g fill="' + fg + '">' + rects + '</g></svg>';
-}
+/* ---------- avatars « bonhomme » via DiceBear (style avataaars) ----------
+   Déterministes : générés depuis le pseudo (+ une graine cyclable au clic).
+   En P2P on ne transmet que le pseudo + la graine ; chaque client recompose
+   l'avatar de l'autre à l'identique (même seed ⇒ même bonhomme). */
+const AV_STYLE = "avataaars";
+const AV_BG = "b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf,d1f4d9,ffeeb3";
 function avatarKey(name, seed) {
-  return (((name || "").trim().toLowerCase()) || "?") + "#" + (seed || 0);
+  return (((name || "").trim().toLowerCase()) || "joueur") + "#" + (seed || 0);
+}
+function avatarURL(name, seed) {
+  return "https://api.dicebear.com/9.x/" + AV_STYLE + "/svg?seed=" +
+         encodeURIComponent(avatarKey(name, seed)) + "&backgroundColor=" + AV_BG;
 }
 function setAvatar(elId, name, seed) {
   const el = $(elId);
   if (!el) return;
-  const size = el.dataset && el.dataset.size ? parseInt(el.dataset.size, 10) : 40;
-  el.innerHTML = identiconSVG(avatarKey(name, seed), size);
+  el.innerHTML = '<img src="' + avatarURL(name, seed) + '" alt="" draggable="false" />';
 }
 function cycleAvatar() {
   G.avatarSeed = (G.avatarSeed + 1) % 10000;
@@ -964,7 +941,11 @@ function wire() {
   } catch (e) {}
   $("player-name").addEventListener("change", savePlayerName);
   $("player-name").addEventListener("blur", savePlayerName);
-  $("player-name").addEventListener("input", () => setAvatar("player-avatar", $("player-name").value, G.avatarSeed));
+  let avTimer = null;
+  $("player-name").addEventListener("input", () => {
+    clearTimeout(avTimer);
+    avTimer = setTimeout(() => setAvatar("player-avatar", $("player-name").value, G.avatarSeed), 350);
+  });
   $("player-avatar").addEventListener("click", cycleAvatar);
   setAvatar("player-avatar", G.playerName, G.avatarSeed);
 

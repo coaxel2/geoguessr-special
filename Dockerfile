@@ -6,6 +6,9 @@ FROM nginx:alpine
 # Fichiers de l'application
 COPY index.html style.css game.js favicon.svg /usr/share/nginx/html/
 
+# Config nginx : revalidation du cache (évite les versions périmées chez les visiteurs)
+COPY nginx-default.conf /etc/nginx/conf.d/default.conf
+
 # Script d'injection de la clé (exécuté par le mécanisme docker-entrypoint.d de nginx)
 COPY docker-entrypoint.sh /docker-entrypoint.d/40-inject-gmaps-key.sh
 RUN chmod +x /docker-entrypoint.d/40-inject-gmaps-key.sh
