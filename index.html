@@ -7,14 +7,14 @@
   <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests" />
   <title>Geoloc — devine où tu te trouves dans le monde</title>
   <meta name="description" content="Geoloc : largué quelque part en vue Street View, devine où tu te trouves sur la carte. Solo ou multijoueur en ligne." />
-  <link rel="icon" type="image/svg+xml" href="favicon.svg?v=22" />
+  <link rel="icon" type="image/svg+xml" href="favicon.svg?v=23" />
   <meta name="theme-color" content="#0f1419" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="preconnect" href="https://api.dicebear.com" />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-  <link rel="stylesheet" href="style.css?v=22" />
+  <link rel="stylesheet" href="style.css?v=23" />
 </head>
 <body>
 
@@ -45,6 +45,16 @@
           <button data-r="3">3</button>
           <button data-r="5" class="on">5</button>
           <button data-r="10">10</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Temps / manche</label>
+        <div class="seg" id="time-seg">
+          <button data-t="0" class="on">∞</button>
+          <button data-t="5">5 min</button>
+          <button data-t="10">10 min</button>
+          <button data-t="15">15 min</button>
         </div>
       </div>
 
@@ -101,7 +111,6 @@
 
       <p class="hint" id="maps-state">Chargement de la carte…</p>
     </div>
-    <footer class="credit">Axel &amp; Clément · déployé sur planbadge.fr</footer>
   </section>
 
   <!-- ====================== ONLINE SETUP ====================== -->
@@ -118,6 +127,16 @@
             <button data-r="3">3</button>
             <button data-r="5" class="on">5</button>
             <button data-r="10">10</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Temps / manche</label>
+          <div class="seg" id="online-time-seg">
+            <button data-t="0" class="on">∞</button>
+            <button data-t="5">5 min</button>
+            <button data-t="10">10 min</button>
+            <button data-t="15">15 min</button>
           </div>
         </div>
 
@@ -191,6 +210,15 @@
             </div>
           </div>
           <div class="field">
+            <label>Temps / manche</label>
+            <div class="seg" id="room-time-seg">
+              <button data-t="0" class="on">∞</button>
+              <button data-t="5">5 min</button>
+              <button data-t="10">10 min</button>
+              <button data-t="15">15 min</button>
+            </div>
+          </div>
+          <div class="field">
             <label>Zone</label>
             <button type="button" class="zone-trigger" id="room-zone-trigger">
               <div class="zone-trigger-map" id="room-zone-trigger-map"></div>
@@ -257,6 +285,7 @@
     <!-- top HUD -->
     <div class="hud">
       <div class="hud-pill" id="hud-round">Manche 1/5</div>
+      <div class="hud-pill hud-timer hidden" id="hud-timer">⏱ 5:00</div>
       <div class="hud-pill" id="hud-score">0 pts</div>
       <div class="hud-pill hud-opp hidden" id="hud-opp"><span class="av av-sm" id="hud-opp-av" data-size="20"></span><span id="hud-opp-txt">Adversaire : 0 pts</span></div>
       <button class="hud-pill hud-quit" id="btn-quit">Quitter</button>
@@ -349,6 +378,6 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <!-- PeerJS for multiplayer signaling (same lib as the chess project) -->
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js" integrity="sha384-nlUQ8ZqCbvStErob+biJNzSgltf6urV3VGqhfIfzhmg9RXmpeRm76ELw0pYnKlTR" crossorigin="anonymous"></script>
-  <script src="game.js?v=22"></script>
+  <script src="game.js?v=23"></script>
 </body>
 </html>

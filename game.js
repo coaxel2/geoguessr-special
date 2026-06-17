@@ -66,7 +66,8 @@ function settingsText() {
   const zone = G.zoneFilter === "country"
     ? (labelForValue("room-country-filter", G.countryFilter) || labelForValue("online-country-filter", G.countryFilter))
     : (labelForValue("room-zone-filter", G.zoneFilter) || labelForValue("online-zone-filter", G.zoneFilter));
-  return G.rounds + " manches · " + (zone || "Monde entier");
+  const t = G.timeLimit ? " · " + Math.round(G.timeLimit / 60) + " min/manche" : "";
+  return G.rounds + " manches · " + (zone || "Monde entier") + t;
 }
 /* ---------- avatars « bonhomme » via DiceBear (style avataaars) ----------
    Déterministes : générés depuis le pseudo (+ une graine cyclable au clic).
@@ -145,6 +146,8 @@ const G = {
   locationBatch: 0,
   zoneFilter: "world",
   countryFilter: "france",
+  timeLimit: 0,
+  timer: null,
   online: {
     active: false, peer: null, conn: null, isHost: false, code: null,
     started: false,
@@ -569,28 +572,40 @@ function selectedRounds(id) {
   const selected = $(id).querySelector("button.on");
   return selected ? parseInt(selected.dataset.r, 10) : G.rounds;
 }
+function selectedTime(id) {
+  const sel = $(id) && $(id).querySelector("button.on");
+  return sel ? parseInt(sel.dataset.t, 10) * 60 : G.timeLimit;
+}
+function setTimeSeg(id, seconds) {
+  const mins = Math.round((seconds || 0) / 60);
+  if ($(id)) $(id).querySelectorAll("button").forEach((b) => b.classList.toggle("on", parseInt(b.dataset.t, 10) === mins));
+}
 function readMenuSettings() {
   G.zoneFilter = $("zone-filter").value;
   G.countryFilter = $("country-filter").value;
 }
 function readOnlineSettings() {
   G.rounds = selectedRounds("online-rounds-seg");
+  G.timeLimit = selectedTime("online-time-seg");
   G.zoneFilter = $("online-zone-filter").value;
   G.countryFilter = $("online-country-filter").value;
 }
 function readRoomSettings() {
   G.rounds = selectedRounds("room-rounds-seg");
+  G.timeLimit = selectedTime("room-time-seg");
   G.zoneFilter = $("room-zone-filter").value;
   G.countryFilter = $("room-country-filter").value;
 }
 function mirrorSettingsToOnline() {
   setRoundSeg("online-rounds-seg", G.rounds);
+  setTimeSeg("online-time-seg", G.timeLimit);
   $("online-zone-filter").value = G.zoneFilter;
   $("online-country-filter").value = G.countryFilter;
   updateZoneTrigger();
 }
 function mirrorSettingsToRoom() {
   setRoundSeg("room-rounds-seg", G.rounds);
+  setTimeSeg("room-time-seg", G.timeLimit);
   $("room-zone-filter").value = G.zoneFilter;
   $("room-country-filter").value = G.countryFilter;
   $("room-settings").textContent = settingsText();
@@ -600,10 +615,11 @@ function sendRoomSettings() {
   if (!G.online.isHost || G.online.started) return;
   readRoomSettings();
   $("room-settings").textContent = settingsText();
-  sendMsg({ type: "room", rounds: G.rounds, zone: G.zoneFilter, country: G.countryFilter });
+  sendMsg({ type: "room", rounds: G.rounds, zone: G.zoneFilter, country: G.countryFilter, time: G.timeLimit });
 }
 function applyRemoteSettings(m) {
   G.rounds = m.rounds || G.rounds;
+  if (m.time != null) G.timeLimit = m.time;
   G.zoneFilter = m.zone || G.zoneFilter;
   G.countryFilter = m.country || G.countryFilter;
   mirrorSettingsToOnline();
@@ -774,7 +790,7 @@ async function loadRound() {
   G.startPov = { heading: Math.random() * 360, pitch: 0, zoom: 0 };
   makePano(loc, G.startPov);
   let done = false;
-  const reveal = () => { if (done) return; done = true; uncover(); };
+  const reveal = () => { if (done) return; done = true; uncover(); startTimer(G.timeLimit); };
   google.maps.event.addListenerOnce(G.pano, "position_changed", reveal);
   setTimeout(reveal, 4000); // filet de sécurité
 }
@@ -785,6 +801,7 @@ function resetView() {
 
 function submitGuess() {
   if (!G.guess || G.submitted) return;
+  clearTimer();
   G.submitted = true;
   $("btn-guess").disabled = true;
   const loc = G.locations[G.current];
@@ -815,6 +832,74 @@ function scoreFor(d) {
   return Math.round(5000 * Math.exp(-km / 1500));
 }
 
+/* ---------- chrono + son ---------- */
+let audioCtx = null;
+function beep(freq, dur) {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.type = "sine"; o.frequency.value = freq || 880;
+    g.gain.setValueAtTime(0.14, audioCtx.currentTime);
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start();
+    g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + (dur || 0.16));
+    o.stop(audioCtx.currentTime + (dur || 0.16));
+  } catch (e) {}
+}
+function fmtTime(s) {
+  s = Math.max(0, s | 0);
+  const m = Math.floor(s / 60), ss = s % 60;
+  return m + ":" + (ss < 10 ? "0" : "") + ss;
+}
+function clearTimer() {
+  if (G.timer && G.timer.id) clearInterval(G.timer.id);
+  G.timer = null;
+  const el = $("hud-timer");
+  if (el) { el.classList.add("hidden"); el.classList.remove("danger"); }
+}
+function startTimer(seconds) {
+  clearTimer();
+  if (!seconds || seconds <= 0) return;
+  G.timer = { id: null, remaining: seconds, red: false };
+  const el = $("hud-timer");
+  if (el) { el.classList.remove("hidden", "danger"); el.textContent = "⏱ " + fmtTime(seconds); }
+  G.timer.id = setInterval(tickTimer, 1000);
+}
+function tickTimer() {
+  if (!G.timer) return;
+  G.timer.remaining--;
+  const el = $("hud-timer");
+  if (G.timer.remaining <= 30 && !G.timer.red) {            // 30 s restantes : rouge + son
+    G.timer.red = true;
+    if (el) el.classList.add("danger");
+    beep(880, 0.18);
+  }
+  if (el) el.textContent = "⏱ " + fmtTime(G.timer.remaining);
+  if (G.timer.remaining <= 0) { clearTimer(); timeUp(); }
+}
+function timeUp() {
+  if (G.submitted) return;
+  beep(440, 0.32);
+  if (G.guess) { submitGuess(); return; }
+  // temps écoulé sans marqueur → 0 pt pour la manche
+  G.submitted = true;
+  G.scores[G.current] = 0;
+  G.lastDist = null;
+  $("btn-guess").disabled = true;
+  if (G.online.active) {
+    sendMsg({ type: "guess", round: G.current, lat: null, lng: null, dist: null, pts: 0 });
+    if (G.online.oppDone) revealRound();
+    else $("guess-hint").textContent = "⏱ Temps écoulé — en attente de l'adversaire…";
+  } else revealRound();
+}
+// multi : dès que l'adversaire a deviné, 30 s pour conclure (même en illimité)
+function shrinkTimerTo30() {
+  if (G.submitted) return;
+  if (!G.timer) startTimer(30);
+  else if (G.timer.remaining > 30) { G.timer.remaining = 30; G.timer.red = false; }
+}
+
 /* ---------- résultat de manche ---------- */
 let resMap = null, resOverlays = [];
 function ensureResultMap() {
@@ -837,7 +922,7 @@ function drawResult(loc) {
     resOverlays.push(pin(g, "#2ee6a6").addTo(resMap).bindTooltip("Toi"));
     resOverlays.push(L.polyline([g, actual], { color: "#2ee6a6", weight: 2, dashArray: "4 6" }).addTo(resMap));
   }
-  if (G.online.active && G.online.oppGuess) {
+  if (G.online.active && G.online.oppGuess && G.online.oppGuess.lat != null) {
     const o = [G.online.oppGuess.lat, G.online.oppGuess.lng]; pts.push(o);
     resOverlays.push(pin(o, "#19b7e6").addTo(resMap).bindTooltip("Adversaire"));
     resOverlays.push(L.polyline([o, actual], { color: "#19b7e6", weight: 2, dashArray: "4 6" }).addTo(resMap));
@@ -847,6 +932,7 @@ function drawResult(loc) {
 }
 
 function revealRound() {
+  clearTimer();
   showScreen("result");
   updateNameLabels();
   ensureResultMap();
@@ -1098,7 +1184,7 @@ function setupConn(conn) {
     $("btn-start-room").classList.remove("hidden");
     $("btn-start-room").disabled = false;
     $("btn-kick-player").classList.remove("hidden");
-    sendMsg({ type: "room", rounds: G.rounds, zone: G.zoneFilter, country: G.countryFilter });
+    sendMsg({ type: "room", rounds: G.rounds, zone: G.zoneFilter, country: G.countryFilter, time: G.timeLimit });
   } else {
     $("online-status").textContent = "Connecté — en attente de l'hôte";
   }
@@ -1111,7 +1197,7 @@ async function hostStartGame() {
   $("btn-start-room").disabled = true;
   $("btn-kick-player").classList.add("hidden");
   $("room-options").classList.add("hidden");
-  sendMsg({ type: "start", rounds: G.rounds, zone: G.zoneFilter, country: G.countryFilter });
+  sendMsg({ type: "start", rounds: G.rounds, zone: G.zoneFilter, country: G.countryFilter, time: G.timeLimit });
   $("online-status").textContent = "Connecté — recherche des lieux…";
   showScreen("game");
   resetLocations();
@@ -1172,6 +1258,7 @@ function onData(m) {
     $("opp-flag").classList.remove("hidden");
     $("opp-flag").textContent = (G.online.oppName || "Ton adversaire") + " a deviné";
     if (G.submitted) revealRound();
+    else shrinkTimerTo30();
 
   } else if (m.type === "next") {
     G.online.oppWantNext = true;
@@ -1237,7 +1324,7 @@ function backToOnlineChoice() {
   $("btn-kick-player").classList.add("hidden");
   $("room-settings").textContent = "";
 }
-function goHome() { onlineReset(); G.online.active = false; showScreen("menu"); }
+function goHome() { clearTimer(); onlineReset(); G.online.active = false; showScreen("menu"); }
 
 /* ===========================================================
    Wiring UI
@@ -1298,6 +1385,17 @@ function wire() {
     $("room-rounds-seg").querySelectorAll("button").forEach((x) => x.classList.remove("on"));
     b.classList.add("on");
     sendRoomSettings();
+  });
+  // segments « Temps / manche » (menu / online / salon)
+  ["time-seg", "online-time-seg", "room-time-seg"].forEach((id) => {
+    const seg = $(id); if (!seg) return;
+    seg.addEventListener("click", (e) => {
+      const b = e.target.closest("button[data-t]"); if (!b) return;
+      seg.querySelectorAll("button").forEach((x) => x.classList.remove("on"));
+      b.classList.add("on");
+      if (id === "time-seg") G.timeLimit = parseInt(b.dataset.t, 10) * 60;
+      if (id === "room-time-seg") sendRoomSettings();
+    });
   });
   $("zone-filter").addEventListener("change", () => {
     G.zoneFilter = $("zone-filter").value;
