@@ -341,6 +341,116 @@ function fillZoneOptions() {
     sel.dataset.zonesDone = "1";
   });
 }
+/* ===========================================================
+   Sélecteur de zone visuel (cartes avec aperçu de la carte)
+   =========================================================== */
+// Tuile CartoDB (sombre, comme le jeu) contenant le point, à un zoom donné.
+function tileURL(lat, lng, z) {
+  const n = Math.pow(2, z);
+  const x = ((Math.floor((lng + 180) / 360 * n)) % n + n) % n;
+  const lr = lat * Math.PI / 180;
+  let y = Math.floor((1 - Math.log(Math.tan(lr) + 1 / Math.cos(lr)) / Math.PI) / 2 * n);
+  y = Math.max(0, Math.min(n - 1, y));
+  return "https://a.basemaps.cartocdn.com/dark_all/" + z + "/" + x + "/" + y + ".png";
+}
+// Catalogue trié par catégorie. {l:label, z:zoneFilter, co:countryFilter?, la,lo:centre, tz:zoom tuile}
+function zoneGroups() {
+  const frReg = FR_REGIONS.map((r) => ({ l: r[1], z: r[0], la: (r[2] + r[3]) / 2, lo: (r[4] + r[5]) / 2, tz: 7 }));
+  const frCity = CITIES_FR.map((c) => ({ l: c[1], z: c[0], la: c[2], lo: c[3], tz: 11 }));
+  const wCity = CITIES_WORLD.map((c) => ({ l: c[1], z: c[0], la: c[2], lo: c[3], tz: 11 }));
+  return [
+    ["Le monde", [
+      { l: "Monde entier", z: "world", la: 25, lo: 0, tz: 0 },
+      { l: "Grandes villes du monde", z: "world-cities", la: 25, lo: 0, tz: 0 },
+      { l: "France — grandes villes", z: "france-cities", la: 46.6, lo: 2.4, tz: 5 },
+    ]],
+    ["Continents", [
+      { l: "Europe", z: "europe", la: 50, lo: 10, tz: 3 },
+      { l: "Amérique du Nord", z: "north-america", la: 45, lo: -100, tz: 2 },
+      { l: "Amérique du Sud", z: "south-america", la: -15, lo: -60, tz: 2 },
+      { l: "Asie", z: "asia", la: 35, lo: 100, tz: 2 },
+      { l: "Océanie", z: "oceania", la: -25, lo: 140, tz: 3 },
+      { l: "Afrique", z: "africa", la: 2, lo: 20, tz: 2 },
+    ]],
+    ["Pays", [
+      { l: "France", z: "country", co: "france", la: 46.6, lo: 2.4, tz: 5 },
+      { l: "États-Unis", z: "country", co: "usa", la: 39, lo: -98, tz: 3 },
+      { l: "Canada", z: "country", co: "canada", la: 56, lo: -100, tz: 3 },
+      { l: "Royaume-Uni / Irlande", z: "country", co: "uk-ireland", la: 54, lo: -4, tz: 5 },
+      { l: "Espagne / Portugal", z: "country", co: "spain-portugal", la: 40, lo: -4, tz: 5 },
+      { l: "Italie", z: "country", co: "italy", la: 42, lo: 12.5, tz: 5 },
+      { l: "Allemagne", z: "country", co: "germany", la: 51, lo: 10, tz: 5 },
+      { l: "Japon", z: "country", co: "japan", la: 37, lo: 138, tz: 5 },
+      { l: "Corée du Sud", z: "country", co: "south-korea", la: 36.5, lo: 127.8, tz: 6 },
+      { l: "Australie", z: "country", co: "australia", la: -25, lo: 134, tz: 4 },
+      { l: "Nouvelle-Zélande", z: "country", co: "new-zealand", la: -41, lo: 173, tz: 5 },
+      { l: "Brésil", z: "country", co: "brazil", la: -12, lo: -50, tz: 3 },
+      { l: "Argentine / Chili", z: "country", co: "argentina-chile", la: -35, lo: -65, tz: 4 },
+      { l: "Afrique du Sud", z: "country", co: "south-africa", la: -30, lo: 24, tz: 5 },
+      { l: "Mexique", z: "country", co: "mexico", la: 23, lo: -102, tz: 4 },
+    ]],
+    ["Régions de France", frReg],
+    ["Villes de France", frCity],
+    ["Villes du monde", wCity],
+  ];
+}
+function zoneLabel() {
+  let label = "Monde entier";
+  zoneGroups().forEach((g) => g[1].forEach((e) => {
+    if (e.z === G.zoneFilter && (!e.co || e.co === G.countryFilter)) label = e.l;
+  }));
+  return label;
+}
+function buildZoneModal() {
+  const wrap = $("zone-groups");
+  if (!wrap || wrap.dataset.built) return;
+  zoneGroups().forEach((g) => {
+    const h = document.createElement("div");
+    h.className = "zone-cat"; h.textContent = g[0];
+    wrap.appendChild(h);
+    const grid = document.createElement("div");
+    grid.className = "zone-grid";
+    g[1].forEach((e) => {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "zone-card";
+      b.dataset.z = e.z; b.dataset.co = e.co || "";
+      b.innerHTML =
+        '<span class="zone-card-map" style="background-image:url(' + tileURL(e.la, e.lo, e.tz) + ')"></span>' +
+        '<span class="zone-card-label">' + e.l + "</span>";
+      grid.appendChild(b);
+    });
+    wrap.appendChild(grid);
+  });
+  wrap.dataset.built = "1";
+  highlightZone();
+}
+function highlightZone() {
+  const wrap = $("zone-groups"); if (!wrap) return;
+  wrap.querySelectorAll(".zone-card").forEach((b) => {
+    b.classList.toggle("on", b.dataset.z === G.zoneFilter &&
+      (b.dataset.z !== "country" || b.dataset.co === G.countryFilter));
+  });
+}
+function updateZoneTrigger() {
+  if ($("zone-trigger-txt")) $("zone-trigger-txt").textContent = zoneLabel();
+  const map = $("zone-trigger-map");
+  if (map) {
+    let cur = null;
+    zoneGroups().forEach((g) => g[1].forEach((e) => {
+      if (e.z === G.zoneFilter && (!e.co || e.co === G.countryFilter)) cur = e;
+    }));
+    if (cur) map.style.backgroundImage = "url(" + tileURL(cur.la, cur.lo, cur.tz) + ")";
+  }
+}
+function selectZone(z, co) {
+  G.zoneFilter = z;
+  if (co) G.countryFilter = co;
+  const zs = $("zone-filter"); if (zs) zs.value = z;       // garde les selects cachés synchro
+  const cs = $("country-filter"); if (cs && co) cs.value = co;
+  highlightZone();
+  updateZoneTrigger();
+  $("zone-modal").hidden = true;
+}
 function setRoundSeg(id, rounds) {
   $(id).querySelectorAll("button").forEach((b) => b.classList.toggle("on", parseInt(b.dataset.r, 10) === rounds));
 }
@@ -1043,6 +1153,17 @@ function wire() {
   $("avatar-close").addEventListener("click", () => { $("avatar-modal").hidden = true; });
   $("avatar-done").addEventListener("click", () => { $("avatar-modal").hidden = true; });
   $("avatar-modal").addEventListener("click", (e) => { if (e.target.id === "avatar-modal") $("avatar-modal").hidden = true; });
+
+  // sélecteur de zone visuel
+  buildZoneModal();
+  updateZoneTrigger();
+  $("zone-trigger").addEventListener("click", () => { $("zone-modal").hidden = false; });
+  $("zone-modal-close").addEventListener("click", () => { $("zone-modal").hidden = true; });
+  $("zone-modal").addEventListener("click", (e) => { if (e.target.id === "zone-modal") $("zone-modal").hidden = true; });
+  $("zone-groups").addEventListener("click", (e) => {
+    const b = e.target.closest(".zone-card"); if (!b) return;
+    selectZone(b.dataset.z, b.dataset.co || null);
+  });
 
   // segmented manches
   $("rounds-seg").addEventListener("click", (e) => {
