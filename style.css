@@ -1007,6 +1007,22 @@ body {
   pointer-events: auto;
 }
 
+/* Accueil desktop : le panneau de réglages flotte au-dessus du globe. Un léger
+   fond translucide + flou détache le formulaire et rend les labels lisibles
+   (sinon le vert du globe transparaît derrière « AVATAR » / « TEMPS »).
+   Le mobile garde son bottom-sheet (cf. @media max-width: 860px). */
+@media (min-width: 861px) {
+  #menu .home-panel {
+    padding: 18px 20px;
+    border: 1px solid rgba(255, 255, 255, .08);
+    border-radius: 20px;
+    background: linear-gradient(180deg, rgba(11, 16, 32, .74), rgba(9, 13, 26, .66));
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, .4);
+  }
+}
+
 .site-header {
   position: fixed;
   top: 22px;
@@ -1142,6 +1158,13 @@ body {
   font-size: clamp(42px, 7vw, 84px);
   line-height: .95;
   letter-spacing: 0;
+}
+
+/* Titres des pages feature (un seul mot long : « Communauté », « Multijoueur »…) :
+   plus compacts que le hero pour ne pas chevaucher la colonne de droite (grille 2 col). */
+.page-heading h1 {
+  font-size: clamp(38px, 5vw, 62px);
+  overflow-wrap: break-word;
 }
 
 .home-copy .tagline,
@@ -1523,7 +1546,7 @@ body {
 
 @media (max-width: 900px) {
   .wallet-pill {
-    top: 128px;
+    top: 20px;
     right: 18px;
     min-height: 40px;
     padding: 0 13px;
@@ -1636,7 +1659,7 @@ body {
 
 @media (max-width: 520px) {
   .wallet-pill {
-    top: 120px;
+    top: 18px;
     right: 12px;
     min-height: 36px;
     padding: 0 11px;

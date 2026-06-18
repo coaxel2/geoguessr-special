@@ -24,8 +24,13 @@ function showScreen(id) {
   document.querySelectorAll(".screen").forEach((s) => s.classList.remove("show"));
   $(id).classList.add("show");
   syncTabs(id);
+  // La monnaie n'a de sens que sur les écrans « vitrine » ; on la masque en partie
+  // (game / result / final) pour ne pas encombrer le Street View ni ses contrôles.
+  const isHub = (id === "menu" || id === "online" || id === "leaderboard" || id === "shop" || id === "community");
+  const wallet = document.getElementById("wallet-pill");
+  if (wallet) wallet.style.display = isHub ? "" : "none";
   if (id === "leaderboard") loadLeaderboardPage();
-  if (id === "menu" || id === "online" || id === "leaderboard" || id === "shop" || id === "community") {
+  if (isHub) {
     try { $(id).scrollTop = 0; } catch (e) {}
   }
 }
