@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://api.dicebear.com" />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-  <link rel="stylesheet" href="style.css?v=37" />
+  <link rel="stylesheet" href="style.css?v=39" />
 </head>
 <body>
 
@@ -22,232 +22,269 @@
   <section id="menu" class="screen show">
     <canvas class="home-globe" id="home-globe" aria-hidden="true"></canvas>
     <div class="home-bg"></div>
-    <div class="home-layout">
-      <header class="home-brand">
-        <h1 class="logo">📍 Geo<span>loc</span></h1>
-        <p class="tagline">Largué quelque part sur Terre.<br />À toi de deviner où.</p>
-        <p class="brand-sub">Street View · solo ou jusqu'à plusieurs joueurs en ligne</p>
+    <div class="app-shell home-layout">
+      <header class="site-header">
+        <button type="button" class="brand-mark tab-link" data-tab="menu" aria-label="Accueil Geoloc">
+          <span class="brand-pin">📍</span>
+          <span class="logo">Geo<span>loc</span></span>
+        </button>
+        <nav class="site-tabs" aria-label="Navigation principale">
+          <button type="button" class="tab-link on" data-tab="menu">Solo</button>
+          <button type="button" class="tab-link" data-tab="online">Multijoueur</button>
+          <button type="button" class="tab-link" data-tab="leaderboard">Classement</button>
+        </nav>
       </header>
-      <div class="home-panel">
-      <div class="field">
-        <label for="player-name">Pseudo</label>
-        <input id="player-name" class="text-input" maxlength="18" placeholder="Joueur" autocomplete="nickname" spellcheck="false" />
-      </div>
 
-      <div class="field">
-        <label>Avatar</label>
-        <button type="button" class="avatar-trigger" id="avatar-trigger">
-          <span class="av av-lg" id="avatar-current"></span>
-          <span class="avatar-trigger-txt">Choisir mon avatar</span>
-          <span class="avatar-trigger-go">›</span>
-        </button>
-      </div>
+      <main class="home-main">
+        <section class="home-copy">
+          <p class="kicker">Jeu de géolocalisation</p>
+          <h1>Largué quelque part sur Terre.</h1>
+          <p class="tagline">Observe Street View, place ton marqueur sur la carte et compare ton score en solo ou en ligne.</p>
+          <p class="brand-sub">Street View · solo · multijoueur · classement PostgreSQL</p>
+        </section>
 
-      <div class="field">
-        <label for="rounds">Manches</label>
-        <div class="seg" id="rounds-seg">
-          <button data-r="3">3</button>
-          <button data-r="5" class="on">5</button>
-          <button data-r="10">10</button>
-        </div>
-      </div>
+        <section class="home-panel" aria-label="Paramètres de partie solo">
+          <div class="setup-grid">
+            <div class="field profile-field">
+              <label for="player-name">Pseudo</label>
+              <input id="player-name" class="text-input" maxlength="18" placeholder="Joueur" autocomplete="nickname" spellcheck="false" />
+            </div>
 
-      <div class="field">
-        <label>Temps / manche</label>
-        <div class="seg" id="time-seg">
-          <button data-t="0" class="on">∞</button>
-          <button data-t="5">5 min</button>
-          <button data-t="10">10 min</button>
-          <button data-t="15">15 min</button>
-        </div>
-      </div>
+            <div class="field avatar-field">
+              <label>Avatar</label>
+              <button type="button" class="avatar-trigger" id="avatar-trigger">
+                <span class="av av-lg" id="avatar-current"></span>
+                <span class="avatar-trigger-txt">Choisir mon avatar</span>
+                <span class="avatar-trigger-go">›</span>
+              </button>
+            </div>
 
-      <div class="field">
-        <label>Zone</label>
-        <button type="button" class="zone-trigger" id="zone-trigger">
-          <div class="zone-trigger-map" id="zone-trigger-map"></div>
-          <span class="zone-trigger-txt" id="zone-trigger-txt">Monde entier</span>
-          <span class="avatar-trigger-go">›</span>
-        </button>
-      </div>
+            <div class="field">
+              <label for="rounds">Manches</label>
+              <div class="seg" id="rounds-seg">
+                <button data-r="3">3</button>
+                <button data-r="5" class="on">5</button>
+                <button data-r="10">10</button>
+              </div>
+            </div>
 
-      <div class="field hidden">
-        <label for="zone-filter">Zone</label>
-        <select id="zone-filter" class="select">
-          <option value="world">Monde entier</option>
-          <option value="world-cities">Grandes villes du monde</option>
-          <option value="europe">Europe</option>
-          <option value="north-america">Amérique du Nord</option>
-          <option value="south-america">Amérique du Sud</option>
-          <option value="asia">Asie</option>
-          <option value="oceania">Océanie</option>
-          <option value="africa">Afrique</option>
-          <option value="country">Pays</option>
-          <option value="france-cities">France - grandes villes</option>
-        </select>
-      </div>
+            <div class="field">
+              <label>Temps / manche</label>
+              <div class="seg" id="time-seg">
+                <button data-t="0" class="on">∞</button>
+                <button data-t="5">5 min</button>
+                <button data-t="10">10 min</button>
+                <button data-t="15">15 min</button>
+              </div>
+            </div>
 
-      <div class="field hidden" id="country-field">
-        <label for="country-filter">Pays</label>
-        <select id="country-filter" class="select">
-          <option value="france">France</option>
-          <option value="usa">États-Unis</option>
-          <option value="canada">Canada</option>
-          <option value="uk-ireland">Royaume-Uni / Irlande</option>
-          <option value="spain-portugal">Espagne / Portugal</option>
-          <option value="italy">Italie</option>
-          <option value="germany">Allemagne</option>
-          <option value="japan">Japon</option>
-          <option value="south-korea">Corée du Sud</option>
-          <option value="australia">Australie</option>
-          <option value="new-zealand">Nouvelle-Zélande</option>
-          <option value="brazil">Brésil</option>
-          <option value="argentina-chile">Argentine / Chili</option>
-          <option value="south-africa">Afrique du Sud</option>
-          <option value="mexico">Mexique</option>
-        </select>
-      </div>
+            <div class="field zone-field">
+              <label>Zone</label>
+              <button type="button" class="zone-trigger" id="zone-trigger">
+                <div class="zone-trigger-map" id="zone-trigger-map"></div>
+                <span class="zone-trigger-txt" id="zone-trigger-txt">Monde entier</span>
+                <span class="avatar-trigger-go">›</span>
+              </button>
+            </div>
+          </div>
 
-      <div class="menu-actions">
-        <button id="btn-solo" class="btn btn-primary">🎯 Jouer en solo</button>
-        <button id="btn-online" class="btn btn-ghost">🌐 Multijoueur en ligne</button>
-        <button id="btn-leaderboard" class="btn btn-ghost">🏆 Classement</button>
-      </div>
+          <div class="field hidden">
+            <label for="zone-filter">Zone</label>
+            <select id="zone-filter" class="select">
+              <option value="world">Monde entier</option>
+              <option value="world-cities">Grandes villes du monde</option>
+              <option value="europe">Europe</option>
+              <option value="north-america">Amérique du Nord</option>
+              <option value="south-america">Amérique du Sud</option>
+              <option value="asia">Asie</option>
+              <option value="oceania">Océanie</option>
+              <option value="africa">Afrique</option>
+              <option value="country">Pays</option>
+              <option value="france-cities">France - grandes villes</option>
+            </select>
+          </div>
 
-      <p class="hint" id="maps-state">Chargement de la carte…</p>
-      </div>
+          <div class="field hidden" id="country-field">
+            <label for="country-filter">Pays</label>
+            <select id="country-filter" class="select">
+              <option value="france">France</option>
+              <option value="usa">États-Unis</option>
+              <option value="canada">Canada</option>
+              <option value="uk-ireland">Royaume-Uni / Irlande</option>
+              <option value="spain-portugal">Espagne / Portugal</option>
+              <option value="italy">Italie</option>
+              <option value="germany">Allemagne</option>
+              <option value="japan">Japon</option>
+              <option value="south-korea">Corée du Sud</option>
+              <option value="australia">Australie</option>
+              <option value="new-zealand">Nouvelle-Zélande</option>
+              <option value="brazil">Brésil</option>
+              <option value="argentina-chile">Argentine / Chili</option>
+              <option value="south-africa">Afrique du Sud</option>
+              <option value="mexico">Mexique</option>
+            </select>
+          </div>
+
+          <div class="menu-actions">
+            <button id="btn-solo" class="btn btn-primary">🎯 Jouer en solo</button>
+            <button id="btn-online" class="btn btn-ghost">🌐 Multijoueur en ligne</button>
+          </div>
+
+          <p class="hint" id="maps-state">Chargement de la carte…</p>
+        </section>
+      </main>
     </div>
   </section>
 
   <!-- ====================== ONLINE SETUP ====================== -->
   <section id="online" class="screen">
-    <div class="menu-bg"></div>
-    <div class="menu-card">
-      <button class="back" data-back="menu">‹ Retour</button>
-      <h2 class="panel-title">Multijoueur en ligne</h2>
+    <div class="home-bg"></div>
+    <div class="app-shell online-shell">
+      <header class="site-header">
+        <button type="button" class="brand-mark tab-link" data-tab="menu" aria-label="Accueil Geoloc">
+          <span class="brand-pin">📍</span>
+          <span class="logo">Geo<span>loc</span></span>
+        </button>
+        <nav class="site-tabs" aria-label="Navigation principale">
+          <button type="button" class="tab-link" data-tab="menu">Solo</button>
+          <button type="button" class="tab-link on" data-tab="online">Multijoueur</button>
+          <button type="button" class="tab-link" data-tab="leaderboard">Classement</button>
+        </nav>
+      </header>
 
-      <div id="online-choice" class="online-choice">
-        <div class="field">
-          <label for="online-rounds-seg">Manches</label>
-          <div class="seg" id="online-rounds-seg">
-            <button data-r="3">3</button>
-            <button data-r="5" class="on">5</button>
-            <button data-r="10">10</button>
-          </div>
-        </div>
+      <main class="online-page">
+        <header class="page-heading">
+          <p class="kicker">Salon en ligne</p>
+          <h1>Multijoueur</h1>
+          <p>Crée un salon ou rejoins une partie avec un code. Les joueurs partagent les mêmes lieux.</p>
+        </header>
 
-        <div class="field">
-          <label>Temps / manche</label>
-          <div class="seg" id="online-time-seg">
-            <button data-t="0" class="on">∞</button>
-            <button data-t="5">5 min</button>
-            <button data-t="10">10 min</button>
-            <button data-t="15">15 min</button>
-          </div>
-        </div>
+        <div class="online-card menu-card">
+          <button class="back" data-back="menu">‹ Solo</button>
+          <h2 class="panel-title">Paramètres</h2>
 
-        <div class="field">
-          <label>Zone</label>
-          <button type="button" class="zone-trigger" id="online-zone-trigger">
-            <div class="zone-trigger-map" id="online-zone-trigger-map"></div>
-            <span class="zone-trigger-txt" id="online-zone-trigger-txt">Monde entier</span>
-            <span class="avatar-trigger-go">›</span>
-          </button>
-        </div>
-
-        <div class="field hidden">
-          <label for="online-zone-filter">Zone</label>
-          <select id="online-zone-filter" class="select">
-            <option value="world">Monde entier</option>
-            <option value="world-cities">Grandes villes du monde</option>
-            <option value="europe">Europe</option>
-            <option value="north-america">Amérique du Nord</option>
-            <option value="south-america">Amérique du Sud</option>
-            <option value="asia">Asie</option>
-            <option value="oceania">Océanie</option>
-            <option value="africa">Afrique</option>
-            <option value="country">Pays</option>
-            <option value="france-cities">France - grandes villes</option>
-          </select>
-        </div>
-
-        <div class="field hidden" id="online-country-field">
-          <label for="online-country-filter">Pays</label>
-          <select id="online-country-filter" class="select">
-            <option value="france">France</option>
-            <option value="usa">États-Unis</option>
-            <option value="canada">Canada</option>
-            <option value="uk-ireland">Royaume-Uni / Irlande</option>
-            <option value="spain-portugal">Espagne / Portugal</option>
-            <option value="italy">Italie</option>
-            <option value="germany">Allemagne</option>
-            <option value="japan">Japon</option>
-            <option value="south-korea">Corée du Sud</option>
-            <option value="australia">Australie</option>
-            <option value="new-zealand">Nouvelle-Zélande</option>
-            <option value="brazil">Brésil</option>
-            <option value="argentina-chile">Argentine / Chili</option>
-            <option value="south-africa">Afrique du Sud</option>
-            <option value="mexico">Mexique</option>
-          </select>
-        </div>
-
-        <div class="online-actions">
-          <div class="online-action-card create-card">
-            <div>
-              <p class="online-card-kicker">Hôte</p>
-              <h3>Créer une partie</h3>
+          <div id="online-choice" class="online-choice">
+            <div class="field">
+              <label for="online-rounds-seg">Manches</label>
+              <div class="seg" id="online-rounds-seg">
+                <button data-r="3">3</button>
+                <button data-r="5" class="on">5</button>
+                <button data-r="10">10</button>
+              </div>
             </div>
-            <button id="btn-create" class="btn btn-primary">Créer une partie</button>
-          </div>
 
-          <div class="or" aria-hidden="true">ou</div>
+            <div class="field">
+              <label>Temps / manche</label>
+              <div class="seg" id="online-time-seg">
+                <button data-t="0" class="on">∞</button>
+                <button data-t="5">5 min</button>
+                <button data-t="10">10 min</button>
+                <button data-t="15">15 min</button>
+              </div>
+            </div>
 
-          <div class="online-action-card join-card">
-            <div>
-              <p class="online-card-kicker">Invité</p>
-              <h3>Rejoindre avec un code</h3>
+            <div class="field">
+              <label>Zone</label>
+              <button type="button" class="zone-trigger" id="online-zone-trigger">
+                <div class="zone-trigger-map" id="online-zone-trigger-map"></div>
+                <span class="zone-trigger-txt" id="online-zone-trigger-txt">Monde entier</span>
+                <span class="avatar-trigger-go">›</span>
+              </button>
             </div>
-            <div class="join-row">
-              <input id="join-code" maxlength="4" placeholder="CODE" autocomplete="off" spellcheck="false" />
-              <button id="btn-join" class="btn btn-ghost">Rejoindre</button>
-            </div>
-          </div>
-        </div>
-      </div>
 
-      <div id="online-wait" class="online-wait">
-        <p class="wait-label">Partage ce code à ton adversaire</p>
-        <div class="room-display">
-          <div class="room-code" id="room-code">----</div>
-        </div>
-        <button class="btn btn-mini" id="btn-copy">Copier le lien</button>
-        <div class="room-options hidden" id="room-options">
-          <div class="field">
-            <label for="room-rounds-seg">Manches</label>
-            <div class="seg" id="room-rounds-seg">
-              <button data-r="3">3</button>
-              <button data-r="5" class="on">5</button>
-              <button data-r="10">10</button>
+            <div class="field hidden">
+              <label for="online-zone-filter">Zone</label>
+              <select id="online-zone-filter" class="select">
+                <option value="world">Monde entier</option>
+                <option value="world-cities">Grandes villes du monde</option>
+                <option value="europe">Europe</option>
+                <option value="north-america">Amérique du Nord</option>
+                <option value="south-america">Amérique du Sud</option>
+                <option value="asia">Asie</option>
+                <option value="oceania">Océanie</option>
+                <option value="africa">Afrique</option>
+                <option value="country">Pays</option>
+                <option value="france-cities">France - grandes villes</option>
+              </select>
             </div>
-          </div>
-          <div class="field">
-            <label>Temps / manche</label>
-            <div class="seg" id="room-time-seg">
-              <button data-t="0" class="on">∞</button>
-              <button data-t="5">5 min</button>
-              <button data-t="10">10 min</button>
-              <button data-t="15">15 min</button>
+
+            <div class="field hidden" id="online-country-field">
+              <label for="online-country-filter">Pays</label>
+              <select id="online-country-filter" class="select">
+                <option value="france">France</option>
+                <option value="usa">États-Unis</option>
+                <option value="canada">Canada</option>
+                <option value="uk-ireland">Royaume-Uni / Irlande</option>
+                <option value="spain-portugal">Espagne / Portugal</option>
+                <option value="italy">Italie</option>
+                <option value="germany">Allemagne</option>
+                <option value="japan">Japon</option>
+                <option value="south-korea">Corée du Sud</option>
+                <option value="australia">Australie</option>
+                <option value="new-zealand">Nouvelle-Zélande</option>
+                <option value="brazil">Brésil</option>
+                <option value="argentina-chile">Argentine / Chili</option>
+                <option value="south-africa">Afrique du Sud</option>
+                <option value="mexico">Mexique</option>
+              </select>
+            </div>
+
+            <div class="online-actions">
+              <div class="online-action-card create-card">
+                <div>
+                  <p class="online-card-kicker">Hôte</p>
+                  <h3>Créer une partie</h3>
+                </div>
+                <button id="btn-create" class="btn btn-primary">Créer une partie</button>
+              </div>
+
+              <div class="or" aria-hidden="true">ou</div>
+
+              <div class="online-action-card join-card">
+                <div>
+                  <p class="online-card-kicker">Invité</p>
+                  <h3>Rejoindre avec un code</h3>
+                </div>
+                <div class="join-row">
+                  <input id="join-code" maxlength="4" placeholder="CODE" autocomplete="off" spellcheck="false" />
+                  <button id="btn-join" class="btn btn-ghost">Rejoindre</button>
+                </div>
+              </div>
             </div>
           </div>
-          <div class="field">
-            <label>Zone</label>
-            <button type="button" class="zone-trigger" id="room-zone-trigger">
-              <div class="zone-trigger-map" id="room-zone-trigger-map"></div>
-              <span class="zone-trigger-txt" id="room-zone-trigger-txt">Monde entier</span>
-              <span class="avatar-trigger-go">›</span>
-            </button>
-          </div>
+
+          <div id="online-wait" class="online-wait">
+            <p class="wait-label">Partage ce code à ton adversaire</p>
+            <div class="room-display">
+              <div class="room-code" id="room-code">----</div>
+            </div>
+            <button class="btn btn-mini" id="btn-copy">Copier le lien</button>
+            <div class="room-options hidden" id="room-options">
+              <div class="field">
+                <label for="room-rounds-seg">Manches</label>
+                <div class="seg" id="room-rounds-seg">
+                  <button data-r="3">3</button>
+                  <button data-r="5" class="on">5</button>
+                  <button data-r="10">10</button>
+                </div>
+              </div>
+              <div class="field">
+                <label>Temps / manche</label>
+                <div class="seg" id="room-time-seg">
+                  <button data-t="0" class="on">∞</button>
+                  <button data-t="5">5 min</button>
+                  <button data-t="10">10 min</button>
+                  <button data-t="15">15 min</button>
+                </div>
+              </div>
+              <div class="field">
+                <label>Zone</label>
+                <button type="button" class="zone-trigger" id="room-zone-trigger">
+                  <div class="zone-trigger-map" id="room-zone-trigger-map"></div>
+                  <span class="zone-trigger-txt" id="room-zone-trigger-txt">Monde entier</span>
+                  <span class="avatar-trigger-go">›</span>
+                </button>
+              </div>
 
           <div class="field hidden">
             <label for="room-zone-filter">Zone</label>
@@ -291,9 +328,46 @@
         <button class="btn btn-primary hidden" id="btn-start-room" disabled>Lancer la partie</button>
       </div>
 
-      <p class="err" id="online-error"></p>
+          <p class="err" id="online-error"></p>
+        </div>
+      </main>
+      <footer class="credit">Connexion multijoueur sécurisée · WebSocket</footer>
     </div>
-    <footer class="credit">Connexion multijoueur sécurisée · WebSocket</footer>
+  </section>
+
+  <!-- ====================== LEADERBOARD ====================== -->
+  <section id="leaderboard" class="screen">
+    <div class="home-bg"></div>
+    <div class="app-shell leaderboard-shell">
+      <header class="site-header">
+        <button type="button" class="brand-mark tab-link" data-tab="menu" aria-label="Accueil Geoloc">
+          <span class="brand-pin">📍</span>
+          <span class="logo">Geo<span>loc</span></span>
+        </button>
+        <nav class="site-tabs" aria-label="Navigation principale">
+          <button type="button" class="tab-link" data-tab="menu">Solo</button>
+          <button type="button" class="tab-link" data-tab="online">Multijoueur</button>
+          <button type="button" class="tab-link on" data-tab="leaderboard">Classement</button>
+        </nav>
+      </header>
+
+      <main class="leaderboard-page">
+        <header class="page-heading">
+          <p class="kicker">Scores en base</p>
+          <h1>Classement</h1>
+          <p>Les meilleurs scores enregistrés en PostgreSQL, toutes zones confondues.</p>
+        </header>
+        <section class="leaderboard-panel">
+          <div class="leaderboard-head">
+            <h2>Top joueurs</h2>
+            <button type="button" class="btn btn-mini" id="btn-refresh-leaderboard">Actualiser</button>
+          </div>
+          <div class="lb-list lb-list-page" id="leaderboard-list">
+            <p class="lb-empty">Chargement…</p>
+          </div>
+        </section>
+      </main>
+    </div>
   </section>
 
   <!-- ====================== GAME ====================== -->
@@ -400,6 +474,6 @@
 
   <!-- Leaflet : cartes de guess / résultat (tuiles raster, pas de WebGL) -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script src="game.js?v=37"></script>
+  <script src="game.js?v=39"></script>
 </body>
 </html>

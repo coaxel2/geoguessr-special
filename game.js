@@ -23,6 +23,41 @@ const rand = (min, max) => min + Math.random() * (max - min);
 function showScreen(id) {
   document.querySelectorAll(".screen").forEach((s) => s.classList.remove("show"));
   $(id).classList.add("show");
+  syncTabs(id);
+  if (id === "leaderboard") loadLeaderboardPage();
+  if (id === "menu" || id === "online" || id === "leaderboard") {
+    try { $(id).scrollTop = 0; } catch (e) {}
+  }
+}
+function syncTabs(id) {
+  document.querySelectorAll(".tab-link").forEach((b) => {
+    const tab = b.dataset.tab;
+    b.classList.toggle("on", (id === "menu" && tab === "menu") || (id === "online" && tab === "online") || (id === "leaderboard" && tab === "leaderboard"));
+  });
+}
+function goTab(tab) {
+  const current = document.querySelector(".screen.show");
+  const inRound = current && (current.id === "game" || current.id === "result");
+  if (inRound && !confirm("Quitter la partie en cours ?")) return;
+  if (tab === "online") {
+    requestName(() => {
+      readMenuSettings();
+      mirrorSettingsToOnline();
+      backToOnlineChoice();
+      $("online-error").textContent = "";
+      showScreen("online");
+    });
+    return;
+  }
+  if (tab === "leaderboard") {
+    showScreen("leaderboard");
+    return;
+  }
+  clearTimer();
+  onlineReset();
+  backToOnlineChoice();
+  G.online.active = false;
+  showScreen("menu");
 }
 function fmtDist(m) {
   if (m == null) return "— km";
@@ -1211,6 +1246,18 @@ async function openLeaderboard() {
   } catch (e) { list.innerHTML = '<p class="lb-empty">Classement indisponible.</p>'; }
 }
 
+async function loadLeaderboardPage() {
+  const list = $("leaderboard-list");
+  if (!list) return;
+  list.innerHTML = '<p class="lb-empty">Chargement…</p>';
+  try {
+    const r = await fetch("/api/scores?limit=25");
+    if (r.status === 503) { list.innerHTML = '<p class="lb-empty">Le classement n\'est pas activé.</p>'; return; }
+    const d = await r.json();
+    renderLeaderboard(list, (d && d.scores) || []);
+  } catch (e) { list.innerHTML = '<p class="lb-empty">Classement indisponible.</p>'; }
+}
+
 function updateMultiHud(prog) {
   const el = $("hud-opp"); if (!el) return;
   if (!G.online.active) { el.classList.add("hidden"); return; }
@@ -1366,7 +1413,7 @@ function createRoom() {
   const code = genCode();
   G.online.code = code; G.online.isHost = true;
   $("online-error").textContent = "";
-  $("online-choice").style.display = "none";
+  $("online-choice").classList.add("hidden");
   $("online-wait").classList.add("show");
   $("btn-start-room").classList.add("hidden");
   $("btn-start-room").disabled = true;
@@ -1443,7 +1490,7 @@ function joinRoom(codeArg) {
   onlineReset();
   G.online.code = code; G.online.isHost = false;
   $("online-error").textContent = "";
-  $("online-choice").style.display = "none";
+  $("online-choice").classList.add("hidden");
   $("online-wait").classList.add("show");
   $("btn-start-room").classList.add("hidden");
   $("btn-start-room").disabled = true;
@@ -1650,7 +1697,7 @@ function resetOnlineGameState() {
 function enterOnlineLobby(statusText) {
   resetOnlineGameState();
   showScreen("online");
-  $("online-choice").style.display = "none";
+  $("online-choice").classList.add("hidden");
   $("online-wait").classList.add("show");
   $("room-code").textContent = G.online.code || "----";
   $("btn-copy").textContent = "Copier le lien";
@@ -1682,13 +1729,13 @@ function hostReturnToLobby() {
 /* ---------- navigation online ---------- */
 function backToOnlineChoice() {
   $("online-wait").classList.remove("show");
-  $("online-choice").style.display = "";
+  $("online-choice").classList.remove("hidden");
   $("room-options").classList.add("hidden");
   $("btn-start-room").classList.add("hidden");
   $("btn-start-room").disabled = true;
   $("room-settings").textContent = "";
 }
-function goHome() { clearTimer(); onlineReset(); G.online.active = false; showScreen("menu"); }
+function goHome() { goTab("menu"); }
 
 /* ===========================================================
    Wiring UI
@@ -1941,19 +1988,14 @@ function wire() {
   });
   $("room-country-filter").addEventListener("change", sendRoomSettings);
 
+  document.querySelectorAll(".tab-link").forEach((b) =>
+    b.addEventListener("click", () => goTab(b.dataset.tab)));
   $("btn-solo").addEventListener("click", startSolo);
-  $("btn-leaderboard").addEventListener("click", openLeaderboard);
+  if ($("btn-leaderboard")) $("btn-leaderboard").addEventListener("click", () => goTab("leaderboard"));
+  if ($("btn-refresh-leaderboard")) $("btn-refresh-leaderboard").addEventListener("click", loadLeaderboardPage);
   $("lb-modal-close").addEventListener("click", () => { $("lb-modal").hidden = true; });
   $("lb-modal").addEventListener("click", (e) => { if (e.target === $("lb-modal")) $("lb-modal").hidden = true; });
-  $("btn-online").addEventListener("click", () => {
-    requestName(() => {
-      readMenuSettings();
-      mirrorSettingsToOnline();
-      backToOnlineChoice();
-      $("online-error").textContent = "";
-      showScreen("online");
-    });
-  });
+  $("btn-online").addEventListener("click", () => goTab("online"));
   $("btn-create").addEventListener("click", () => requestName(createRoom));
   $("btn-join").addEventListener("click", () => requestName(() => joinRoom()));
   $("name-modal-ok").addEventListener("click", confirmName);
@@ -1968,7 +2010,7 @@ function wire() {
   $("btn-copy").addEventListener("click", copyLink);
 
   document.querySelectorAll("[data-back]").forEach((b) =>
-    b.addEventListener("click", () => { onlineReset(); showScreen(b.dataset.back); }));
+    b.addEventListener("click", () => goTab(b.dataset.back)));
 
   $("btn-guess").addEventListener("click", submitGuess);
   $("btn-reset-view").addEventListener("click", resetView);
