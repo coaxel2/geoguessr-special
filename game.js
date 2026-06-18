@@ -1,7 +1,7 @@
 /* ===========================================================
    Geoloc — logique de jeu
    - Street View via Google Maps JS API ; cartes de guess via Leaflet
-   - Multijoueur P2P via PeerJS (repris du projet d'échecs)
+   - Multijoueur via relay WebSocket auto-hébergé
    =========================================================== */
 
 "use strict";
@@ -169,7 +169,7 @@ const G = {
   timeLimit: 0,
   timer: null,
   online: {
-    active: false, peer: null, isHost: false, code: null, started: false,
+    active: false, peer: null, ws: null, isHost: false, code: null, started: false,
     myId: null, hostConn: null, conns: {}, players: {}, order: [],
     revealed: false, iWantReplay: false, ka: null,
   },
@@ -1127,29 +1127,10 @@ function renderLobby() {
 }
 
 /* ===========================================================
-   MULTIJOUEUR — PeerJS (repris du projet d'échecs)
+   MULTIJOUEUR — relay WebSocket auto-hébergé
    =========================================================== */
-const ICE = { iceServers: [
-  { urls: "stun:stun.l.google.com:19302" },
-  { urls: "stun:stun1.l.google.com:19302" },
-  { urls: "turn:openrelay.metered.ca:80", username: "openrelayproject", credential: "openrelayproject" },
-  { urls: "turn:openrelay.metered.ca:443", username: "openrelayproject", credential: "openrelayproject" },
-  { urls: "turn:openrelay.metered.ca:443?transport=tcp", username: "openrelayproject", credential: "openrelayproject" },
-]};
 // log multijoueur visible dans la console (préfixe [MP]) — pour diagnostiquer salon/connexion
 function mlog() { try { console.log.apply(console, ["%c[MP]", "color:#2ee6a6;font-weight:700"].concat([].slice.call(arguments))); } catch (e) {} }
-// signaling auto-hébergé sur ce domaine (/peerjs) → plus de dépendance au serveur public 0.peerjs.com
-function peerOptions() {
-  const secure = location.protocol === "https:";
-  return {
-    host: location.hostname,
-    port: location.port ? Number(location.port) : (secure ? 443 : 80),
-    path: "/peerjs",
-    secure: secure,
-    debug: 1,
-    config: ICE,
-  };
-}
 function genCode() {
   const c = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
   let s = ""; for (let i = 0; i < 4; i++) s += c[Math.floor(Math.random() * c.length)];
@@ -1157,8 +1138,9 @@ function genCode() {
 }
 function onlineReset() {
   try { if (G.online.peer) G.online.peer.destroy(); } catch (e) {}
+  try { if (G.online.ws) G.online.ws.close(); } catch (e) {}
   clearInterval(G.online.ka);
-  G.online = { active: false, peer: null, isHost: false, code: null, started: false,
+  G.online = { active: false, peer: null, ws: null, isHost: false, code: null, started: false,
                myId: null, hostConn: null, conns: {}, players: {}, order: [],
                revealed: false, iWantReplay: false, ka: null };
 }
@@ -1210,6 +1192,32 @@ function playerColor(id) {
 function roomPeerId(code) {
   return "geoq2-" + location.hostname.replace(/[^a-z0-9-]/gi, "-") + "-" + code;
 }
+function relayClientId() {
+  const rnd = (window.crypto && window.crypto.randomUUID) ? window.crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).slice(2));
+  return "geoq2-client-" + rnd;
+}
+function roomsUrl() {
+  return (location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/rooms";
+}
+function wsSend(ws, msg) {
+  try { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg)); } catch (e) {}
+}
+function relayGuestConn(ws, id) {
+  return {
+    peer: id,
+    open: true,
+    send: (m) => wsSend(ws, { type: "to", to: id, message: m }),
+    close: function () { this.open = false; wsSend(ws, { type: "close-peer", id }); },
+  };
+}
+function relayHostConn(ws) {
+  return {
+    peer: "host",
+    open: true,
+    send: (m) => wsSend(ws, { type: "to-host", message: m }),
+    close: function () { this.open = false; try { ws.close(); } catch (e) {} },
+  };
+}
 function updateLobbyControls() {
   if (!$("online").classList.contains("show")) return;
   if (!G.online.isHost) return;
@@ -1238,7 +1246,6 @@ function kickPlayer(id) {
 
 function createRoom() {
   if (!mapsReady) { $("online-error").textContent = "La carte charge encore, patiente une seconde."; return; }
-  if (typeof Peer === "undefined") { $("online-error").textContent = "Module réseau indisponible."; return; }
   if (!requirePlayerName("online-error")) return;
   readOnlineSettings();
   onlineReset();
@@ -1258,50 +1265,63 @@ function createRoom() {
   $("online-status").textContent = "Création de la salle…";
 
   const id = roomPeerId(code);
-  const po = peerOptions();
-  mlog("createRoom code", code, "→ signaling", po.host + ":" + po.port + po.path);
-  const peer = new Peer(id, po);
-  G.online.peer = peer;
+  mlog("createRoom code", code, "→ relay", roomsUrl());
   G.online.active = true;
   G.online.myId = id;
   G.online.players[id] = { id, name: G.playerName, av: G.avatarChoice, scores: [], guess: null, done: false, isHost: true };
   G.online.order = [id];
   renderLobby();
-  peer.on("open", () => {
-    if (G.online.peer !== peer || !G.online.isHost) return;
+
+  const ws = new WebSocket(roomsUrl());
+  G.online.ws = ws;
+  ws.onopen = () => {
+    if (G.online.ws !== ws || !G.online.isHost) return;
+    wsSend(ws, { type: "create", code, id, name: G.playerName, av: G.avatarChoice });
+  };
+  ws.onmessage = (ev) => {
+    let m; try { m = JSON.parse(ev.data); } catch (e) { return; }
+    if (G.online.ws !== ws || !G.online.isHost) return;
+
+    if (m.type === "created") {
     mlog("salle prête, code", code);
     $("room-code").textContent = code;
     $("btn-copy").disabled = false;
     $("online-status").textContent = "En attente de joueurs…";
-  });
-  peer.on("connection", (conn) => hostAcceptConn(conn));
-  peer.on("error", (e) => {
-    mlog("ERREUR peer (hôte):", e.type, e.message || "");
-    $("online-error").textContent = e.type === "unavailable-id" ? "Code déjà pris, réessaie." : "Erreur réseau : " + e.type;
+
+    } else if (m.type === "peer-joined" && m.player && m.player.id) {
+      G.online.conns[m.player.id] = relayGuestConn(ws, m.player.id);
+      mlog("invité connecté:", m.player.id);
+      $("online-status").textContent = "Un joueur se connecte…";
+
+    } else if (m.type === "from" && m.from) {
+      onData(m.message, m.from);
+
+    } else if (m.type === "peer-left" && m.id) {
+      if (G.online.conns[m.id]) hostDropConn(m.id);
+
+    } else if (m.type === "error") {
+      $("online-error").textContent = m.reason === "code-taken" ? "Code déjà pris, réessaie." : "Erreur réseau : " + (m.reason || "relay");
+      backToOnlineChoice();
+    }
+  };
+  ws.onerror = () => {
+    $("online-error").textContent = "Erreur réseau : relay WebSocket indisponible.";
     backToOnlineChoice();
-  });
-  peer.on("disconnected", () => { try { peer.reconnect(); } catch (e) {} });
+  };
+  ws.onclose = () => {
+    if (G.online.isHost && !G.online.started && $("online").classList.contains("show")) {
+      $("online-error").textContent = "La salle a été fermée.";
+      backToOnlineChoice();
+    }
+  };
   clearInterval(G.online.ka);
-  G.online.ka = setInterval(() => broadcast({ type: "ping" }), 12000);
-}
-// l'hôte accepte une nouvelle connexion entrante (plusieurs invités possibles)
-function hostAcceptConn(conn) {
-  conn.on("open", () => {
-    if (!G.online.isHost) { try { conn.close(); } catch (e) {} return; }
-    if (G.online.started) { try { conn.send({ type: "kick", reason: "started" }); setTimeout(() => conn.close(), 120); } catch (e) {} return; }
-    G.online.conns[conn.peer] = conn;
-    mlog("invité connecté:", conn.peer);
-    $("online-status").textContent = "Un joueur se connecte…";
-    conn.on("data", (m) => onData(m, conn.peer));
-    conn.on("close", () => { if (G.online.conns[conn.peer]) hostDropConn(conn.peer); });
-    conn.on("error", () => {});
-  });
-  conn.on("error", () => {});
+  G.online.ka = setInterval(() => {
+    if (G.online.ws && G.online.ws.readyState === WebSocket.OPEN) wsSend(G.online.ws, { type: "ping" });
+  }, 12000);
 }
 
 function joinRoom(codeArg) {
   if (!mapsReady) { $("online-error").textContent = "La carte charge encore, patiente une seconde."; return; }
-  if (typeof Peer === "undefined") { $("online-error").textContent = "Module réseau indisponible."; return; }
   if (!requirePlayerName("online-error")) return;
   const code = (codeArg || $("join-code").value || "").trim().toUpperCase();
   if (code.length < 4) { $("online-error").textContent = "Entre le code à 4 caractères."; return; }
@@ -1319,77 +1339,64 @@ function joinRoom(codeArg) {
   $("room-settings").textContent = "";
   $("online-status").textContent = "Connexion à la salle…";
 
-  let attempts = 0;
-  const deadline = Date.now() + 25000;
-  const failJoin = (text) => {
-    if (G.online.active || G.online.isHost) return;
-    $("online-error").textContent = text;
-    backToOnlineChoice();
+  const id = relayClientId();
+  mlog("joinRoom", code, "→ relay", roomsUrl());
+  const ws = new WebSocket(roomsUrl());
+  G.online.ws = ws;
+  G.online.myId = id;
+
+  ws.onopen = () => {
+    if (G.online.ws !== ws || G.online.isHost || G.online.code !== code) return;
+    wsSend(ws, { type: "join", code, id, name: G.playerName, av: G.avatarChoice });
   };
-  const retryConnect = () => {
-    if (G.online.active || G.online.isHost || G.online.code !== code) return;
-    if (Date.now() >= deadline) {
-      failJoin("Salle introuvable ou connexion impossible. Vérifie le code.");
-      return;
+  ws.onmessage = (ev) => {
+    let m; try { m = JSON.parse(ev.data); } catch (e) { return; }
+    if (G.online.ws !== ws || G.online.isHost) return;
+
+    if (m.type === "joined") {
+      setupGuestRelay(ws, id);
+      if (m.roster) applyRoster(m.roster);
+
+    } else if (m.type === "from") {
+      onData(m.message, "host");
+
+    } else if (m.type === "host-closed") {
+      clearInterval(G.online.ka);
+      $("online-error").textContent = "La salle a été fermée.";
+      backToOnlineChoice();
+
+    } else if (m.type === "error") {
+      $("online-error").textContent = m.reason === "not-found" ? "Salle introuvable. Vérifie le code." : "Erreur réseau : " + (m.reason || "relay");
+      backToOnlineChoice();
     }
-    try { if (G.online.peer) G.online.peer.destroy(); } catch (e) {}
-    attempts++;
-    $("online-status").textContent = attempts > 1 ? "Nouvelle tentative de connexion…" : "Connexion à la salle…";
-
-    mlog("joinRoom tentative", code, "→ signaling", peerOptions().host + peerOptions().path);
-    const peer = new Peer(peerOptions());
-    G.online.peer = peer;
-    const scheduleRetry = () => {
-      if (!G.online.active && G.online.peer === peer && Date.now() < deadline) setTimeout(retryConnect, 900);
-      else if (!G.online.active && G.online.peer === peer) failJoin("Salle introuvable ou connexion impossible. Vérifie le code.");
-    };
-
-    peer.on("open", () => {
-      if (G.online.peer !== peer || G.online.isHost) return;
-      const conn = peer.connect(roomPeerId(code), { reliable: true, serialization: "json" });
-      let opened = false;
-      const timer = setTimeout(() => { if (!opened) scheduleRetry(); }, 6000);
-      conn.on("open", () => {
-        opened = true;
-        clearTimeout(timer);
-        setupGuestConn(conn, peer);
-      });
-      conn.on("error", () => {
-        clearTimeout(timer);
-        scheduleRetry();
-      });
-      conn.on("close", () => {
-        clearTimeout(timer);
-        if (!G.online.active) scheduleRetry();
-      });
-    });
-    peer.on("error", scheduleRetry);
-    peer.on("disconnected", scheduleRetry);
   };
-  retryConnect();
+  ws.onerror = () => {
+    if (!G.online.active) {
+      $("online-error").textContent = "Connexion impossible au serveur multijoueur.";
+      backToOnlineChoice();
+    } else flashStatus("⚠️ Problème de connexion");
+  };
+  ws.onclose = () => {
+    clearInterval(G.online.ka);
+    if (!G.online.started && $("online").classList.contains("show")) {
+      $("online-error").textContent = "La salle a été fermée."; backToOnlineChoice();
+    } else if (G.online.active) flashStatus("⚠️ Hôte déconnecté — partie terminée");
+  };
 }
 
-function setupGuestConn(conn, peer) {
-  G.online.hostConn = conn;
+function setupGuestRelay(ws, id) {
+  G.online.hostConn = relayHostConn(ws);
   G.online.active = true;
   G.online.started = false;
-  G.online.myId = (peer && peer.id) || (G.online.peer && G.online.peer.id);
+  G.online.myId = id;
   clearInterval(G.online.ka);
-  G.online.ka = setInterval(() => { try { if (conn.open) conn.send({ type: "ping" }); } catch (e) {} }, 12000);
+  G.online.ka = setInterval(() => wsSend(ws, { type: "ping" }), 12000);
 
   // s'inscrire localement, puis se présenter à l'hôte (qui diffuse le roster complet)
   G.online.players = {}; G.online.order = [];
   G.online.players[meId()] = { id: meId(), name: G.playerName, av: G.avatarChoice, scores: [], guess: null, done: false, isHost: false };
   G.online.order = [meId()];
 
-  conn.on("data", (m) => onData(m, "host"));
-  conn.on("close", () => {
-    clearInterval(G.online.ka);
-    if (!G.online.started && $("online").classList.contains("show")) {
-      $("online-error").textContent = "La salle a été fermée."; backToOnlineChoice();
-    } else flashStatus("⚠️ Hôte déconnecté — partie terminée");
-  });
-  conn.on("error", () => flashStatus("⚠️ Problème de connexion"));
   sendToHost({ type: "hello", name: G.playerName, av: G.avatarChoice });
   $("online-status").textContent = "Connecté — en attente de l'hôte";
   renderLobby();

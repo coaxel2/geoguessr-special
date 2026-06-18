@@ -3,18 +3,18 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <!-- Force toute sous-ressource (images, scripts, WebSocket PeerJS…) en HTTPS/WSS : élimine tout « contenu mixte » -->
+  <!-- Force toute sous-ressource (images, scripts, WebSocket…) en HTTPS/WSS : élimine tout « contenu mixte » -->
   <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests" />
   <title>Geoloc — devine où tu te trouves dans le monde</title>
   <meta name="description" content="Geoloc : largué quelque part en vue Street View, devine où tu te trouves sur la carte. Solo ou multijoueur en ligne." />
-  <link rel="icon" type="image/svg+xml" href="favicon.svg?v=31" />
+  <link rel="icon" type="image/svg+xml" href="favicon.svg?v=32" />
   <meta name="theme-color" content="#0f1419" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="preconnect" href="https://api.dicebear.com" />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-  <link rel="stylesheet" href="style.css?v=31" />
+  <link rel="stylesheet" href="style.css?v=32" />
 </head>
 <body>
 
@@ -276,7 +276,7 @@
 
       <p class="err" id="online-error"></p>
     </div>
-    <footer class="credit">Connexion pair-à-pair chiffrée · WebRTC</footer>
+    <footer class="credit">Connexion multijoueur sécurisée · WebSocket</footer>
   </section>
 
   <!-- ====================== GAME ====================== -->
@@ -368,8 +368,6 @@
 
   <!-- Leaflet : cartes de guess / résultat (tuiles raster, pas de WebGL) -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <!-- PeerJS for multiplayer signaling (same lib as the chess project) -->
-  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js" integrity="sha384-nlUQ8ZqCbvStErob+biJNzSgltf6urV3VGqhfIfzhmg9RXmpeRm76ELw0pYnKlTR" crossorigin="anonymous"></script>
-  <script src="game.js?v=31"></script>
+  <script src="game.js?v=32"></script>
 </body>
 </html>

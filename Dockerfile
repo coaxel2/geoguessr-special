@@ -1,4 +1,4 @@
-# Geoloc — serveur Node : fichiers statiques + signaling PeerJS auto-hébergé (/peerjs).
+# Geoloc — serveur Node : fichiers statiques + relay multijoueur WebSocket (/rooms).
 # La clé Google Maps est injectée au démarrage depuis la variable GMAPS_KEY (jamais commitée).
 FROM node:20-alpine
 WORKDIR /app
