@@ -377,55 +377,101 @@ input { font-family: inherit; }
 }
 #online .menu-card {
   align-self: center;
-  width: min(1080px, 100%);
+  width: min(1320px, 100%);
   max-height: min(820px, calc(100vh - 72px));
-  padding: 34px 36px 32px;
+  padding: 44px 48px 42px;
   border-radius: 22px;
   text-align: left;
 }
 #online .panel-title {
-  margin: 0 0 24px;
+  margin: 0 0 32px;
   padding-left: 88px;
-  font-size: clamp(28px, 3vw, 40px);
+  font-size: clamp(34px, 4vw, 64px);
   line-height: 1;
 }
-#online .back { top: 31px; left: 30px; }
+#online .back { top: 64px; left: 48px; }
 .online-choice { display: flex; flex-direction: column; gap: 14px; }
 #online .online-choice {
   display: grid;
-  grid-template-columns: minmax(300px, .9fr) minmax(360px, 1.1fr);
-  gap: 18px 22px;
-  align-items: end;
+  grid-template-columns: minmax(480px, .9fr) minmax(420px, .7fr);
+  gap: 22px 28px;
+  align-items: stretch;
 }
 #online .online-choice .field { margin-bottom: 0; }
-#online .online-choice .field:nth-of-type(3) { grid-column: 1 / -1; }
-#online #btn-create { align-self: stretch; height: 54px; }
+#online .online-choice .field:nth-of-type(3) { grid-column: 1; }
+#online .online-choice .field:nth-of-type(3) .zone-trigger { min-height: 88px; }
+#online .online-choice .field:nth-of-type(4),
+#online .online-choice .field:nth-of-type(5) { grid-column: 1; }
+#online .online-actions {
+  grid-column: 2;
+  grid-row: 1 / span 5;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 18px;
+  min-height: 100%;
+}
+.online-action-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 22px;
+  min-height: 190px;
+  padding: 24px;
+  border: 1px solid var(--stroke);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.018)),
+    rgba(0,0,0,.18);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
+}
+.online-action-card h3 {
+  margin: 4px 0 0;
+  font-size: 24px;
+  line-height: 1.1;
+}
+.online-card-kicker {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+#online .create-card {
+  border-color: rgba(46,230,166,.26);
+  background:
+    radial-gradient(420px 220px at 18% 0%, rgba(46,230,166,.14), transparent 62%),
+    linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.018)),
+    rgba(0,0,0,.18);
+}
+#online #btn-create { align-self: stretch; min-height: 64px; font-size: 19px; }
 #online .or {
   align-self: center;
-  width: 100%;
+  justify-self: stretch;
   margin: 0;
+  text-align: center;
 }
 #online .join-row {
-  grid-column: 1 / -1;
   display: grid;
-  grid-template-columns: minmax(220px, .7fr) minmax(220px, .3fr);
+  grid-template-columns: 1fr;
+  gap: 12px;
 }
 .or { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 2px; position: relative; }
-.or::before, .or::after { content: ""; position: absolute; top: 50%; width: 38%; height: 1px; background: var(--stroke); }
+.or::before, .or::after { content: ""; position: absolute; top: 50%; width: calc(50% - 28px); height: 1px; background: var(--stroke); }
 .or::before { left: 0; } .or::after { right: 0; }
 .join-row { display: flex; gap: 10px; }
 #join-code {
   flex: 1;
   text-align: center;
-  font-size: 22px;
+  font-size: 28px;
   font-weight: 800;
-  letter-spacing: 8px;
+  letter-spacing: 12px;
   text-transform: uppercase;
   color: var(--text);
   background: rgba(0,0,0,.28);
   border: 1px solid var(--stroke-strong);
-  border-radius: 13px;
-  padding: 12px;
+  border-radius: 15px;
+  padding: 17px 14px;
   width: 100%;
 }
 #join-code:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(46,230,166,.18); }
@@ -713,10 +759,42 @@ input { font-family: inherit; }
     align-items: stretch;
   }
   #online .online-choice .field:nth-of-type(3),
+  #online .online-choice .field:nth-of-type(4),
+  #online .online-choice .field:nth-of-type(5),
+  #online .online-actions,
   #online .join-row {
     grid-column: auto;
+    grid-row: auto;
   }
-  #online .join-row { display: flex; }
+  #online .online-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-height: 0;
+  }
+  .online-action-card {
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+    gap: 12px;
+  }
+  .online-action-card h3,
+  .online-card-kicker {
+    display: none;
+  }
+  #online .or { margin: 2px 0; }
+  #online .join-row {
+    display: flex;
+    flex-direction: column;
+  }
+  #join-code {
+    font-size: 22px;
+    letter-spacing: 8px;
+    padding: 12px;
+  }
   .room-options {
     display: flex;
     flex-direction: column;
