@@ -1140,7 +1140,75 @@ function showFinal() {
       box.appendChild(row);
     });
   }
+  if (!G.online.active) recordSoloScore();
   updateReplayUI();
+}
+
+/* ===========================================================
+   Classement persistant (PostgreSQL via /api/scores)
+   La DB est optionnelle : si le serveur répond 503 ou est
+   injoignable, le bloc classement se masque sans casser le jeu.
+   =========================================================== */
+function leaderboardZoneKey() {
+  return G.zoneFilter === "country" ? "country:" + G.countryFilter : G.zoneFilter;
+}
+
+async function recordSoloScore() {
+  const block = $("lb-block"), list = $("lb-list"), rankEl = $("lb-myrank");
+  if (!block || !list) return;
+  block.classList.remove("hidden");
+  list.innerHTML = '<p class="lb-empty">Chargement du classement…</p>';
+  if (rankEl) rankEl.textContent = "";
+  const zone = leaderboardZoneKey(), label = zoneLabel();
+  try {
+    const r = await fetch("/api/scores", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pseudo: G.playerName || "Anonyme", zone, zoneLabel: label, rounds: G.rounds, score: sum(G.scores) }),
+    });
+    if (r.status === 503) { block.classList.add("hidden"); return; }   // classement désactivé côté serveur
+    if (r.ok && rankEl) {
+      const d = await r.json();
+      if (d && d.rank) rankEl.textContent = d.rank === 1 ? "🏆 Meilleur score de la zone !" : "Ton rang : " + d.rank + "ᵉ sur « " + label + " »";
+    }
+  } catch (e) { block.classList.add("hidden"); return; }                // hors-ligne : pas de classement
+  loadLeaderboard(zone, list);
+}
+
+async function loadLeaderboard(zone, list) {
+  try {
+    const r = await fetch("/api/scores?limit=10&zone=" + encodeURIComponent(zone || ""));
+    const d = await r.json();
+    renderLeaderboard(list, (d && d.scores) || []);
+  } catch (e) { list.innerHTML = '<p class="lb-empty">Classement indisponible.</p>'; }
+}
+
+function renderLeaderboard(list, scores) {
+  if (!scores.length) { list.innerHTML = '<p class="lb-empty">Aucun score enregistré pour l\'instant.</p>'; return; }
+  const medals = ["🥇", "🥈", "🥉"];
+  list.innerHTML = scores.map((s, i) =>
+    '<div class="lb-row">' +
+      '<span class="lb-rank">' + (medals[i] || (i + 1) + "ᵉ") + "</span>" +
+      '<span class="lb-name"></span>' +
+      '<span class="lb-pts">' + Number(s.score).toLocaleString("fr-FR") + " pts</span>" +
+    "</div>"
+  ).join("");
+  // les pseudos viennent des joueurs : injectés en textContent (jamais innerHTML) → aucun XSS stocké
+  list.querySelectorAll(".lb-name").forEach((el, i) => { el.textContent = scores[i].pseudo; });
+}
+
+// modale « Classement » ouverte depuis l'accueil : top global toutes zones
+async function openLeaderboard() {
+  const modal = $("lb-modal"), list = $("lb-modal-list");
+  if (!modal || !list) return;
+  list.innerHTML = '<p class="lb-empty">Chargement…</p>';
+  modal.hidden = false;
+  try {
+    const r = await fetch("/api/scores?limit=15");
+    if (r.status === 503) { list.innerHTML = '<p class="lb-empty">Le classement n\'est pas activé.</p>'; return; }
+    const d = await r.json();
+    renderLeaderboard(list, (d && d.scores) || []);
+  } catch (e) { list.innerHTML = '<p class="lb-empty">Classement indisponible.</p>'; }
 }
 
 function updateMultiHud(prog) {
@@ -1874,6 +1942,9 @@ function wire() {
   $("room-country-filter").addEventListener("change", sendRoomSettings);
 
   $("btn-solo").addEventListener("click", startSolo);
+  $("btn-leaderboard").addEventListener("click", openLeaderboard);
+  $("lb-modal-close").addEventListener("click", () => { $("lb-modal").hidden = true; });
+  $("lb-modal").addEventListener("click", (e) => { if (e.target === $("lb-modal")) $("lb-modal").hidden = true; });
   $("btn-online").addEventListener("click", () => {
     requestName(() => {
       readMenuSettings();

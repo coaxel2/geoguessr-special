@@ -2,7 +2,7 @@
 
 Un jeu de **géo-devinette maison** : on est lâché quelque part dans le monde en vue Street View, et il faut deviner où sur une carte. **Solo** ou **multijoueur en ligne** avec code de salle.
 
-Fait par **Axel & Clément**.
+Fait par **Axel Courty**.
 
 ## Fonctionnalités
 
@@ -10,6 +10,7 @@ Fait par **Axel & Clément**.
 - 🌐 **Multijoueur en ligne** : l'hôte crée une partie (code à 4 caractères ou lien à partager), les invités rejoignent. Mêmes lieux pour tous, scores comparés manche par manche.
 - 🧑‍🎨 **Avatars** choisis dans une galerie et synchronisés en multi.
 - 🗺️ Street View réel via l'**API Google Maps** ; cartes de guess en **Leaflet** (tuiles sombres CartoDB, sans clé).
+- 🏆 **Classement persistant** : chaque partie solo terminée est enregistrée dans une base **PostgreSQL** ; meilleurs scores par zone et top global consultables depuis l'accueil.
 - 🎨 Interface sombre soignée (glassmorphism).
 
 ## Architecture
@@ -20,9 +21,17 @@ Fait par **Axel & Clément**.
 | Cartes de guess / résultat | Leaflet + tuiles CartoDB (raster, sans clé ni WebGL) |
 | Distances | formule de Haversine (maison) |
 | Serveur app + multijoueur | Node/Express + relay WebSocket `/rooms` |
+| Base de données | **PostgreSQL** (table `scores`) — classement des parties solo |
 | Synchro des lieux | l'hôte valide les panoramas puis envoie la liste `{lat,lng,panoId}` aux invités |
 
-Pas de base de données : le serveur Node sert les fichiers et relaie uniquement les petits messages de salle en mémoire.
+### Base de données (classement)
+
+À la fin d'une partie solo, le client envoie le score à l'API du serveur, qui le **persiste** en PostgreSQL :
+
+- `POST /api/scores` — enregistre `{pseudo, zone, zoneLabel, rounds, score}` (validation stricte côté serveur, requêtes paramétrées) et renvoie le rang du joueur dans la zone.
+- `GET /api/scores?zone=…&limit=…` — meilleurs scores d'une zone, ou top global si `zone` est absent.
+
+La connexion se fait via la variable d'environnement **`DATABASE_URL`** (fournie par la base Postgres de Coolify). **Si `DATABASE_URL` est absente, le jeu fonctionne quand même** : le classement est simplement masqué — aucune fonctionnalité de jeu n'en dépend. `GET /healthz` renvoie `{"ok":true,"db":true|false}` pour vérifier d'un coup d'œil l'app **et** la connexion à la base.
 
 ## Clé Google Maps
 
@@ -45,7 +54,10 @@ PORT=8080 npm start
 
 1. Pousser ce dossier sur un dépôt Git.
 2. Coolify → New Resource → **Dockerfile** (pas Nixpacks : l'injection de clé passe par `entrypoint.sh`).
-3. Variable d'environnement : `GMAPS_KEY = <ta clé restreinte>`.
-4. Port interne : **80**. Deploy.
+3. Dans le même projet Coolify, créer une base **PostgreSQL** (New Resource → Database → PostgreSQL).
+4. Variables d'environnement de l'app :
+   - `GMAPS_KEY = <ta clé restreinte>`
+   - `DATABASE_URL = <URL de connexion interne de la base Postgres>` (ex. `postgres://user:pass@<service>:5432/postgres`)
+5. Port interne : **80**. Deploy.
 
-La clé reste dans Coolify, jamais dans le dépôt.
+La clé et l'URL de base restent dans Coolify, jamais dans le dépôt. La table `scores` est créée automatiquement au premier démarrage.

@@ -715,6 +715,17 @@ input { font-family: inherit; }
 .final-score.me .big { background: linear-gradient(100deg, var(--accent), var(--accent-2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .final-card .btn { width: 100%; margin-top: 10px; }
 
+/* ---- classement persistant (leaderboard PostgreSQL) ---- */
+.lb-block { margin: 4px 0 22px; text-align: left; }
+.lb-title { font-size: 15px; font-weight: 700; color: var(--text); margin: 0 0 4px; }
+.lb-myrank { font-size: 13px; color: var(--gold); font-weight: 600; margin: 0 0 10px; min-height: 16px; }
+.lb-list { display: flex; flex-direction: column; gap: 6px; max-height: 38vh; overflow-y: auto; }
+.lb-row { display: grid; grid-template-columns: 38px 1fr auto; align-items: center; gap: 10px; padding: 9px 12px; border: 1px solid var(--stroke); border-radius: 12px; background: rgba(255, 255, 255, .03); }
+.lb-rank { font-size: 15px; font-weight: 700; text-align: center; color: var(--muted); }
+.lb-name { font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lb-pts { font-weight: 800; color: var(--accent); font-variant-numeric: tabular-nums; }
+.lb-empty { color: var(--muted); font-size: 13px; text-align: center; padding: 14px 0; }
+
 /* salon : liste des joueurs + croix d'exclusion */
 .room-players {
   display: grid;
