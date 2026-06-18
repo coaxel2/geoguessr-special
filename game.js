@@ -179,9 +179,23 @@ const EQUIPPED_KEY = "geoq-equipped";
 const SHOP_ITEMS = {
   boreal: { price: 1500, type: "theme", slot: "theme", label: "Nuit boréale" },
   aurora: { price: 1200, type: "theme", slot: "theme", label: "Thème Aurora" },
-  sunset: { price: 900, type: "theme", slot: "theme", label: "Thème Sunset" },
-  badge: { price: 500, type: "badge", slot: "badge", label: "Badge Globe" },
-  avatars: { price: 0, type: "avatarPack", slot: "avatarPack", label: "Pack Avatars" },
+  sunset: { price: 900,  type: "theme", slot: "theme", label: "Thème Sunset" },
+  emerald: { price: 1000, type: "theme", slot: "theme", label: "Émeraude profonde" },
+  magma:   { price: 1300, type: "theme", slot: "theme", label: "Magma" },
+  cyber:   { price: 1600, type: "theme", slot: "theme", label: "Cyber néon" },
+  sakura:  { price: 1100, type: "theme", slot: "theme", label: "Sakura" },
+  mono:    { price: 800,  type: "theme", slot: "theme", label: "Monochrome ardoise" },
+  themeDefault: { price: 0, type: "theme", slot: "theme", label: "Vert original" },
+  badge:        { price: 500,  type: "badge", slot: "badge", label: "Badge Globe" },
+  badgeCompass: { price: 700,  type: "badge", slot: "badge", label: "Badge Boussole" },
+  badgeFlame:   { price: 900,  type: "badge", slot: "badge", label: "Badge Flamme" },
+  badgeStar:    { price: 650,  type: "badge", slot: "badge", label: "Badge Étoile" },
+  badgeCrown:   { price: 1400, type: "badge", slot: "badge", label: "Badge Couronne" },
+  avatars:     { price: 0,   type: "avatarPack", slot: "avatarPack", label: "Pack Explorateurs" },
+  avatarsBot:  { price: 600, type: "avatarPack", slot: "avatarPack", label: "Pack Robots" },
+  avatarsPixel:{ price: 750, type: "avatarPack", slot: "avatarPack", label: "Pack Pixel" },
+  fxNone:   { price: 0,    type: "fx", slot: "fx", label: "Aucun effet" },
+  fxAurora: { price: 1200, type: "fx", slot: "fx", label: "Halo aurore" },
 };
 function readJSON(key, fallback) {
   try {
@@ -224,8 +238,14 @@ function saveOwnedItems(owned) { writeJSON(OWNED_KEY, owned); }
 function saveEquippedItems(equipped) { writeJSON(EQUIPPED_KEY, equipped); }
 function applyCosmetics() {
   const equipped = equippedItems();
-  document.body.dataset.theme = equipped.theme || "";
-  document.body.dataset.badge = equipped.badge === "badge" ? "globe" : "";
+  document.body.dataset.theme = equipped.theme && equipped.theme !== "themeDefault" ? equipped.theme : "";
+  const BADGE_NAME = { badge: "globe", badgeCompass: "compass", badgeFlame: "flame", badgeStar: "star", badgeCrown: "crown" };
+  document.body.dataset.badge = BADGE_NAME[equipped.badge] || "";
+  document.body.dataset.fx = equipped.fx === "fxAurora" ? "aurora" : "";
+  try {
+    if (typeof setAvatar === "function") setAvatar("avatar-current", G.avatarChoice);
+    if (typeof buildAvatarGrid === "function" && $("avatar-grid") && $("avatar-grid").childElementCount) buildAvatarGrid();
+  } catch (e) {}
 }
 function setShopFeedback(text) {
   const el = $("shop-feedback");
@@ -319,12 +339,14 @@ function renderCommunity() {
    En P2P on ne transmet que le pseudo + la graine ; chaque client recompose
    l'avatar de l'autre à l'identique (même seed ⇒ même bonhomme). */
 const AV_STYLE = "avataaars";
+const AV_STYLES = { avatars: "avataaars", avatarsBot: "bottts", avatarsPixel: "pixel-art" };
+function currentAvStyle() { const eq = equippedItems(); return AV_STYLES[eq.avatarPack] || "avataaars"; }
 const AV_BG = "b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf,d1f4d9,ffeeb3";
 // Galerie d'avatars à CHOISIR (chaque graine = un bonhomme distinct et fixe).
 const AVATARS = ["Felix", "Luna", "Milo", "Zoe", "Oscar", "Nina", "Hugo", "Lea", "Tom", "Emma", "Sam", "Jade"];
 function avatarURL(choice) {
   const seed = AVATARS[choice] || AVATARS[0];
-  return "https://api.dicebear.com/9.x/" + AV_STYLE + "/svg?seed=" +
+  return "https://api.dicebear.com/9.x/" + currentAvStyle() + "/svg?seed=" +
          encodeURIComponent(seed) + "&backgroundColor=" + AV_BG;
 }
 function setAvatar(elId, choice) {
@@ -380,6 +402,7 @@ const G = {
   gmap: null,
   marker: null,
   startPov: null,
+  startPanoId: null,
   locationWaiters: {},
   locationBatch: 0,
   zoneFilter: "world",
@@ -1028,6 +1051,8 @@ function ensureGuessMap() {
   L.tileLayer(TILE_URL, TILE_OPT).addTo(G.gmap);
   G.gmap.on("click", (e) => placeGuess(e.latlng));
 }
+function zoneBoundsForGuess(){const z=G.zoneFilter,co=G.countryFilter;if(z==="world"||z==="world-cities")return null;try{const feats=zoneFeatures(z,co);if(feats&&feats.length){const b=L.geoJSON({type:"FeatureCollection",features:feats}).getBounds();if(b&&b.isValid())return b;}}catch(e){}try{const s=zoneShape(z,co);if(s&&s.circle)return L.latLng(s.circle[0],s.circle[1]).toBounds(s.r*2.2);if(s&&s.boxes)return bboxOf(s.boxes);}catch(e){}return null;}
+function frameGuessMapToZone(){if(!G.gmap)return;const b=zoneBoundsForGuess();if(b)G.gmap.fitBounds(b,{padding:[12,12],maxZoom:12});else G.gmap.setView([20,0],1);}
 function placeGuess(latlng) {
   if (G.submitted) return;
   const style = { radius: 7, color: "#fff", weight: 2, fillColor: "#2ee6a6", fillOpacity: 1 };
@@ -1083,8 +1108,8 @@ async function loadRound() {
   updateMultiHud();
 
   ensureGuessMap();
-  G.gmap.setView([20, 0], 1);
-  setTimeout(() => G.gmap.invalidateSize(), 80);
+  frameGuessMapToZone();
+  setTimeout(() => { G.gmap.invalidateSize(); frameGuessMapToZone(); }, 80);
 
   if (!G.locations[round]) {
     cover("Préparation de la manche…");
@@ -1099,6 +1124,7 @@ async function loadRound() {
 
   cover("Chargement du panorama…");
   G.startPov = { heading: Math.random() * 360, pitch: 0, zoom: 0 };
+  G.startPanoId = loc.panoId;
   makePano(loc, G.startPov);
   let done = false;
   const reveal = () => { if (done) return; done = true; uncover(); startTimer(G.timeLimit); };
@@ -1107,7 +1133,12 @@ async function loadRound() {
 }
 
 function resetView() {
-  if (G.pano && G.startPov) { G.pano.setPov(G.startPov); G.pano.setZoom(0); }
+  if (!G.pano) return;
+  if (G.startPanoId) { try { G.pano.setPano(G.startPanoId); } catch (e) {} }
+  if (G.startPov) {
+    G.pano.setPov({ heading: G.startPov.heading, pitch: G.startPov.pitch });
+    G.pano.setZoom(G.startPov.zoom || 0);
+  }
 }
 
 function submitGuess() {
@@ -1166,11 +1197,11 @@ function distM(a, b) {
             Math.cos(toR(a.lat)) * Math.cos(toR(b.lat)) * Math.sin(dLng / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(s));
 }
-function scoreFor(d) {
-  const km = d / 1000;
-  if (km < 0.15) return 5000;
-  return Math.round(5000 * Math.exp(-km / 1500));
-}
+function geomBBox(geom){let laMin=90,laMax=-90,loMin=180,loMax=-180;const scan=(ring)=>ring.forEach(([lng,lat])=>{if(lat<laMin)laMin=lat;if(lat>laMax)laMax=lat;if(lng<loMin)loMin=lng;if(lng>loMax)loMax=lng;});if(geom.type==="Polygon")geom.coordinates.forEach(scan);else if(geom.type==="MultiPolygon")geom.coordinates.forEach((poly)=>poly.forEach(scan));return[laMin,laMax,loMin,loMax];}
+function bboxRadiusKm(b){return distM({lat:b[0],lng:b[2]},{lat:b[1],lng:b[3]})/1000/2;}
+const MEDIAN=(arr)=>{const s=[...arr].sort((x,y)=>x-y);return s[Math.floor(s.length/2)];};
+function zoneRadiusKm(){const z=G.zoneFilter,co=G.countryFilter;if(z==="world")return 9000;if(typeof CITY_ZONES!=="undefined"&&CITY_ZONES[z])return(CITY_ZONES[z][2]||12000)/1000;if(z==="world-cities"&&typeof WORLD_CITIES!=="undefined")return MEDIAN(WORLD_CITIES.map((c)=>c[2]))/1000;if(z==="france-cities"&&typeof FRANCE_CITIES!=="undefined")return MEDIAN(FRANCE_CITIES.map((c)=>c[2]))/1000;try{const key=zoneGeometryKey();if(key&&ZGEO&&ZGEO[key])return bboxRadiusKm(geomBBox(ZGEO[key]));}catch(e){}try{const s=zoneShape(z,co);if(s&&s.boxes){const b=bboxOf(s.boxes);return distM({lat:b.getSouth(),lng:b.getWest()},{lat:b.getNorth(),lng:b.getEast()})/1000/2;}}catch(e){}return 1500;}
+function scoreFor(d){const km=d/1000;const R=zoneRadiusKm();const tau=Math.max(2,Math.min(2000,R*0.18));const perfect=Math.max(0.05,Math.min(50,R*0.01));if(km<=perfect)return 5000;const s=Math.round(5000*Math.exp(-(km-perfect)/tau));return Math.max(0,Math.min(5000,s));}
 
 /* ---------- chrono + son ---------- */
 let audioCtx = null;
