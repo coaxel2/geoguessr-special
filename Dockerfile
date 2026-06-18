@@ -1,16 +1,15 @@
-# GeoGuessr Spécial — image statique servie par nginx.
-# La clé Google Maps n'est PAS dans le code : elle est injectée au démarrage
-# du conteneur depuis la variable d'environnement GMAPS_KEY (voir entrypoint).
-FROM nginx:alpine
+# Geoloc — serveur Node : fichiers statiques + signaling PeerJS auto-hébergé (/peerjs).
+# La clé Google Maps est injectée au démarrage depuis la variable GMAPS_KEY (jamais commitée).
+FROM node:20-alpine
+WORKDIR /app
+
+# Dépendances (cache de couche tant que package.json ne change pas)
+COPY package.json package-lock.json* ./
+RUN npm install --omit=dev --no-audit --no-fund
 
 # Fichiers de l'application
-COPY index.html style.css game.js favicon.svg zones-geo.json globe-land.json /usr/share/nginx/html/
-
-# Config nginx : revalidation du cache (évite les versions périmées chez les visiteurs)
-COPY nginx-default.conf /etc/nginx/conf.d/default.conf
-
-# Script d'injection de la clé (exécuté par le mécanisme docker-entrypoint.d de nginx)
-COPY docker-entrypoint.sh /docker-entrypoint.d/40-inject-gmaps-key.sh
-RUN chmod +x /docker-entrypoint.d/40-inject-gmaps-key.sh
+COPY index.html style.css game.js favicon.svg zones-geo.json globe-land.json server.js entrypoint.sh ./
+RUN chmod +x entrypoint.sh
 
 EXPOSE 80
+CMD ["./entrypoint.sh"]

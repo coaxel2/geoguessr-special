@@ -1136,6 +1136,20 @@ const ICE = { iceServers: [
   { urls: "turn:openrelay.metered.ca:443", username: "openrelayproject", credential: "openrelayproject" },
   { urls: "turn:openrelay.metered.ca:443?transport=tcp", username: "openrelayproject", credential: "openrelayproject" },
 ]};
+// log multijoueur visible dans la console (préfixe [MP]) — pour diagnostiquer salon/connexion
+function mlog() { try { console.log.apply(console, ["%c[MP]", "color:#2ee6a6;font-weight:700"].concat([].slice.call(arguments))); } catch (e) {} }
+// signaling auto-hébergé sur ce domaine (/peerjs) → plus de dépendance au serveur public 0.peerjs.com
+function peerOptions() {
+  const secure = location.protocol === "https:";
+  return {
+    host: location.hostname,
+    port: location.port ? Number(location.port) : (secure ? 443 : 80),
+    path: "/peerjs",
+    secure: secure,
+    debug: 1,
+    config: ICE,
+  };
+}
 function genCode() {
   const c = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
   let s = ""; for (let i = 0; i < 4; i++) s += c[Math.floor(Math.random() * c.length)];
@@ -1244,7 +1258,9 @@ function createRoom() {
   $("online-status").textContent = "Création de la salle…";
 
   const id = roomPeerId(code);
-  const peer = new Peer(id, { debug: 0, secure: true, config: ICE });
+  const po = peerOptions();
+  mlog("createRoom code", code, "→ signaling", po.host + ":" + po.port + po.path);
+  const peer = new Peer(id, po);
   G.online.peer = peer;
   G.online.active = true;
   G.online.myId = id;
@@ -1253,12 +1269,14 @@ function createRoom() {
   renderLobby();
   peer.on("open", () => {
     if (G.online.peer !== peer || !G.online.isHost) return;
+    mlog("salle prête, code", code);
     $("room-code").textContent = code;
     $("btn-copy").disabled = false;
     $("online-status").textContent = "En attente de joueurs…";
   });
   peer.on("connection", (conn) => hostAcceptConn(conn));
   peer.on("error", (e) => {
+    mlog("ERREUR peer (hôte):", e.type, e.message || "");
     $("online-error").textContent = e.type === "unavailable-id" ? "Code déjà pris, réessaie." : "Erreur réseau : " + e.type;
     backToOnlineChoice();
   });
@@ -1272,6 +1290,7 @@ function hostAcceptConn(conn) {
     if (!G.online.isHost) { try { conn.close(); } catch (e) {} return; }
     if (G.online.started) { try { conn.send({ type: "kick", reason: "started" }); setTimeout(() => conn.close(), 120); } catch (e) {} return; }
     G.online.conns[conn.peer] = conn;
+    mlog("invité connecté:", conn.peer);
     $("online-status").textContent = "Un joueur se connecte…";
     conn.on("data", (m) => onData(m, conn.peer));
     conn.on("close", () => { if (G.online.conns[conn.peer]) hostDropConn(conn.peer); });
@@ -1317,7 +1336,8 @@ function joinRoom(codeArg) {
     attempts++;
     $("online-status").textContent = attempts > 1 ? "Nouvelle tentative de connexion…" : "Connexion à la salle…";
 
-    const peer = new Peer({ debug: 0, secure: true, config: ICE });
+    mlog("joinRoom tentative", code, "→ signaling", peerOptions().host + peerOptions().path);
+    const peer = new Peer(peerOptions());
     G.online.peer = peer;
     const scheduleRetry = () => {
       if (!G.online.active && G.online.peer === peer && Date.now() < deadline) setTimeout(retryConnect, 900);
@@ -1376,6 +1396,7 @@ function setupGuestConn(conn, peer) {
 }
 
 async function hostStartGame() {
+  mlog("hostStartGame:", activePlayerCount(), "joueurs · isHost", G.online.isHost, "· started", G.online.started);
   if (!G.online.active || !G.online.isHost || G.online.started) return;
   if (activePlayerCount() < 2) { $("online-status").textContent = "Il faut au moins un autre joueur pour lancer."; return; }
   readRoomSettings();
@@ -1398,6 +1419,7 @@ async function hostStartGame() {
 
 function onData(m, fromId) {
   if (!m || !m.type || m.type === "ping") return;
+  mlog("recv", m.type, "from", fromId);
 
   if (m.type === "hello") {
     // [hôte] un invité se présente → l'ajouter au roster et le diffuser à tous
