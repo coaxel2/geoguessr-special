@@ -29,6 +29,8 @@ function showScreen(id) {
   const isHub = (id === "menu" || id === "online" || id === "leaderboard" || id === "shop" || id === "community");
   const wallet = document.getElementById("wallet-pill");
   if (wallet) wallet.style.display = isHub ? "" : "none";
+  const accountBtn = document.getElementById("account-btn");
+  if (accountBtn) accountBtn.style.display = isHub ? "" : "none";
   if (id === "leaderboard") loadLeaderboardPage();
   if (isHub) {
     try { $(id).scrollTop = 0; } catch (e) {}
@@ -197,6 +199,49 @@ const SHOP_ITEMS = {
   fxNone:   { price: 0,    type: "fx", slot: "fx", label: "Aucun effet" },
   fxAurora: { price: 1200, type: "fx", slot: "fx", label: "Halo aurore" },
 };
+
+/* ---------- comptes (login / inscription) ----------
+   Le login est OPTIONNEL : le jeu reste 100% jouable en invité. Si le serveur
+   n'a pas de DB (local), /api/me renvoie {user:null} et rien ne casse.
+   Tout l'état (pièces, possessions, équipement, pseudo) est lié au pseudo via
+   la session cookie httpOnly « gtok » ; le client ne manipule jamais le token. */
+let AUTH = { user: null };
+let _hydrating = false; // évite la boucle hydrate -> setCoins -> pushState
+function isLogged() { return !!AUTH.user; }
+function hydrateFromServer(u) {
+  if (!u) return;
+  _hydrating = true;
+  try {
+    setCoins(u.coins || 0);
+    saveOwnedItems(u.owned || {});
+    saveEquippedItems(u.equipped || {});
+    G.playerName = u.pseudo;
+    try { localStorage.setItem("geoq-name", u.pseudo); } catch (e) {}
+    if (typeof updateWallet === "function") updateWallet();
+    if (typeof applyCosmetics === "function") applyCosmetics();
+    if (typeof renderShop === "function") renderShop();
+    const inp = document.getElementById("player-name");
+    if (inp) { inp.value = u.pseudo; inp.readOnly = true; }
+  } catch (e) {
+    console.error("[auth] hydrate", e);
+  } finally {
+    _hydrating = false;
+  }
+}
+let _stateT = null;
+function pushState() {
+  if (_hydrating || !isLogged()) return;
+  clearTimeout(_stateT);
+  _stateT = setTimeout(() => {
+    fetch("/api/me/state", {
+      method: "PUT",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ coins: getCoins(), owned: ownedItems(), equipped: equippedItems() }),
+    }).catch(() => {});
+  }, 450);
+}
+
 function readJSON(key, fallback) {
   try {
     const raw = localStorage.getItem(key);
@@ -220,6 +265,7 @@ function setCoins(n) {
   const value = Math.max(0, Math.floor(n || 0));
   try { localStorage.setItem(COINS_KEY, String(value)); } catch (e) {}
   updateWallet();
+  pushState();
 }
 function addCoins(n) { setCoins(getCoins() + Math.max(0, Math.floor(n || 0))); }
 function updateWallet() {
@@ -234,8 +280,8 @@ function ownedItems() {
 function equippedItems() {
   return readJSON(EQUIPPED_KEY, { avatarPack: "avatars" });
 }
-function saveOwnedItems(owned) { writeJSON(OWNED_KEY, owned); }
-function saveEquippedItems(equipped) { writeJSON(EQUIPPED_KEY, equipped); }
+function saveOwnedItems(owned) { writeJSON(OWNED_KEY, owned); pushState(); }
+function saveEquippedItems(equipped) { writeJSON(EQUIPPED_KEY, equipped); pushState(); }
 function applyCosmetics() {
   const equipped = equippedItems();
   document.body.dataset.theme = equipped.theme && equipped.theme !== "themeDefault" ? equipped.theme : "";
@@ -2157,6 +2203,125 @@ function startGlobe(cv, geo) {
   globeRAF = requestAnimationFrame(frame);
 }
 
+/* ---------- UI comptes (modale login / inscription) ---------- */
+function renderAuthUI() {
+  const btn = $("account-btn");
+  if (!btn) return;
+  if (isLogged()) {
+    btn.textContent = "👤 " + (AUTH.user.pseudo || "Compte");
+    btn.classList.add("logged");
+    btn.title = "Cliquer pour se déconnecter";
+  } else {
+    btn.textContent = "Se connecter";
+    btn.classList.remove("logged");
+    btn.title = "Se connecter ou créer un compte";
+  }
+}
+function setAuthMode(mode) {
+  const m = $("auth-modal");
+  if (!m) return;
+  m.dataset.mode = mode; // "login" | "register"
+  const tabLogin = $("auth-tab-login");
+  const tabReg = $("auth-tab-register");
+  if (tabLogin) tabLogin.classList.toggle("on", mode === "login");
+  if (tabReg) tabReg.classList.toggle("on", mode === "register");
+  const ok = $("auth-submit");
+  if (ok) ok.textContent = mode === "register" ? "Créer mon compte" : "Se connecter";
+  const err = $("auth-err");
+  if (err) err.textContent = "";
+}
+function openAuthModal() {
+  // Déjà connecté : le bouton sert de déconnexion.
+  if (isLogged()) { logout(); return; }
+  const m = $("auth-modal");
+  if (!m) return;
+  setAuthMode("login");
+  const p = $("auth-pseudo"); if (p) p.value = (G.playerName || "");
+  const pw = $("auth-password"); if (pw) pw.value = "";
+  const err = $("auth-err"); if (err) err.textContent = "";
+  m.hidden = false;
+  setTimeout(() => { try { (G.playerName ? $("auth-password") : $("auth-pseudo")).focus(); } catch (e) {} }, 60);
+}
+function closeAuthModal() {
+  const m = $("auth-modal");
+  if (m) m.hidden = true;
+}
+function setAuthBusy(busy) {
+  const ok = $("auth-submit");
+  if (ok) ok.disabled = !!busy;
+}
+function submitAuth(mode) {
+  const m = $("auth-modal");
+  if (!m) return;
+  mode = mode || m.dataset.mode || "login";
+  const pseudo = ($("auth-pseudo") ? $("auth-pseudo").value : "").trim();
+  const password = $("auth-password") ? $("auth-password").value : "";
+  const err = $("auth-err");
+  const setErr = (t) => { if (err) err.textContent = t || ""; };
+  if (!pseudo || !password) { setErr("Pseudo et mot de passe requis."); return; }
+  setErr("");
+  setAuthBusy(true);
+  const url = mode === "register" ? "/api/register" : "/api/login";
+  const body = {
+    pseudo: pseudo,
+    password: password,
+    guest: { coins: getCoins(), owned: ownedItems(), equipped: equippedItems() },
+  };
+  fetch(url, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  })
+    .then((r) => r.json().catch(() => ({})).then((d) => ({ status: r.status, data: d })))
+    .then(({ status, data }) => {
+      if (status === 200 && data && data.user) {
+        AUTH.user = data.user;
+        hydrateFromServer(data.user);
+        renderAuthUI();
+        closeAuthModal();
+        return;
+      }
+      if (status === 409) setErr("Pseudo déjà pris.");
+      else if (status === 401) setErr("Identifiants invalides.");
+      else if (status === 429) setErr("Trop de tentatives, réessaie plus tard.");
+      else if (status === 503) setErr("Comptes indisponibles pour le moment.");
+      else if (status === 400) setErr("Pseudo ou mot de passe invalide.");
+      else setErr("Une erreur est survenue. Réessaie.");
+    })
+    .catch(() => setErr("Connexion impossible. Vérifie ta connexion."))
+    .finally(() => setAuthBusy(false));
+}
+function logout() {
+  fetch("/api/logout", { method: "POST", credentials: "same-origin" })
+    .catch(() => {})
+    .finally(() => {
+      AUTH.user = null;
+      const inp = $("player-name");
+      if (inp) inp.readOnly = false;
+      renderAuthUI();
+    });
+}
+function wireAuth() {
+  const btn = $("account-btn");
+  if (btn) btn.addEventListener("click", openAuthModal);
+  const m = $("auth-modal");
+  if (!m) return;
+  const close = $("auth-close");
+  if (close) close.addEventListener("click", closeAuthModal);
+  m.addEventListener("click", (e) => { if (e.target === m) closeAuthModal(); });
+  const tabLogin = $("auth-tab-login");
+  if (tabLogin) tabLogin.addEventListener("click", () => setAuthMode("login"));
+  const tabReg = $("auth-tab-register");
+  if (tabReg) tabReg.addEventListener("click", () => setAuthMode("register"));
+  const ok = $("auth-submit");
+  if (ok) ok.addEventListener("click", () => submitAuth());
+  const pw = $("auth-password");
+  if (pw) pw.addEventListener("keydown", (e) => { if (e.key === "Enter") submitAuth(); });
+  const ps = $("auth-pseudo");
+  if (ps) ps.addEventListener("keydown", (e) => { if (e.key === "Enter") submitAuth(); });
+}
+
 function wire() {
   fillZoneOptions();
   try {
@@ -2167,6 +2332,18 @@ function wire() {
   } catch (e) {}
   $("player-name").addEventListener("change", savePlayerName);
   $("player-name").addEventListener("blur", savePlayerName);
+
+  // Comptes (optionnel) : on branche l'UI puis on demande la session courante.
+  // Si pas de DB / pas connecté, /api/me renvoie {user:null} -> reste en invité.
+  wireAuth();
+  fetch("/api/me", { credentials: "same-origin" })
+    .then((r) => r.json())
+    .then((d) => {
+      if (d && d.user) { AUTH.user = d.user; hydrateFromServer(d.user); }
+      renderAuthUI();
+    })
+    .catch(() => { renderAuthUI(); });
+
   buildAvatarGrid();
   setAvatar("avatar-current", G.avatarChoice);
   renderShop();

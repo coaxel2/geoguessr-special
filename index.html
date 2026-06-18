@@ -14,13 +14,14 @@
   <link rel="preconnect" href="https://api.dicebear.com" />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-  <link rel="stylesheet" href="style.css?v=52" />
+  <link rel="stylesheet" href="style.css?v=53" />
 </head>
 <body>
   <div class="wallet-pill" id="wallet-pill" aria-label="Monnaie disponible">
     <span class="wallet-icon" aria-hidden="true">🪙</span>
     <span id="wallet-amount">0</span>
   </div>
+  <button class="account-btn" id="account-btn" type="button" title="Se connecter ou créer un compte">Se connecter</button>
 
   <!-- ====================== MENU ====================== -->
   <section id="menu" class="screen show">
@@ -731,6 +732,29 @@
     </div>
   </div>
 
+  <!-- ====================== COMPTE (login / inscription) ====================== -->
+  <div class="modal-overlay" id="auth-modal" data-mode="login" hidden>
+    <div class="modal-card">
+      <button class="modal-close" id="auth-close" aria-label="Fermer">✕</button>
+      <h2 class="panel-title">Ton compte</h2>
+      <div class="auth-tabs" role="tablist">
+        <button type="button" class="auth-tab on" id="auth-tab-login" role="tab">Se connecter</button>
+        <button type="button" class="auth-tab" id="auth-tab-register" role="tab">Créer un compte</button>
+      </div>
+      <div class="field">
+        <label for="auth-pseudo">Pseudo</label>
+        <input id="auth-pseudo" class="text-input" maxlength="18" placeholder="Joueur" autocomplete="username" spellcheck="false" />
+      </div>
+      <div class="field" style="margin-top: 12px">
+        <label for="auth-password">Mot de passe</label>
+        <input id="auth-password" class="text-input" type="password" placeholder="••••••••" autocomplete="current-password" />
+      </div>
+      <p class="err" id="auth-err"></p>
+      <button class="btn btn-primary" id="auth-submit">Se connecter</button>
+      <p class="hint">Optionnel : connecte-toi pour lier tes pièces et ta boutique à ton pseudo, sur tous tes appareils.</p>
+    </div>
+  </div>
+
   <!-- ====================== CLASSEMENT (modale) ====================== -->
   <div class="modal-overlay" id="lb-modal" hidden>
     <div class="modal-card">
@@ -743,6 +767,6 @@
 
   <!-- Leaflet : cartes de guess / résultat (tuiles raster, pas de WebGL) -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script src="game.js?v=52"></script>
+  <script src="game.js?v=53"></script>
 </body>
 </html>

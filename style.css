@@ -114,6 +114,66 @@ body[data-fx="aurora"] .home-bg::after {
   line-height: 1;
 }
 
+/* Bouton compte (login / inscription) — pilule sombre, à gauche de la wallet.
+   Masqué en jeu via JS (#account-btn display:none), comme .wallet-pill. */
+.account-btn {
+  position: fixed;
+  top: 104px;
+  right: max(152px, calc((100vw - 1180px) / 2 + 152px));
+  z-index: 36;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 180px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--stroke-strong);
+  border-radius: 999px;
+  background: rgba(15, 21, 38, .84);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, .34);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  color: var(--text);
+  font: inherit;
+  font-weight: 800;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  transition: border-color .15s ease, background .2s ease, transform .12s ease;
+}
+.account-btn:hover { border-color: var(--accent); background: rgba(46, 230, 166, .10); transform: translateY(-1px); }
+.account-btn.logged { border-color: rgba(46, 230, 166, .42); color: var(--accent); }
+
+/* Onglets de la modale compte */
+.auth-tabs {
+  display: flex;
+  gap: 6px;
+  margin: -6px 0 18px;
+  padding: 4px;
+  border: 1px solid var(--stroke);
+  border-radius: 14px;
+  background: rgba(0, 0, 0, .22);
+}
+.auth-tab {
+  flex: 1;
+  padding: 9px 10px;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background .15s ease, color .15s ease;
+}
+.auth-tab:hover { color: var(--text); }
+.auth-tab.on { background: rgba(46, 230, 166, .14); color: var(--accent); }
+#auth-modal .field label { display: block; text-align: left; color: var(--muted); font-size: 13px; font-weight: 700; margin-bottom: 7px; }
+#auth-modal .btn-primary { margin-top: 8px; }
+#auth-modal .hint { text-align: left; }
+
 /* ---------- Screens ---------- */
 .screen {
   position: fixed;
@@ -1598,6 +1658,14 @@ body {
     padding: 0 13px;
   }
 
+  .account-btn {
+    top: 18px;
+    right: calc(16px + 116px);
+    min-height: 40px;
+    max-width: 150px;
+    padding: 0 13px;
+  }
+
   .app-shell {
     width: min(calc(100vw - 28px), 680px);
     padding-top: 132px;
@@ -1710,6 +1778,15 @@ body {
     min-height: 36px;
     padding: 0 11px;
     font-size: 14px;
+  }
+
+  .account-btn {
+    top: 16px;
+    right: calc(12px + 96px);
+    min-height: 36px;
+    max-width: 130px;
+    padding: 0 11px;
+    font-size: 13px;
   }
 
   .app-shell {
