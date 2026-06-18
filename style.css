@@ -57,6 +57,113 @@ body[data-theme="cyber"]   { --accent: #4dffd2; --accent-2: #b06bff; --accent-in
 body[data-theme="sakura"]  { --accent: #ff9ec4; --accent-2: #c0aede; --accent-ink: #2a0e1c; }
 body[data-theme="mono"]    { --accent: #c7d2e4; --accent-2: #8aa0c0; --accent-ink: #0c121f; }
 
+/* ===========================================================
+   AMBIANCE DE FOND PAR THÈME
+   Quand un thème cosmétique est équipé, on teinte légèrement le fond
+   global (présent sur tous les écrans via .home-bg / .menu-bg) avec un
+   voile de radial-gradients cohérent avec son accent. On redéclare le
+   `background` complet (tinte en premières couches, puis le dégradé
+   sombre d'origine) pour rester sombre et lisible. Le champ d'étoiles
+   (.home-bg::after) et la grille (.menu-bg::after) ne sont pas touchés.
+   Halo teinté optionnel derrière le globe (.home-globe).
+   =========================================================== */
+
+/* — emerald — vert/cyan exploration (proche du défaut, un peu plus marqué) */
+body[data-theme="emerald"] .home-bg,
+body[data-theme="emerald"] .menu-bg {
+  background:
+    radial-gradient(1100px 760px at 70% 46%, rgba(46, 230, 166, .16), transparent 60%),
+    radial-gradient(900px 680px at 12% 14%, rgba(43, 179, 201, .14), transparent 58%),
+    linear-gradient(160deg, #06120f 0%, #081a1c 55%, #060f10 100%);
+}
+body[data-theme="emerald"] .home-globe {
+  filter: drop-shadow(0 0 46px rgba(46, 230, 166, .28));
+}
+
+/* — magma — orangé/braise */
+body[data-theme="magma"] .home-bg,
+body[data-theme="magma"] .menu-bg {
+  background:
+    radial-gradient(1100px 780px at 70% 44%, rgba(255, 122, 77, .17), transparent 60%),
+    radial-gradient(820px 640px at 14% 12%, rgba(255, 211, 92, .12), transparent 58%),
+    linear-gradient(160deg, #160806 0%, #1b0c08 55%, #120604 100%);
+}
+body[data-theme="magma"] .home-globe {
+  filter: drop-shadow(0 0 48px rgba(255, 122, 77, .30));
+}
+
+/* — cyber — cyan néon + violet */
+body[data-theme="cyber"] .home-bg,
+body[data-theme="cyber"] .menu-bg {
+  background:
+    radial-gradient(1080px 760px at 72% 46%, rgba(77, 255, 210, .15), transparent 58%),
+    radial-gradient(900px 700px at 14% 14%, rgba(176, 107, 255, .16), transparent 60%),
+    linear-gradient(160deg, #060d14 0%, #0c0a1e 55%, #07060f 100%);
+}
+body[data-theme="cyber"] .home-globe {
+  filter: drop-shadow(0 0 50px rgba(176, 107, 255, .30));
+}
+
+/* — sakura — rose poudré */
+body[data-theme="sakura"] .home-bg,
+body[data-theme="sakura"] .menu-bg {
+  background:
+    radial-gradient(1100px 780px at 70% 44%, rgba(255, 158, 196, .16), transparent 60%),
+    radial-gradient(860px 660px at 14% 14%, rgba(192, 174, 222, .14), transparent 58%),
+    linear-gradient(160deg, #160810 0%, #1a0c18 55%, #11060d 100%);
+}
+body[data-theme="sakura"] .home-globe {
+  filter: drop-shadow(0 0 46px rgba(255, 158, 196, .28));
+}
+
+/* — mono — gris froid, ambiance discrète */
+body[data-theme="mono"] .home-bg,
+body[data-theme="mono"] .menu-bg {
+  background:
+    radial-gradient(1100px 760px at 70% 46%, rgba(199, 210, 228, .10), transparent 60%),
+    radial-gradient(880px 660px at 13% 14%, rgba(138, 160, 192, .10), transparent 58%),
+    linear-gradient(160deg, #0a0e16 0%, #0d1320 55%, #090d15 100%);
+}
+body[data-theme="mono"] .home-globe {
+  filter: drop-shadow(0 0 40px rgba(199, 210, 228, .20));
+}
+
+/* — aurora — émeraude + bleu pervenche */
+body[data-theme="aurora"] .home-bg,
+body[data-theme="aurora"] .menu-bg {
+  background:
+    radial-gradient(1100px 780px at 70% 44%, rgba(138, 247, 209, .15), transparent 60%),
+    radial-gradient(900px 700px at 14% 12%, rgba(138, 168, 255, .15), transparent 60%),
+    linear-gradient(160deg, #07130f 0%, #0a1320 55%, #070b14 100%);
+}
+body[data-theme="aurora"] .home-globe {
+  filter: drop-shadow(0 0 48px rgba(138, 247, 209, .26));
+}
+
+/* — sunset — ambré + rose magenta */
+body[data-theme="sunset"] .home-bg,
+body[data-theme="sunset"] .menu-bg {
+  background:
+    radial-gradient(1100px 780px at 70% 44%, rgba(255, 207, 107, .15), transparent 60%),
+    radial-gradient(880px 680px at 14% 14%, rgba(238, 90, 155, .14), transparent 58%),
+    linear-gradient(160deg, #150a08 0%, #190b12 55%, #11070b 100%);
+}
+body[data-theme="sunset"] .home-globe {
+  filter: drop-shadow(0 0 48px rgba(255, 207, 107, .28));
+}
+
+/* — boreal — turquoise + bleu glace */
+body[data-theme="boreal"] .home-bg,
+body[data-theme="boreal"] .menu-bg {
+  background:
+    radial-gradient(1100px 780px at 70% 44%, rgba(105, 240, 196, .15), transparent 60%),
+    radial-gradient(900px 700px at 13% 13%, rgba(159, 183, 255, .14), transparent 60%),
+    linear-gradient(160deg, #06120f 0%, #08131f 55%, #060c13 100%);
+}
+body[data-theme="boreal"] .home-globe {
+  filter: drop-shadow(0 0 46px rgba(105, 240, 196, .26));
+}
+
 /* ---------- Badges visibles (pastille emoji près du logo) ---------- */
 /* Base badge : pas de `content` ici → le ::after n'est généré QUE lorsqu'une règle
    de valeur ci-dessous fournit le content (évite un espace parasite sans badge, et
@@ -906,7 +1013,9 @@ body[data-fx="aurora"] .home-bg::after {
 }
 .lobby-player.me { border-color: rgba(46,230,166,.45); }
 .lobby-av { width: 32px; height: 32px; border-radius: 9px; object-fit: cover; }
-.lobby-name { font-weight: 600; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Le pseudo reçoit une `color` inline via JS (playerColor) : aucune couleur ni
+   !important ici pour ne pas l'écraser. */
+.lobby-name { font-weight: 800; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lobby-tag { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--gold); font-weight: 700; }
 .lobby-kick {
   flex: none;
@@ -1521,22 +1630,147 @@ body {
   background: linear-gradient(135deg, rgba(46, 230, 166, .8), rgba(25, 183, 230, .22));
 }
 
-.shop-art.aurora { background: linear-gradient(135deg, #2ee6a6, #7c6cff 55%, #0c1530); }
-.shop-art.sunset { background: linear-gradient(135deg, #ffcf6b, #ee5a9b 55%, #192040); }
-.shop-art.badge { background: radial-gradient(circle at 50% 45%, #ffd35c 0 18%, #2ee6a6 19% 36%, #15213d 37%); }
-.shop-art.compass { background: conic-gradient(from 45deg, #2ee6a6, #19b7e6, #ffd35c, #2ee6a6); }
-.shop-art.emerald { background: linear-gradient(135deg, #2ee6a6, #2bb3c9 55%, #061a14); }
-.shop-art.magma   { background: linear-gradient(135deg, #ff7a4d, #ffd35c 55%, #2a0d04); }
-.shop-art.cyber   { background: linear-gradient(135deg, #4dffd2, #b06bff 60%, #0a0f1f); }
-.shop-art.sakura  { background: linear-gradient(135deg, #ff9ec4, #c0aede 55%, #1a1026); }
-.shop-art.mono    { background: linear-gradient(135deg, #c7d2e4, #8aa0c0 55%, #0c121f); }
-.shop-art.badge-compass { background: radial-gradient(circle at 50% 45%, #19b7e6 0 18%, #2ee6a6 19% 36%, #15213d 37%); }
-.shop-art.badge-flame   { background: radial-gradient(circle at 50% 45%, #ff7a4d 0 18%, #ffd35c 19% 36%, #15213d 37%); }
-.shop-art.badge-star    { background: radial-gradient(circle at 50% 45%, #ffd35c 0 18%, #c0aede 19% 36%, #15213d 37%); }
-.shop-art.badge-crown   { background: radial-gradient(circle at 50% 45%, #ffe08a 0 18%, #ff7a4d 19% 36%, #15213d 37%); }
-.shop-art.pack-bot   { background: linear-gradient(135deg, #19b7e6, #2ee6a6 60%, #0c1530); }
-.shop-art.pack-pixel { background: repeating-linear-gradient(90deg, #2ee6a6 0 9px, #19b7e6 9px 18px), #0c1530; background-blend-mode: overlay; }
-.shop-art.fx-aurora { background: radial-gradient(120% 80% at 30% 0%, #2ee6a6, transparent 60%), linear-gradient(135deg, #7c6cff, #0c1530); }
+/* Aperçus cosmétiques (Boutique + Profil) — chaque vignette « ressemble » à
+   son thème : superposition de radial/linear/conic-gradients, motifs et glow
+   interne. Taille/forme héritées de .shop-art ; on ne change que le fond/relief. */
+
+/* — THÈMES — */
+.shop-art.emerald {
+  background:
+    radial-gradient(70% 120% at 18% 0%, rgba(46, 230, 166, .55), transparent 60%),
+    radial-gradient(80% 130% at 100% 100%, rgba(43, 179, 201, .55), transparent 62%),
+    linear-gradient(135deg, #2ee6a6, #2bb3c9 52%, #061a14);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12), inset 0 14px 34px rgba(46, 230, 166, .28);
+}
+.shop-art.magma {
+  background:
+    radial-gradient(60% 120% at 22% 8%, rgba(255, 224, 138, .6), transparent 55%),
+    radial-gradient(90% 140% at 90% 100%, rgba(255, 90, 60, .55), transparent 60%),
+    linear-gradient(135deg, #ff7a4d, #ffb347 48%, #2a0d04);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12), inset 0 -12px 30px rgba(255, 90, 40, .35);
+}
+.shop-art.cyber {
+  background:
+    repeating-linear-gradient(115deg, rgba(255, 255, 255, .06) 0 2px, transparent 2px 11px),
+    radial-gradient(70% 130% at 16% 0%, rgba(77, 255, 210, .55), transparent 58%),
+    radial-gradient(80% 130% at 100% 100%, rgba(176, 107, 255, .6), transparent 60%),
+    linear-gradient(135deg, #1a2f3a, #160a2a 60%, #0a0f1f);
+  box-shadow: inset 0 0 0 1px rgba(77, 255, 210, .26), inset 0 0 30px rgba(176, 107, 255, .3);
+}
+.shop-art.sakura {
+  background:
+    radial-gradient(34% 50% at 78% 28%, rgba(255, 255, 255, .35), transparent 60%),
+    radial-gradient(70% 120% at 20% 4%, rgba(255, 158, 196, .6), transparent 58%),
+    radial-gradient(90% 130% at 100% 100%, rgba(192, 174, 222, .5), transparent 60%),
+    linear-gradient(135deg, #ff9ec4, #c0aede 55%, #1a1026);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .14), inset 0 12px 30px rgba(255, 158, 196, .3);
+}
+.shop-art.mono {
+  background:
+    radial-gradient(70% 120% at 18% 0%, rgba(231, 238, 250, .5), transparent 58%),
+    radial-gradient(80% 130% at 100% 100%, rgba(138, 160, 192, .45), transparent 60%),
+    linear-gradient(135deg, #c7d2e4, #8aa0c0 55%, #0c121f);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .16), inset 0 12px 28px rgba(199, 210, 228, .22);
+}
+.shop-art.aurora {
+  background:
+    radial-gradient(60% 120% at 30% 0%, rgba(46, 230, 166, .6), transparent 58%),
+    radial-gradient(60% 120% at 72% 10%, rgba(124, 108, 255, .55), transparent 60%),
+    radial-gradient(90% 120% at 100% 100%, rgba(138, 168, 255, .4), transparent 62%),
+    linear-gradient(135deg, #11403a, #1b1448 60%, #0c1530);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12), inset 0 0 32px rgba(46, 230, 166, .26);
+}
+.shop-art.sunset {
+  background:
+    radial-gradient(70% 120% at 18% 0%, rgba(255, 207, 107, .65), transparent 58%),
+    radial-gradient(90% 130% at 100% 100%, rgba(238, 90, 155, .6), transparent 60%),
+    linear-gradient(135deg, #ffcf6b, #ee5a9b 52%, #192040);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .14), inset 0 -12px 30px rgba(238, 90, 155, .32);
+}
+.shop-art.boreal {
+  background:
+    radial-gradient(70% 120% at 18% 0%, rgba(105, 240, 196, .6), transparent 58%),
+    radial-gradient(85% 130% at 100% 100%, rgba(159, 183, 255, .5), transparent 60%),
+    linear-gradient(135deg, #69f0c4, #6fa8ff 55%, #07131f);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12), inset 0 0 30px rgba(105, 240, 196, .26);
+}
+
+/* — BADGES — pastille centrale en relief sur fond sombre teinté — */
+.shop-art.badge {
+  background:
+    radial-gradient(circle at 50% 42%, rgba(255, 255, 255, .9) 0 5%, transparent 9%),
+    radial-gradient(circle at 50% 45%, #ffd35c 0 17%, #2ee6a6 18% 33%, transparent 35%),
+    radial-gradient(120% 120% at 50% 120%, rgba(46, 230, 166, .25), transparent 60%),
+    #11203a;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .1), inset 0 0 28px rgba(46, 230, 166, .22);
+}
+.shop-art.badge-compass {
+  background:
+    conic-gradient(from 0deg at 50% 45%, rgba(255, 255, 255, .22), transparent 25%, rgba(255, 255, 255, .22) 50%, transparent 75%, rgba(255, 255, 255, .22)),
+    radial-gradient(circle at 50% 45%, #19b7e6 0 17%, #2ee6a6 18% 33%, transparent 35%),
+    radial-gradient(120% 120% at 50% 120%, rgba(25, 183, 230, .28), transparent 60%),
+    #11203a;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .1), inset 0 0 28px rgba(25, 183, 230, .24);
+}
+.shop-art.badge-flame {
+  background:
+    radial-gradient(circle at 50% 56%, rgba(255, 224, 138, .9) 0 8%, transparent 16%),
+    radial-gradient(circle at 50% 45%, #ff7a4d 0 17%, #ffd35c 18% 33%, transparent 35%),
+    radial-gradient(120% 120% at 50% 120%, rgba(255, 122, 77, .32), transparent 60%),
+    #1a1024;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .1), inset 0 0 28px rgba(255, 122, 77, .26);
+}
+.shop-art.badge-star {
+  background:
+    radial-gradient(circle at 50% 44%, rgba(255, 255, 255, .85) 0 4%, transparent 8%),
+    radial-gradient(circle at 50% 45%, #ffd35c 0 17%, #c0aede 18% 33%, transparent 35%),
+    radial-gradient(120% 120% at 50% 120%, rgba(255, 211, 92, .28), transparent 60%),
+    #171430;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .1), inset 0 0 28px rgba(255, 211, 92, .24);
+}
+.shop-art.badge-crown {
+  background:
+    radial-gradient(circle at 50% 40%, rgba(255, 255, 255, .85) 0 5%, transparent 9%),
+    radial-gradient(circle at 50% 45%, #ffe08a 0 17%, #ff7a4d 18% 33%, transparent 35%),
+    radial-gradient(120% 120% at 50% 120%, rgba(255, 211, 92, .3), transparent 60%),
+    #1a1126;
+  box-shadow: inset 0 0 0 1px rgba(255, 224, 138, .22), inset 0 0 28px rgba(255, 122, 77, .24);
+}
+
+/* — PACKS — */
+.shop-art.pack-bot {
+  background:
+    radial-gradient(28% 44% at 35% 42%, rgba(255, 255, 255, .8) 0 30%, transparent 60%),
+    radial-gradient(28% 44% at 65% 42%, rgba(255, 255, 255, .8) 0 30%, transparent 60%),
+    radial-gradient(80% 120% at 50% 0%, rgba(46, 230, 166, .45), transparent 60%),
+    linear-gradient(135deg, #19b7e6, #2ee6a6 58%, #0c1530);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12), inset 0 0 30px rgba(25, 183, 230, .3);
+}
+.shop-art.pack-pixel {
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, .07) 0 8px, transparent 8px 16px),
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, .18) 0 8px, transparent 8px 16px),
+    linear-gradient(135deg, #2ee6a6, #19b7e6 55%, #7c6cff);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12), inset 0 0 26px rgba(46, 230, 166, .22);
+}
+/* avatars « classiques » — rose des vents */
+.shop-art.compass {
+  background:
+    conic-gradient(from 45deg at 50% 50%, #2ee6a6, #19b7e6, #ffd35c, #2ee6a6),
+    radial-gradient(closest-side at 50% 50%, transparent 0 38%, rgba(10, 18, 34, .55) 40%);
+  background-blend-mode: multiply, normal;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .14), inset 0 0 30px rgba(25, 183, 230, .3);
+}
+
+/* — FX — */
+.shop-art.fx-aurora {
+  background:
+    radial-gradient(90% 70% at 25% 0%, rgba(46, 230, 166, .65), transparent 60%),
+    radial-gradient(90% 80% at 80% 10%, rgba(124, 108, 255, .6), transparent 62%),
+    radial-gradient(70% 60% at 55% 110%, rgba(138, 168, 255, .4), transparent 60%),
+    linear-gradient(135deg, #10362f, #1a1450 60%, #0c1530);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .1), inset 0 0 34px rgba(46, 230, 166, .26);
+}
 
 .shop-card h3 {
   margin: 0 0 6px;
@@ -1774,6 +2008,137 @@ body {
 .community-dot.hot {
   background: var(--gold);
   box-shadow: 0 0 0 4px rgba(255, 211, 92, .14), 0 0 20px rgba(255, 211, 92, .35);
+}
+
+/* ===========================================================
+   COMMUNAUTÉ — stats, classement (podium) et exploits récents
+   HTML généré par game.js (renderCommunity). Fonds de carte/bordures
+   alignés sur .lb-row / .community-row pour rester cohérent.
+   =========================================================== */
+
+/* — Stats — grille responsive de cartes — */
+.comm-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.comm-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 16px 12px;
+  border: 1px solid var(--stroke);
+  border-radius: 14px;
+  background:
+    radial-gradient(120% 120% at 50% 0%, rgba(46, 230, 166, .07), transparent 60%),
+    rgba(255, 255, 255, .035);
+  text-align: center;
+}
+.comm-stat-num {
+  font-size: clamp(24px, 4vw, 32px);
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -.5px;
+  background: linear-gradient(100deg, var(--accent), var(--accent-2));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-variant-numeric: tabular-nums;
+}
+.comm-stat-label {
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* — Classement (podium) — */
+.comm-rank {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  border: 1px solid var(--stroke);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .035);
+}
+.comm-rank + .comm-rank { margin-top: 8px; }
+.comm-rank-pos {
+  flex: none;
+  display: grid;
+  place-items: center;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 6px;
+  border-radius: 9px;
+  background: rgba(0, 0, 0, .26);
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.comm-rank-name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 700;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.comm-rank-score {
+  flex: none;
+  font-weight: 900;
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+}
+
+/* — Exploits récents — */
+.comm-recent {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  border: 1px solid var(--stroke);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .03);
+}
+.comm-recent + .comm-recent { margin-top: 8px; }
+.comm-recent-name {
+  flex: none;
+  max-width: 40%;
+  font-weight: 700;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.comm-recent-meta {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.comm-recent-score {
+  flex: none;
+  font-weight: 800;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+/* — État vide — */
+.comm-empty {
+  padding: 22px 14px;
+  color: var(--muted);
+  font-size: 14px;
+  text-align: center;
 }
 
 .leaderboard-head {

@@ -821,6 +821,57 @@ app.get("/api/scores", async (req, res) => {
   }
 });
 
+// Chaîne relative en français depuis une date (calcul côté serveur).
+function frAgo(date) {
+  const then = date instanceof Date ? date.getTime() : new Date(date).getTime();
+  if (!Number.isFinite(then)) return "";
+  const s = Math.max(0, Math.floor((Date.now() - then) / 1000));
+  if (s < 60) return "à l'instant";
+  const min = Math.floor(s / 60);
+  if (min < 60) return "il y a " + min + " min";
+  const h = Math.floor(min / 60);
+  if (h < 24) return "il y a " + h + " h";
+  const j = Math.floor(h / 24);
+  if (j < 2) return "hier";
+  return "il y a " + j + " j";
+}
+
+// GET /api/community — vraies données pour la page Communauté (publique).
+// Toujours 200 : sans DB ou en cas d'erreur, on renvoie des valeurs vides.
+app.get("/api/community", async (req, res) => {
+  const empty = { ok: true, stats: { games: 0, players: 0, best: 0 }, top: [], recent: [] };
+  if (!db) return res.json(empty);
+  try {
+    const stats = await db.query(
+      `SELECT count(*)::int AS games,
+              count(DISTINCT pseudo)::int AS players,
+              COALESCE(max(score), 0)::int AS best
+         FROM scores`
+    );
+    const top = await db.query(
+      `SELECT pseudo, score, COALESCE(NULLIF(zone_label, ''), zone) AS zone_label, rounds
+         FROM scores
+        ORDER BY score DESC
+        LIMIT 5`
+    );
+    const recent = await db.query(
+      `SELECT pseudo, score, COALESCE(NULLIF(zone_label, ''), zone) AS zone_label, rounds, created_at
+         FROM scores
+        ORDER BY created_at DESC
+        LIMIT 6`
+    );
+    res.json({
+      ok: true,
+      stats: stats.rows[0],
+      top: top.rows.map((r) => ({ pseudo: r.pseudo, score: r.score, zoneLabel: r.zone_label, rounds: r.rounds })),
+      recent: recent.rows.map((r) => ({ pseudo: r.pseudo, score: r.score, zoneLabel: r.zone_label, rounds: r.rounds, ago: frAgo(r.created_at) })),
+    });
+  } catch (e) {
+    console.error("[db] community error:", e.message);
+    res.json(empty);
+  }
+});
+
 // healthcheck : utilisé par Coolify ET Uptime Kuma. Indique aussi l'état de la DB.
 app.get("/healthz", (req, res) => res.json({ ok: true, db: !!db }));
 

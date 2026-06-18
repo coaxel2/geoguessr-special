@@ -32,6 +32,7 @@ function showScreen(id) {
   const accountBtn = document.getElementById("account-btn");
   if (accountBtn) accountBtn.style.display = isHub ? "" : "none";
   if (id === "leaderboard") loadLeaderboardPage();
+  if (id === "community") renderCommunity();
   if (isHub) {
     try { $(id).scrollTop = 0; } catch (e) {}
   }
@@ -373,12 +374,99 @@ function toggleCommunityVote() {
   writeJSON("geoq-community-vote", current);
   renderCommunity();
 }
+// petit util : nombre → chaîne formatée FR ; tolère undefined/NaN
+function fmtPts(x) { return Number(x || 0).toLocaleString("fr-FR"); }
+// crée un <span class="…"> avec du texte échappé (textContent ⇒ pas d'injection HTML)
+function commSpan(cls, text) {
+  const s = document.createElement("span");
+  s.className = cls;
+  s.textContent = text == null ? "" : String(text);
+  return s;
+}
+function commEmpty() {
+  const p = document.createElement("p");
+  p.className = "comm-empty";
+  p.textContent = "Aucune partie pour l'instant — sois le premier !";
+  return p;
+}
+// Communauté : vraies données depuis /api/community (stats + podium + parties récentes).
 function renderCommunity() {
-  const vote = readJSON("geoq-community-vote", { choice: "Japon" });
-  const txt = $("community-vote-text");
-  const btn = $("btn-community-vote");
-  if (txt) txt.textContent = "Ton vote : " + vote.choice + " · clique pour changer.";
-  if (btn) btn.textContent = "Changer";
+  // ancien faux « vote » : peut avoir disparu de l'HTML → guards systématiques.
+  const voteTxt = $("community-vote-text");
+  if (voteTxt) voteTxt.textContent = "";
+
+  const statsEl = $("community-stats");
+  const topEl = $("community-top");
+  const recentEl = $("community-recent");
+  if (!statsEl && !topEl && !recentEl) return;
+
+  if (statsEl) statsEl.innerHTML = "";
+  if (topEl) topEl.innerHTML = "";
+  if (recentEl) recentEl.innerHTML = "";
+
+  fetch("/api/community", { credentials: "same-origin" })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((d) => {
+      d = d || {};
+      // --- Stats ---
+      if (statsEl) {
+        const stats = d.stats || {};
+        const wrap = document.createElement("div");
+        wrap.className = "comm-stats";
+        [
+          { num: fmtPts(stats.games), label: "parties jouées" },
+          { num: fmtPts(stats.players), label: "joueurs" },
+          { num: fmtPts(stats.best), label: "meilleur score" },
+        ].forEach((s) => {
+          const cell = document.createElement("div");
+          cell.className = "comm-stat";
+          cell.appendChild(commSpan("comm-stat-num", s.num));
+          cell.appendChild(commSpan("comm-stat-label", s.label));
+          wrap.appendChild(cell);
+        });
+        statsEl.appendChild(wrap);
+      }
+      // --- Podium ---
+      if (topEl) {
+        const top = Array.isArray(d.top) ? d.top : [];
+        if (!top.length) {
+          topEl.appendChild(commEmpty());
+        } else {
+          const medals = ["🥇", "🥈", "🥉"];
+          top.forEach((e, i) => {
+            e = e || {};
+            const row = document.createElement("div");
+            row.className = "comm-rank";
+            row.appendChild(commSpan("comm-rank-pos", medals[i] || String(i + 1)));
+            row.appendChild(commSpan("comm-rank-name", e.pseudo || "Anonyme"));
+            row.appendChild(commSpan("comm-rank-score", fmtPts(e.score) + " pts"));
+            topEl.appendChild(row);
+          });
+        }
+      }
+      // --- Parties récentes ---
+      if (recentEl) {
+        const recent = Array.isArray(d.recent) ? d.recent : [];
+        if (!recent.length) {
+          recentEl.appendChild(commEmpty());
+        } else {
+          recent.forEach((e) => {
+            e = e || {};
+            const meta = [e.zoneLabel, e.ago].filter(Boolean).join(" · ");
+            const row = document.createElement("div");
+            row.className = "comm-recent";
+            row.appendChild(commSpan("comm-recent-name", e.pseudo || "Anonyme"));
+            row.appendChild(commSpan("comm-recent-meta", meta));
+            row.appendChild(commSpan("comm-recent-score", fmtPts(e.score) + " pts"));
+            recentEl.appendChild(row);
+          });
+        }
+      }
+    })
+    .catch(() => {
+      if (topEl) { topEl.innerHTML = ""; topEl.appendChild(commEmpty()); }
+      if (recentEl) { recentEl.innerHTML = ""; recentEl.appendChild(commEmpty()); }
+    });
 }
 /* ---------- avatars « bonhomme » via DiceBear (style avataaars) ----------
    Déterministes : générés depuis le pseudo (+ une graine cyclable au clic).
@@ -1576,7 +1664,9 @@ function renderLobby() {
     if (G.online.isHost && !G.online.started && p.id !== meId())
       html += '<button class="lobby-kick" data-kick="' + p.id + '" title="Exclure ce joueur">✕</button>';
     row.innerHTML = html;
-    row.querySelector(".lobby-name").textContent = p.id === meId() ? ((G.playerName || "Toi") + " (toi)") : p.name;
+    const nameEl = row.querySelector(".lobby-name");
+    nameEl.textContent = p.id === meId() ? ((G.playerName || "Toi") + " (toi)") : p.name;
+    nameEl.style.color = playerColor(p.id);
     box.appendChild(row);
   });
 }

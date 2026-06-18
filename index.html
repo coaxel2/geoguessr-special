@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://api.dicebear.com" />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-  <link rel="stylesheet" href="style.css?v=54" />
+  <link rel="stylesheet" href="style.css?v=55" />
 </head>
 <body>
   <div class="wallet-pill" id="wallet-pill" aria-label="Monnaie disponible">
@@ -616,23 +616,27 @@
               <p>5 manches, grandes villes du monde, timer 5 minutes. Objectif : dépasser 18 000 pts.</p>
               <button type="button" class="btn btn-primary" id="btn-weekly-challenge">Lancer le défi</button>
             </article>
-            <div class="community-list">
-              <article class="community-row">
-                <span class="community-dot live"></span>
-                <div><strong>Salon public FR-01</strong><small>4 joueurs · Europe · 5 manches</small></div>
-                <button type="button" class="btn btn-mini" id="btn-public-room">Voir</button>
-              </article>
-              <article class="community-row">
-                <span class="community-dot"></span>
-                <div><strong>Ax730 a battu son record</strong><small>339 pts · Monde entier</small></div>
-                <button type="button" class="btn btn-mini" id="btn-community-profile">Profil</button>
-              </article>
-              <article class="community-row">
-                <span class="community-dot hot"></span>
-                <div><strong>Vote de zone</strong><small id="community-vote-text">Prochain tournoi : Japon ou France ?</small></div>
-                <button type="button" class="btn btn-mini" id="btn-community-vote">Voter</button>
-              </article>
-            </div>
+          </div>
+        </section>
+        <section class="feature-panel comm-panel">
+          <p class="shop-eyebrow">Cette semaine en chiffres</p>
+          <h2>Statistiques</h2>
+          <div id="community-stats" class="comm-stats">
+            <p class="comm-empty">Chargement…</p>
+          </div>
+        </section>
+        <section class="feature-panel comm-panel">
+          <p class="shop-eyebrow">🏆 Meilleurs scores</p>
+          <h2>Top joueurs</h2>
+          <div id="community-top" class="comm-top">
+            <p class="comm-empty">Chargement…</p>
+          </div>
+        </section>
+        <section class="feature-panel comm-panel">
+          <p class="shop-eyebrow">⚡ Derniers exploits</p>
+          <h2>Activité récente</h2>
+          <div id="community-recent" class="comm-recent">
+            <p class="comm-empty">Chargement…</p>
           </div>
         </section>
       </main>
@@ -787,6 +791,6 @@
 
   <!-- Leaflet : cartes de guess / résultat (tuiles raster, pas de WebGL) -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script src="game.js?v=54"></script>
+  <script src="game.js?v=55"></script>
 </body>
 </html>
