@@ -2296,12 +2296,15 @@ function startGlobe(cv, geo) {
 function renderAuthUI() {
   const btn = $("account-btn");
   if (!btn) return;
+  // L'icône SVG (.account-ico) est fixe dans index.html ; on ne change QUE le
+  // libellé (#account-name) et l'état .logged — jamais d'emoji injecté ici.
+  const name = $("account-name");
   if (isLogged()) {
-    btn.textContent = "👤 " + (AUTH.user.pseudo || "Compte");
+    if (name) name.textContent = AUTH.user.pseudo || "Compte";
     btn.classList.add("logged");
     btn.title = "Voir mon profil";
   } else {
-    btn.textContent = "Se connecter";
+    if (name) name.textContent = "Se connecter";
     btn.classList.remove("logged");
     btn.title = "Se connecter ou créer un compte";
   }

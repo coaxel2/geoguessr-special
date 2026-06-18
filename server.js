@@ -807,11 +807,14 @@ app.get("/api/scores", async (req, res) => {
   if (!Number.isInteger(limit) || limit < 1 || limit > 50) limit = 10;
   try {
     const { rows } = await db.query(
-      `SELECT pseudo, zone_label, rounds, score, created_at
-         FROM scores
-        WHERE ($1 = '' OR zone = $1)
-        ORDER BY score DESC, created_at ASC
-        LIMIT $2`,
+      `SELECT pseudo, zone_label, rounds, score, created_at FROM (
+         SELECT DISTINCT ON (pseudo) pseudo, zone_label, rounds, score, created_at
+           FROM scores
+          WHERE ($1 = '' OR zone = $1)
+          ORDER BY pseudo, score DESC, created_at ASC
+       ) t
+       ORDER BY score DESC, created_at ASC
+       LIMIT $2`,
       [zone, limit]
     );
     res.json({ ok: true, scores: rows });
@@ -849,10 +852,13 @@ app.get("/api/community", async (req, res) => {
          FROM scores`
     );
     const top = await db.query(
-      `SELECT pseudo, score, COALESCE(NULLIF(zone_label, ''), zone) AS zone_label, rounds
-         FROM scores
-        ORDER BY score DESC
-        LIMIT 5`
+      `SELECT pseudo, score, zone_label, rounds FROM (
+         SELECT DISTINCT ON (pseudo) pseudo, score, COALESCE(NULLIF(zone_label, ''), zone) AS zone_label, rounds
+           FROM scores
+          ORDER BY pseudo, score DESC
+       ) t
+       ORDER BY score DESC
+       LIMIT 5`
     );
     const recent = await db.query(
       `SELECT pseudo, score, COALESCE(NULLIF(zone_label, ''), zone) AS zone_label, rounds, created_at

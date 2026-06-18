@@ -191,24 +191,34 @@ body[data-fx="aurora"] .home-bg::after {
   to   { transform: translateY(3%)  scale(1.05); opacity: 1; }
 }
 
+/* Monnaie + profil : deux pilules globales, alignées en haut à droite SUR LE MÊME
+   axe que la barre (.site-header top:22px / min-height:68px ⇒ centre ≈ 56px).
+   Regroupées (profil puis monnaie). Masquées en jeu via JS (style.display). */
 .wallet-pill {
   position: fixed;
-  top: 104px;
+  top: 34px;
   right: max(20px, calc((100vw - 1180px) / 2 + 20px));
   z-index: 36;
   display: inline-flex;
   align-items: center;
   gap: 9px;
-  min-height: 44px;
+  height: 44px;
   padding: 0 16px;
-  border: 1px solid rgba(255, 211, 92, .34);
+  border: 1px solid rgba(255, 211, 92, .30);
   border-radius: 999px;
-  background: rgba(15, 21, 38, .84);
-  box-shadow: 0 14px 34px rgba(0, 0, 0, .34), 0 0 22px rgba(255, 211, 92, .12);
-  backdrop-filter: blur(16px) saturate(140%);
-  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  background: rgba(8, 13, 27, .72);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, .30), inset 0 1px 0 rgba(255, 255, 255, .05);
+  backdrop-filter: blur(18px) saturate(145%);
+  -webkit-backdrop-filter: blur(18px) saturate(145%);
   color: var(--text);
-  font-weight: 900;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  transition: border-color .2s ease, box-shadow .2s ease, transform .15s ease;
+}
+.wallet-pill:hover {
+  transform: translateY(-1px);
+  border-color: rgba(255, 211, 92, .55);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, .34), 0 0 20px rgba(255, 211, 92, .18), inset 0 1px 0 rgba(255, 255, 255, .07);
 }
 
 .wallet-icon {
@@ -217,41 +227,75 @@ body[data-fx="aurora"] .home-bg::after {
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  background: rgba(255, 211, 92, .14);
-  line-height: 1;
+  background: rgba(255, 211, 92, .16);
+  color: var(--gold);
+  line-height: 0;
 }
+.wallet-icon svg { display: block; }
 
-/* Bouton compte (login / inscription) — pilule sombre, à gauche de la wallet.
+/* Bouton compte (login / inscription) — pilule cohérente avec la monnaie, à sa gauche.
+   Contient une icône SVG fixe (.account-ico) + le libellé (#account-name) géré par JS.
    Masqué en jeu via JS (#account-btn display:none), comme .wallet-pill. */
 .account-btn {
   position: fixed;
-  top: 104px;
-  right: max(152px, calc((100vw - 1180px) / 2 + 152px));
+  top: 34px;
+  right: max(150px, calc((100vw - 1180px) / 2 + 150px));
   z-index: 36;
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  max-width: 180px;
-  min-height: 44px;
+  gap: 8px;
+  max-width: 190px;
+  height: 44px;
   padding: 0 16px;
   border: 1px solid var(--stroke-strong);
   border-radius: 999px;
-  background: rgba(15, 21, 38, .84);
-  box-shadow: 0 14px 34px rgba(0, 0, 0, .34);
-  backdrop-filter: blur(16px) saturate(140%);
-  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  background: rgba(8, 13, 27, .72);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, .30), inset 0 1px 0 rgba(255, 255, 255, .05);
+  backdrop-filter: blur(18px) saturate(145%);
+  -webkit-backdrop-filter: blur(18px) saturate(145%);
   color: var(--text);
   font: inherit;
   font-weight: 800;
   font-size: 14px;
-  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color .2s ease, background .2s ease, box-shadow .2s ease, transform .15s ease;
+}
+.account-btn:hover {
+  border-color: var(--accent);
+  background: rgba(8, 13, 27, .82);
+  transform: translateY(-1px);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, .34), 0 0 18px color-mix(in srgb, var(--accent) 24%, transparent), inset 0 1px 0 rgba(255, 255, 255, .07);
+}
+.account-btn:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.account-btn.logged {
+  border-color: color-mix(in srgb, var(--accent) 42%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, rgba(8, 13, 27, .72));
+  color: var(--accent);
+}
+.account-ico {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  flex: none;
+  line-height: 0;
+}
+.account-ico svg { display: block; }
+#account-name {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  cursor: pointer;
-  transition: border-color .15s ease, background .2s ease, transform .12s ease;
+  white-space: nowrap;
 }
-.account-btn:hover { border-color: var(--accent); background: rgba(46, 230, 166, .10); transform: translateY(-1px); }
-.account-btn.logged { border-color: rgba(46, 230, 166, .42); color: var(--accent); }
+.wallet-pill:focus-visible {
+  outline: none;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(255, 211, 92, .28);
+}
 
 /* Onglets de la modale compte */
 .auth-tabs {
@@ -1236,13 +1280,15 @@ body {
   gap: 18px;
   width: min(1180px, calc(100vw - 40px));
   min-height: 68px;
-  padding: 10px 22px 10px 14px;
-  border: 1px solid rgba(255, 255, 255, .12);
+  /* padding-right large : réserve la place de la monnaie + du profil (pilules globales
+     posées par-dessus, en haut à droite) pour que les onglets ne passent pas dessous. */
+  padding: 10px 300px 10px 14px;
+  border: 1px solid rgba(255, 255, 255, .10);
   border-radius: 20px;
-  background: rgba(8, 13, 27, .76);
-  box-shadow: 0 18px 42px rgba(0, 0, 0, .26);
-  backdrop-filter: blur(18px) saturate(145%);
-  -webkit-backdrop-filter: blur(18px) saturate(145%);
+  background: linear-gradient(180deg, rgba(12, 18, 34, .78), rgba(8, 13, 27, .72));
+  box-shadow: 0 18px 44px rgba(0, 0, 0, .30), inset 0 1px 0 rgba(255, 255, 255, .06);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
 }
 
 .brand-mark {
@@ -1263,10 +1309,11 @@ body {
   width: 32px;
   height: 32px;
   border-radius: 11px;
-  background: rgba(46, 230, 166, .14);
-  font-size: 20px;
-  line-height: 1;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent);
+  line-height: 0;
 }
+.brand-pin svg { display: block; }
 .brand-mark .logo {
   font-size: 26px;
   letter-spacing: 0;
@@ -1278,9 +1325,9 @@ body {
   grid-template-columns: repeat(5, minmax(0, 1fr));
   align-items: center;
   gap: 6px;
-  width: min(720px, 62vw);
+  width: min(620px, 56vw);
   min-width: 0;
-  max-width: 680px;
+  max-width: 620px;
   padding: 5px;
   border: 1px solid var(--stroke);
   border-radius: 15px;
@@ -1296,12 +1343,26 @@ body {
   font-weight: 700;
   white-space: nowrap;
   text-align: center;
+  cursor: pointer;
+  transition: color .18s ease, background .18s ease, box-shadow .2s ease;
 }
 
-.site-tabs .tab-link.on {
-  color: #061b15;
-  background: linear-gradient(180deg, var(--accent), #20c98e);
-  box-shadow: 0 10px 24px rgba(46, 230, 166, .22);
+.site-tabs .tab-link:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, .06);
+}
+
+.site-tabs .tab-link:focus-visible {
+  outline: none;
+  color: var(--text);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.site-tabs .tab-link.on,
+.site-tabs .tab-link.on:hover {
+  color: var(--accent-ink);
+  background: linear-gradient(120deg, var(--accent), var(--accent-2));
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--accent) 30%, transparent), inset 0 1px 0 rgba(255, 255, 255, .25);
 }
 
 .home-layout {
@@ -2109,6 +2170,22 @@ body {
   background: rgba(255, 255, 255, .03);
 }
 .comm-recent + .comm-recent { margin-top: 8px; }
+/* Conteneurs de liste : ils portent par erreur la classe-ligne (.comm-recent /
+   .comm-top) dans l'HTML → l'id neutralise le style de ligne et force l'empilement
+   vertical (sinon les lignes s'affichent côte à côte et débordent l'écran). */
+#community-recent,
+#community-top {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  align-items: stretch;
+}
+#community-recent > .comm-recent,
+#community-top > .comm-rank { width: 100%; box-sizing: border-box; }
 .comm-recent-name {
   flex: none;
   max-width: 40%;
@@ -2166,19 +2243,21 @@ body {
 }
 
 @media (max-width: 900px) {
+  /* Header en colonne (logo en haut, onglets dessous) : monnaie + profil restent
+     groupés en haut à droite, alignés sur la rangée du logo, sans chevaucher. */
   .wallet-pill {
     top: 18px;
-    right: 16px;
-    min-height: 40px;
-    padding: 0 13px;
+    right: 14px;
+    height: 38px;
+    padding: 0 12px;
   }
 
   .account-btn {
     top: 18px;
-    right: calc(16px + 116px);
-    min-height: 40px;
-    max-width: 150px;
-    padding: 0 13px;
+    right: calc(14px + 108px);
+    height: 38px;
+    max-width: 140px;
+    padding: 0 12px;
   }
 
   .app-shell {
@@ -2196,8 +2275,11 @@ body {
     border-radius: 18px;
   }
 
+  /* Logo centré mais décalé pour laisser respirer la monnaie + le profil à droite. */
   .brand-mark {
     justify-content: center;
+    padding-right: 250px;
+    padding-left: 0;
   }
 
   .site-tabs {
@@ -2288,18 +2370,20 @@ body {
 
 @media (max-width: 520px) {
   .wallet-pill {
-    top: 16px;
-    right: 12px;
-    min-height: 36px;
+    top: 15px;
+    right: 11px;
+    height: 36px;
     padding: 0 11px;
+    gap: 7px;
     font-size: 14px;
   }
+  .wallet-icon { width: 22px; height: 22px; }
 
   .account-btn {
-    top: 16px;
-    right: calc(12px + 96px);
-    min-height: 36px;
-    max-width: 130px;
+    top: 15px;
+    right: calc(11px + 92px);
+    height: 36px;
+    max-width: 116px;
     padding: 0 11px;
     font-size: 13px;
   }
@@ -2311,6 +2395,11 @@ body {
 
   .site-header {
     width: calc(100vw - 20px);
+  }
+
+  /* écran étroit : logo centré sous la monnaie/profil ; padding réduit pour rester lisible */
+  .brand-mark {
+    padding-right: 210px;
   }
 
   .brand-mark .logo {

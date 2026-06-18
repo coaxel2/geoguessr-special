@@ -14,14 +14,27 @@
   <link rel="preconnect" href="https://api.dicebear.com" />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-  <link rel="stylesheet" href="style.css?v=57" />
+  <link rel="stylesheet" href="style.css?v=58" />
 </head>
 <body>
   <div class="wallet-pill" id="wallet-pill" aria-label="Monnaie disponible">
-    <span class="wallet-icon" aria-hidden="true">🪙</span>
+    <span class="wallet-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="8" />
+        <path d="M14.8 9.2a3.2 3.2 0 0 0-5.6 2.05 3.2 3.2 0 0 0 5.6 2.05" />
+      </svg>
+    </span>
     <span id="wallet-amount">0</span>
   </div>
-  <button class="account-btn" id="account-btn" type="button" title="Se connecter ou créer un compte">Se connecter</button>
+  <button class="account-btn" id="account-btn" type="button" title="Se connecter ou créer un compte">
+    <span class="account-ico" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+        <circle cx="12" cy="7" r="4" />
+      </svg>
+    </span>
+    <span id="account-name">Se connecter</span>
+  </button>
 
   <!-- ====================== MENU ====================== -->
   <section id="menu" class="screen show">
@@ -30,7 +43,12 @@
     <div class="app-shell home-layout">
       <header class="site-header">
         <button type="button" class="brand-mark tab-link" data-tab="menu" aria-label="Accueil Geoloc">
-          <span class="brand-pin">📍</span>
+          <span class="brand-pin" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 10c0 5.4-8 12-8 12s-8-6.6-8-12a8 8 0 0 1 16 0Z" />
+              <circle cx="12" cy="10" r="3" />
+            </svg>
+          </span>
           <span class="logo">Geo<span>loc</span></span>
         </button>
         <nav class="site-tabs" aria-label="Navigation principale">
@@ -149,7 +167,12 @@
     <div class="app-shell online-shell">
       <header class="site-header">
         <button type="button" class="brand-mark tab-link" data-tab="menu" aria-label="Accueil Geoloc">
-          <span class="brand-pin">📍</span>
+          <span class="brand-pin" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 10c0 5.4-8 12-8 12s-8-6.6-8-12a8 8 0 0 1 16 0Z" />
+              <circle cx="12" cy="10" r="3" />
+            </svg>
+          </span>
           <span class="logo">Geo<span>loc</span></span>
         </button>
         <nav class="site-tabs" aria-label="Navigation principale">
@@ -350,7 +373,12 @@
     <div class="app-shell leaderboard-shell">
       <header class="site-header">
         <button type="button" class="brand-mark tab-link" data-tab="menu" aria-label="Accueil Geoloc">
-          <span class="brand-pin">📍</span>
+          <span class="brand-pin" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 10c0 5.4-8 12-8 12s-8-6.6-8-12a8 8 0 0 1 16 0Z" />
+              <circle cx="12" cy="10" r="3" />
+            </svg>
+          </span>
           <span class="logo">Geo<span>loc</span></span>
         </button>
         <nav class="site-tabs" aria-label="Navigation principale">
@@ -387,7 +415,12 @@
     <div class="app-shell shop-shell">
       <header class="site-header">
         <button type="button" class="brand-mark tab-link" data-tab="menu" aria-label="Accueil Geoloc">
-          <span class="brand-pin">📍</span>
+          <span class="brand-pin" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 10c0 5.4-8 12-8 12s-8-6.6-8-12a8 8 0 0 1 16 0Z" />
+              <circle cx="12" cy="10" r="3" />
+            </svg>
+          </span>
           <span class="logo">Geo<span>loc</span></span>
         </button>
         <nav class="site-tabs" aria-label="Navigation principale">
@@ -590,7 +623,12 @@
     <div class="app-shell community-shell">
       <header class="site-header">
         <button type="button" class="brand-mark tab-link" data-tab="menu" aria-label="Accueil Geoloc">
-          <span class="brand-pin">📍</span>
+          <span class="brand-pin" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 10c0 5.4-8 12-8 12s-8-6.6-8-12a8 8 0 0 1 16 0Z" />
+              <circle cx="12" cy="10" r="3" />
+            </svg>
+          </span>
           <span class="logo">Geo<span>loc</span></span>
         </button>
         <nav class="site-tabs" aria-label="Navigation principale">
@@ -791,6 +829,6 @@
 
   <!-- Leaflet : cartes de guess / résultat (tuiles raster, pas de WebGL) -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script src="game.js?v=57"></script>
+  <script src="game.js?v=58"></script>
 </body>
 </html>
