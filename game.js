@@ -1493,29 +1493,80 @@ function initHomeGlobe() {
   fetch("globe-land.json?v=1").then((r) => r.json()).then((geo) => startGlobe(cv, geo)).catch(() => { globeRAF = null; });
 }
 function startGlobe(cv, geo) {
-  // côtes détaillées (Natural Earth 50m, masses terrestres fusionnées) → uniquement le littoral, aucune frontière interne
-  const rings = [];
+  const D = Math.PI / 180;
   const polys = geo.type === "MultiPolygon" ? geo.coordinates : [geo.coordinates];
-  polys.forEach((poly) => poly.forEach((ring) => {
+
+  // 1) masque terre/mer en projection équirectangulaire (remplissage robuste : un pixel = terre OU mer)
+  const TW = 1024, TH = 512;
+  const tc = document.createElement("canvas"); tc.width = TW; tc.height = TH;
+  const tctx = tc.getContext("2d");
+  tctx.fillStyle = "#000"; tctx.fillRect(0, 0, TW, TH);
+  tctx.fillStyle = "#fff";
+  polys.forEach((poly) => {
+    const ring = poly[0]; if (!ring || ring.length < 3) return;   // anneau extérieur seul (pas les mers intérieures)
+    tctx.beginPath();
+    for (let i = 0; i < ring.length; i++) {
+      const x = (ring[i][0] / 360 + 0.5) * TW, y = (0.5 - ring[i][1] / 180) * TH;
+      if (i) tctx.lineTo(x, y); else tctx.moveTo(x, y);
+    }
+    tctx.closePath(); tctx.fill();
+  });
+  const td = tctx.getImageData(0, 0, TW, TH).data;
+  const land = new Uint8Array(TW * TH);
+  for (let i = 0; i < TW * TH; i++) land[i] = td[i * 4] > 100 ? 1 : 0;
+
+  // 2) anneaux pour le contour vectoriel (côtes nettes), densifiés
+  const rings = [];
+  polys.forEach((poly) => {
+    const ring = poly[0]; if (!ring || ring.length < 3) return;
     const pts = [];
-    for (let i = 0; i < ring.length; i++) pts.push([ring[i][0] * Math.PI / 180, ring[i][1] * Math.PI / 180]);
+    for (let i = 0; i < ring.length; i++) {
+      const a = ring[i], b = ring[(i + 1) % ring.length];
+      pts.push([a[0] * D, a[1] * D]);
+      const dl = b[0] - a[0], db = b[1] - a[1];
+      if (Math.abs(dl) > 180) continue;
+      const dist = Math.hypot(dl, db);
+      if (dist > 3) { const n = Math.ceil(dist / 3); for (let s = 1; s < n; s++) pts.push([(a[0] + dl * s / n) * D, (a[1] + db * s / n) * D]); }
+    }
     if (pts.length > 2) rings.push(pts);
-  }));
+  });
 
   const ctx = cv.getContext("2d");
-  const tilt = 16 * Math.PI / 180, sinT = Math.sin(tilt), cosT = Math.cos(tilt);
+  const tilt = 16 * D, sinT = Math.sin(tilt), cosT = Math.cos(tilt);
   let lon0 = -0.2, R = 0, cx = 0, cy = 0;
+
+  // 3) tampon raster hors-écran (diamètre plafonné) + grille pré-calculée (indépendante de la rotation)
+  const oc = document.createElement("canvas"), octx = oc.getContext("2d");
+  let oimg = null, latG = null, lngG = null, inDisk = null, shade = null;
   function resize() {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const box = cv.getBoundingClientRect();
     cv.width = Math.max(2, Math.round((box.width || 400) * dpr));
     cv.height = Math.max(2, Math.round((box.height || 400) * dpr));
     R = Math.min(cv.width, cv.height) / 2 * 0.9; cx = cv.width / 2; cy = cv.height / 2;
+    const od = Math.min(Math.round(2 * R), 380), oR = od / 2;   // résolution du remplissage plafonnée
+    oc.width = Math.max(2, od); oc.height = oc.width;
+    oimg = octx.createImageData(oc.width, oc.height);
+    const N = oc.width * oc.height;
+    latG = new Float32Array(N); lngG = new Float32Array(N); inDisk = new Uint8Array(N); shade = new Float32Array(N);
+    for (let py = 0; py < oc.height; py++) for (let px = 0; px < oc.width; px++) {
+      const i = py * oc.width + px;
+      const xm = (px - oR) / oR, ym = -(py - oR) / oR;   // repère math (nord = +y)
+      const rho2 = xm * xm + ym * ym;
+      if (rho2 > 1) { inDisk[i] = 0; continue; }
+      inDisk[i] = 1;
+      const rho = Math.sqrt(rho2), c = Math.asin(rho < 1 ? rho : 1);
+      const sinc = Math.sin(c), cosc = Math.cos(c);
+      latG[i] = (rho < 1e-9) ? tilt : Math.asin(cosc * sinT + ym * sinc * cosT / rho);
+      lngG[i] = Math.atan2(xm * sinc, rho * cosc * cosT - ym * sinc * sinT);
+      const dot = -0.36 * xm + 0.46 * ym + 0.81 * cosc;   // éclairage haut-gauche-avant
+      shade[i] = 0.42 + 0.64 * (dot > 0 ? dot : 0);
+    }
   }
   resize();
   window.addEventListener("resize", resize);
 
-  // on fait tourner le globe en cliquant-glissant dessus ; au relâcher, l'élan continue puis revient à la vitesse de base
+  // rotation au cliquer-glisser ; au relâcher, élan puis retour à la vitesse de base
   const baseSpeed = 0.0026;
   let vel = baseSpeed, dragging = false, lastX = null;
   cv.style.pointerEvents = "auto"; cv.style.cursor = "grab";
@@ -1535,60 +1586,44 @@ function startGlobe(cv, geo) {
   window.addEventListener("touchmove", move, { passive: true });
   window.addEventListener("touchend", up);
 
+  const TWO = Math.PI * 2;
   let lastT = 0;
   function frame(t) {
     globeRAF = requestAnimationFrame(frame);
-    if (t - lastT < 26) return;   // ~38 fps : suffisant et plus léger avec des côtes détaillées
+    if (t - lastT < 26) return;   // ~38 fps
     lastT = t;
     if (!document.getElementById("menu").classList.contains("show")) return;
     ctx.clearRect(0, 0, cv.width, cv.height);
-    ctx.save();
-    ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.clip();
-    const og = ctx.createRadialGradient(cx - R * 0.35, cy - R * 0.4, R * 0.1, cx, cy, R * 1.15);
-    og.addColorStop(0, "#16406e"); og.addColorStop(.55, "#0e2a52"); og.addColorStop(1, "#071a36");
-    ctx.fillStyle = og; ctx.fillRect(cx - R, cy - R, R * 2, R * 2);
 
+    // remplissage raster : terre verte / océan bleu, par échantillonnage du masque (jamais de vert dans l'eau)
+    const d = oimg.data, N = inDisk.length;
+    for (let i = 0; i < N; i++) {
+      const o = i * 4;
+      if (!inDisk[i]) { d[o + 3] = 0; continue; }
+      let lng = lngG[i] + lon0;
+      lng -= TWO * Math.floor((lng + Math.PI) / TWO);   // ramener dans -π..π
+      let tx = ((lng / TWO) + 0.5) * TW | 0; if (tx < 0) tx = 0; else if (tx >= TW) tx = TW - 1;
+      let ty = (0.5 - latG[i] / Math.PI) * TH | 0; if (ty < 0) ty = 0; else if (ty >= TH) ty = TH - 1;
+      const sh = shade[i];
+      if (land[ty * TW + tx]) { d[o] = 26 + 70 * sh; d[o + 1] = 150 + 95 * sh; d[o + 2] = 112 + 70 * sh; d[o + 3] = 240; }
+      else { d[o] = 8 + 26 * sh; d[o + 1] = 34 + 48 * sh; d[o + 2] = 64 + 58 * sh; d[o + 3] = 255; }
+    }
+    octx.putImageData(oimg, 0, 0);
+    ctx.save();
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, TWO); ctx.clip();
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(oc, cx - R, cy - R, 2 * R, 2 * R);
+
+    // contour vectoriel des côtes (net) — uniquement les segments sur la face visible
     ctx.lineJoin = "round";
-    ctx.fillStyle = "rgba(46,230,166,.48)";
-    ctx.strokeStyle = "rgba(125,245,205,.85)";
-    ctx.lineWidth = Math.max(1, R * 0.004);
+    ctx.strokeStyle = "rgba(168,252,218,.55)";
+    ctx.lineWidth = Math.max(1, R * 0.0035);
     for (let r = 0; r < rings.length; r++) {
-      const ring = rings[r];
-      // remplissage : entre deux points cachés on longe l'ARC du limbe (jamais une corde) → zéro trait parasite
-      ctx.beginPath();
-      let anyVisible = false, started = false, prevHidden = false, prevA = 0;
-      for (let i = 0; i <= ring.length; i++) {
-        const p = ring[i % ring.length];
-        const lat = p[1], dl = p[0] - lon0;
-        const cosc = sinT * Math.sin(lat) + cosT * Math.cos(lat) * Math.cos(dl);
-        const x = R * Math.cos(lat) * Math.sin(dl);
-        const y = -R * (cosT * Math.sin(lat) - sinT * Math.cos(lat) * Math.cos(dl));
-        if (cosc < 0) {
-          const a = Math.atan2(y, x);
-          if (prevHidden && started) {
-            let da = a - prevA;
-            while (da > Math.PI) da -= 2 * Math.PI;
-            while (da < -Math.PI) da += 2 * Math.PI;
-            const steps = Math.max(1, Math.round(Math.abs(da) / 0.2));
-            for (let s = 1; s <= steps; s++) { const aa = prevA + da * s / steps; ctx.lineTo(cx + Math.cos(aa) * R, cy + Math.sin(aa) * R); }
-          } else {
-            const lx = cx + Math.cos(a) * R, ly = cy + Math.sin(a) * R;
-            if (started) ctx.lineTo(lx, ly); else { ctx.moveTo(lx, ly); started = true; }
-          }
-          prevHidden = true; prevA = a;
-        } else {
-          anyVisible = true;
-          if (started) ctx.lineTo(cx + x, cy + y); else { ctx.moveTo(cx + x, cy + y); started = true; }
-          prevHidden = false;
-        }
-      }
-      if (anyVisible) ctx.fill();
-      // contour net : uniquement les segments entièrement sur la face visible
-      ctx.beginPath(); let pen = false;
+      const ring = rings[r]; ctx.beginPath(); let pen = false;
       for (let i = 0; i < ring.length; i++) {
-        const lng = ring[i][0], lat = ring[i][1], dl = lng - lon0;
-        const cosc = sinT * Math.sin(lat) + cosT * Math.cos(lat) * Math.cos(dl);
-        if (cosc < 0) { pen = false; continue; }
+        const lat = ring[i][1], dl = ring[i][0] - lon0;
+        const cc = sinT * Math.sin(lat) + cosT * Math.cos(lat) * Math.cos(dl);
+        if (cc < 0) { pen = false; continue; }
         const x = cx + R * Math.cos(lat) * Math.sin(dl);
         const y = cy - R * (cosT * Math.sin(lat) - sinT * Math.cos(lat) * Math.cos(dl));
         if (!pen) { ctx.moveTo(x, y); pen = true; } else ctx.lineTo(x, y);
@@ -1598,13 +1633,13 @@ function startGlobe(cv, geo) {
     ctx.restore();
 
     // contour + halo atmosphérique
-    ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2);
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, TWO);
     ctx.lineWidth = Math.max(1.5, R * 0.016); ctx.strokeStyle = "rgba(46,230,166,.30)"; ctx.stroke();
     const ag = ctx.createRadialGradient(cx, cy, R * 0.97, cx, cy, R * 1.12);
     ag.addColorStop(0, "rgba(46,230,166,.18)"); ag.addColorStop(1, "rgba(46,230,166,0)");
-    ctx.beginPath(); ctx.arc(cx, cy, R * 1.12, 0, Math.PI * 2); ctx.fillStyle = ag; ctx.fill();
+    ctx.beginPath(); ctx.arc(cx, cy, R * 1.12, 0, TWO); ctx.fillStyle = ag; ctx.fill();
 
-    if (!dragging) { lon0 += vel; vel += (baseSpeed - vel) * 0.03; }   // hors glisser : élan + retour doux à la vitesse de base
+    if (!dragging) { lon0 += vel; vel += (baseSpeed - vel) * 0.03; }
   }
   globeRAF = requestAnimationFrame(frame);
 }
