@@ -408,14 +408,14 @@ function fillZoneOptions() {
 /* ===========================================================
    Sélecteur de zone visuel (cartes avec aperçu de la carte)
    =========================================================== */
-// Tuile CartoDB (sombre, comme le jeu) contenant le point, à un zoom donné.
+// Tuile CartoDB claire contenant le point, à un zoom donné.
 function tileURL(lat, lng, z) {
   const n = Math.pow(2, z);
   const x = ((Math.floor((lng + 180) / 360 * n)) % n + n) % n;
   const lr = lat * Math.PI / 180;
   let y = Math.floor((1 - Math.log(Math.tan(lr) + 1 / Math.cos(lr)) / Math.PI) / 2 * n);
   y = Math.max(0, Math.min(n - 1, y));
-  return "https://a.basemaps.cartocdn.com/dark_all/" + z + "/" + x + "/" + y + ".png";
+  return "https://a.basemaps.cartocdn.com/rastertiles/voyager/" + z + "/" + x + "/" + y + ".png";
 }
 // Catalogue trié par catégorie. {l:label, z:zoneFilter, co:countryFilter?, la,lo:centre, tz:zoom tuile}
 function zoneGroups() {
@@ -785,8 +785,8 @@ function makePano(loc, pov) {
     linksControl: true, panControl: true, zoomControl: true,
   });
 }
-// Cartes plates : Leaflet + tuiles sombres CartoDB (raster, sans WebGL ni clé)
-const TILE_URL = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
+// Cartes plates : Leaflet + tuiles claires CartoDB Voyager (raster, sans WebGL ni clé)
+const TILE_URL = "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
 const TILE_OPT = { maxZoom: 19, subdomains: "abcd" };
 function ensureGuessMap() {
   if (G.gmap) return;
