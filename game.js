@@ -782,23 +782,38 @@ function setLocationAt(index, loc) {
   (G.locationWaiters[index] || []).forEach((resolve) => resolve(loc));
   delete G.locationWaiters[index];
 }
-function waitForLocation(index) {
+function waitForLocation(index, timeoutMs) {
   if (G.locations[index]) return Promise.resolve(G.locations[index]);
   return new Promise((resolve) => {
     if (!G.locationWaiters[index]) G.locationWaiters[index] = [];
     G.locationWaiters[index].push(resolve);
+    if (timeoutMs) {
+      setTimeout(() => {
+        if (G.locations[index]) return;
+        G.locationWaiters[index] = (G.locationWaiters[index] || []).filter((fn) => fn !== resolve);
+        resolve(null);
+      }, timeoutMs);
+    }
   });
+}
+async function ensureLocationAt(index, sendOnline, batch) {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    if (batch != null && batch !== G.locationBatch) return null;
+    if (G.locations[index]) return G.locations[index];
+    const loc = await findOneLocation();
+    if (batch != null && batch !== G.locationBatch) return null;
+    if (!loc) continue;
+    setLocationAt(index, loc);
+    if (sendOnline) sendMsg({ type: "location", index: index, loc: loc });
+    return loc;
+  }
+  return null;
 }
 async function preloadRemainingLocations(startIndex, sendOnline) {
   const batch = G.locationBatch;
   for (let i = startIndex; i < G.rounds; i++) {
     if (batch !== G.locationBatch) return;
-    if (G.locations[i]) continue;
-    const loc = await findOneLocation();
-    if (batch !== G.locationBatch) return;
-    if (!loc) continue;
-    setLocationAt(i, loc);
-    if (sendOnline) sendMsg({ type: "location", index: i, loc: loc });
+    await ensureLocationAt(i, sendOnline, batch);
   }
 }
 
@@ -887,9 +902,16 @@ async function loadRound() {
   G.gmap.setView([20, 0], 1);
   setTimeout(() => G.gmap.invalidateSize(), 80);
 
-  if (!G.locations[round]) cover("Préparation de la manche…");
-  const loc = await waitForLocation(round);
+  if (!G.locations[round]) {
+    cover("Préparation de la manche…");
+    if (!G.online.active || G.online.isHost) {
+      const made = await ensureLocationAt(round, G.online.active && G.online.isHost, G.locationBatch);
+      if (!made) { cover("Impossible de préparer cette manche. Retourne au menu puis relance."); return; }
+    }
+  }
+  const loc = G.locations[round] || await waitForLocation(round, G.online.active ? 30000 : 0);
   if (G.current !== round || !$("game").classList.contains("show")) return;
+  if (!loc) { cover("Lieu non reçu. L'hôte peut relancer depuis le lobby."); return; }
 
   cover("Chargement du panorama…");
   G.startPov = { heading: Math.random() * 360, pitch: 0, zoom: 0 };
@@ -1272,8 +1294,11 @@ function updateMultiHud(prog) {
 function renderLobby() {
   const box = $("room-players"); if (!box) return;
   box.innerHTML = "";
+  box.dataset.count = "0";
   if (!G.online.active) return;
-  playerList().forEach((p) => {
+  const players = playerList();
+  box.dataset.count = String(players.length);
+  players.forEach((p) => {
     const row = document.createElement("div");
     row.className = "lobby-player" + (p.id === meId() ? " me" : "");
     let html = '<img class="lobby-av" src="' + avatarURL(p.av) + '" alt="" draggable="false" />' +
@@ -1309,7 +1334,7 @@ function onlineReset() {
 function meId() { return G.online.myId; }
 function myPlayer() { return G.online.players[meId()] || null; }
 function playerList() { return G.online.order.map((id) => G.online.players[id]).filter(Boolean); }
-function activePlayerCount() { return G.online.order.length; }
+function activePlayerCount() { return playerList().length; }
 // invité → hôte (l'hôte n'envoie pas à lui-même, il applique localement)
 function sendToHost(m) { try { if (!G.online.isHost && G.online.hostConn && G.online.hostConn.open) G.online.hostConn.send(m); } catch (e) {} }
 // hôte → tous les invités (option : sauf un id)
@@ -1323,7 +1348,10 @@ function broadcast(m, exceptId) {
 // compat (réglages/hello) : diffuse si hôte, sinon envoie à l'hôte
 function sendMsg(m) { if (G.online.isHost) broadcast(m); else sendToHost(m); }
 function buildRoster() {
-  return G.online.order.map((id) => { const p = G.online.players[id]; return { id, name: p.name, av: p.av, isHost: !!p.isHost }; });
+  return G.online.order.map((id) => {
+    const p = G.online.players[id];
+    return p ? { id, name: p.name, av: p.av, isHost: !!p.isHost } : null;
+  }).filter(Boolean);
 }
 function broadcastRoster() { if (G.online.isHost) broadcast({ type: "roster", players: buildRoster() }); renderLobby(); updateMultiHud(); }
 function applyRoster(list) {
