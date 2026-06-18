@@ -1518,6 +1518,19 @@ function initHomeGlobe() {
   resize();
   window.addEventListener("resize", resize);
 
+  // la souris « pousse » le globe : un mouvement horizontal accélère la rotation, puis friction
+  const baseSpeed = 0.0016;
+  let boost = 0, lastX = null;
+  function pushGlobe(e) {
+    const x = (e.touches && e.touches[0]) ? e.touches[0].clientX : e.clientX;
+    if (x == null) return;
+    if (lastX !== null) boost += (x - lastX) * 0.00006;
+    boost = Math.max(-0.06, Math.min(0.06, boost));
+    lastX = x;
+  }
+  window.addEventListener("mousemove", pushGlobe);
+  window.addEventListener("touchmove", pushGlobe, { passive: true });
+
   function frame() {
     if (!document.getElementById("menu").classList.contains("show")) { globeRAF = requestAnimationFrame(frame); return; }
     ctx.clearRect(0, 0, cv.width, cv.height);
@@ -1533,18 +1546,33 @@ function initHomeGlobe() {
     ctx.lineWidth = Math.max(1, R * 0.004);
     for (let r = 0; r < rings.length; r++) {
       const ring = rings[r];
-      // remplissage : points cachés rabattus sur le limbe → formes pleines sans corde traversante
+      // remplissage : entre deux points cachés on longe l'ARC du limbe (jamais une corde) → zéro trait parasite
       ctx.beginPath();
-      let anyVisible = false;
-      for (let i = 0; i < ring.length; i++) {
-        const lng = ring[i][0], lat = ring[i][1], dl = lng - lon0;
+      let anyVisible = false, started = false, prevHidden = false, prevA = 0;
+      for (let i = 0; i <= ring.length; i++) {
+        const p = ring[i % ring.length];
+        const lat = p[1], dl = p[0] - lon0;
         const cosc = sinT * Math.sin(lat) + cosT * Math.cos(lat) * Math.cos(dl);
-        if (cosc >= 0) anyVisible = true;
-        let x = R * Math.cos(lat) * Math.sin(dl);
-        let y = -R * (cosT * Math.sin(lat) - sinT * Math.cos(lat) * Math.cos(dl));
-        if (cosc < 0) { const d = Math.hypot(x, y) || 1; x = x / d * R; y = y / d * R; }
-        x += cx; y += cy;
-        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        const x = R * Math.cos(lat) * Math.sin(dl);
+        const y = -R * (cosT * Math.sin(lat) - sinT * Math.cos(lat) * Math.cos(dl));
+        if (cosc < 0) {
+          const a = Math.atan2(y, x);
+          if (prevHidden && started) {
+            let da = a - prevA;
+            while (da > Math.PI) da -= 2 * Math.PI;
+            while (da < -Math.PI) da += 2 * Math.PI;
+            const steps = Math.max(1, Math.round(Math.abs(da) / 0.2));
+            for (let s = 1; s <= steps; s++) { const aa = prevA + da * s / steps; ctx.lineTo(cx + Math.cos(aa) * R, cy + Math.sin(aa) * R); }
+          } else {
+            const lx = cx + Math.cos(a) * R, ly = cy + Math.sin(a) * R;
+            if (started) ctx.lineTo(lx, ly); else { ctx.moveTo(lx, ly); started = true; }
+          }
+          prevHidden = true; prevA = a;
+        } else {
+          anyVisible = true;
+          if (started) ctx.lineTo(cx + x, cy + y); else { ctx.moveTo(cx + x, cy + y); started = true; }
+          prevHidden = false;
+        }
       }
       if (anyVisible) ctx.fill();
       // contour net : uniquement les segments entièrement sur la face visible
@@ -1568,7 +1596,7 @@ function initHomeGlobe() {
     ag.addColorStop(0, "rgba(46,230,166,.18)"); ag.addColorStop(1, "rgba(46,230,166,0)");
     ctx.beginPath(); ctx.arc(cx, cy, R * 1.12, 0, Math.PI * 2); ctx.fillStyle = ag; ctx.fill();
 
-    lon0 += 0.0016;   // rotation lente (~tour complet en ~65 s)
+    lon0 += baseSpeed + boost; boost *= 0.94;   // rotation lente + impulsion à la souris
     globeRAF = requestAnimationFrame(frame);
   }
   globeRAF = requestAnimationFrame(frame);
