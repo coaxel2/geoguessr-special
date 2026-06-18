@@ -1046,6 +1046,10 @@ body {
   padding-top: clamp(26px, 7vh, 82px);
 }
 
+.home-main {
+  padding-top: clamp(62px, 12vh, 128px);
+}
+
 .online-page,
 .leaderboard-page {
   grid-template-columns: minmax(260px, .72fr) minmax(460px, 1fr);
