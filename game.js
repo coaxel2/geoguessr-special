@@ -1614,7 +1614,7 @@ function hostReturnToLobby() {
 /* ---------- navigation online ---------- */
 function backToOnlineChoice() {
   $("online-wait").classList.remove("show");
-  $("online-choice").style.display = "flex";
+  $("online-choice").style.display = "";
   $("room-options").classList.add("hidden");
   $("btn-start-room").classList.add("hidden");
   $("btn-start-room").disabled = true;

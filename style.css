@@ -364,7 +364,52 @@ input { font-family: inherit; }
 .panel-title { font-size: 22px; font-weight: 700; margin-bottom: 22px; }
 
 /* ---------- Online setup ---------- */
+#online.screen {
+  align-items: stretch;
+  justify-content: center;
+  padding: clamp(28px, 5vh, 56px) clamp(28px, 6vw, 96px);
+}
+#online .menu-bg {
+  background:
+    radial-gradient(1000px 720px at 76% 48%, rgba(25, 183, 230, .14), transparent 62%),
+    radial-gradient(820px 620px at 12% 18%, rgba(46, 230, 166, .13), transparent 58%),
+    linear-gradient(160deg, #070b16 0%, #0a1124 55%, #070a14 100%);
+}
+#online .menu-card {
+  align-self: center;
+  width: min(1080px, 100%);
+  max-height: min(820px, calc(100vh - 72px));
+  padding: 34px 36px 32px;
+  border-radius: 22px;
+  text-align: left;
+}
+#online .panel-title {
+  margin: 0 0 24px;
+  padding-left: 88px;
+  font-size: clamp(28px, 3vw, 40px);
+  line-height: 1;
+}
+#online .back { top: 31px; left: 30px; }
 .online-choice { display: flex; flex-direction: column; gap: 14px; }
+#online .online-choice {
+  display: grid;
+  grid-template-columns: minmax(300px, .9fr) minmax(360px, 1.1fr);
+  gap: 18px 22px;
+  align-items: end;
+}
+#online .online-choice .field { margin-bottom: 0; }
+#online .online-choice .field:nth-of-type(3) { grid-column: 1 / -1; }
+#online #btn-create { align-self: stretch; height: 54px; }
+#online .or {
+  align-self: center;
+  width: 100%;
+  margin: 0;
+}
+#online .join-row {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(220px, .7fr) minmax(220px, .3fr);
+}
 .or { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 2px; position: relative; }
 .or::before, .or::after { content: ""; position: absolute; top: 50%; width: 38%; height: 1px; background: var(--stroke); }
 .or::before { left: 0; } .or::after { right: 0; }
@@ -388,18 +433,40 @@ input { font-family: inherit; }
 
 .online-wait { display: none; flex-direction: column; align-items: center; gap: 14px; }
 .online-wait.show { display: flex; }
+#online .online-wait.show {
+  display: grid;
+  grid-template-columns: minmax(300px, .86fr) minmax(430px, 1.14fr);
+  grid-template-areas:
+    "label options"
+    "code options"
+    "copy players"
+    "settings players"
+    "status players"
+    "start players";
+  gap: 14px 24px;
+  align-items: start;
+}
 .online-wait .btn-primary { width: 100%; }
 .online-wait .btn-ghost { width: 100%; }
+#online .wait-label { grid-area: label; align-self: end; }
+#online .room-display { grid-area: code; }
+#online #btn-copy { grid-area: copy; justify-self: stretch; }
+#online .room-options { grid-area: options; }
+#online .room-players { grid-area: players; }
+#online #room-settings { grid-area: settings; margin: 0; }
+#online #online-status { grid-area: status; align-self: start; justify-self: start; }
+#online #btn-start-room { grid-area: start; align-self: stretch; }
 .room-options {
   width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 12px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 14px;
   border: 1px solid var(--stroke);
   border-radius: 16px;
   background: rgba(0,0,0,.18);
 }
+.room-options .field:nth-child(3) { grid-column: 1 / -1; }
 .room-options .field { margin-bottom: 0; }
 .wait-label { color: var(--muted); font-size: 14px; }
 .room-display {
@@ -413,10 +480,12 @@ input { font-family: inherit; }
   box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 14px 32px rgba(0,0,0,.22);
 }
 .room-code {
-  font-size: 52px;
+  font-size: clamp(58px, 7vw, 88px);
   font-weight: 800;
-  letter-spacing: 12px;
-  padding-left: 12px;
+  letter-spacing: .18em;
+  padding-left: .18em;
+  line-height: .95;
+  text-align: center;
   background: linear-gradient(100deg, var(--accent), var(--accent-2));
   -webkit-background-clip: text; background-clip: text; color: transparent;
   animation: pulse 2.2s ease-in-out infinite;
@@ -576,7 +645,16 @@ input { font-family: inherit; }
 .final-card .btn { width: 100%; margin-top: 10px; }
 
 /* salon : liste des joueurs + croix d'exclusion */
-.room-players { display: flex; flex-direction: column; gap: 7px; margin: 12px 0 6px; }
+.room-players {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 8px;
+  margin: 0;
+  align-self: stretch;
+  max-height: min(340px, 44vh);
+  overflow-y: auto;
+  padding-right: 2px;
+}
 .lobby-player {
   display: grid; grid-template-columns: auto 1fr auto auto; gap: 10px; align-items: center;
   background: rgba(0,0,0,.22); border: 1px solid var(--stroke); border-radius: 12px; padding: 8px 10px;
@@ -606,6 +684,67 @@ input { font-family: inherit; }
   .reset-view { top: auto; bottom: 30px; left: 12px; width: 42px; height: 42px; font-size: 18px; }  /* recentrage en bas à gauche sur mobile */
   .logo { font-size: 28px; }
   .room-code { font-size: 40px; letter-spacing: 8px; }
+}
+
+@media (max-width: 860px) {
+  #online.screen {
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+  }
+  #online .menu-card {
+    width: min(440px, 92vw);
+    max-height: calc(100vh - 72px);
+    padding: 34px 30px 30px;
+    border-radius: 26px;
+    text-align: center;
+  }
+  #online .panel-title {
+    margin-bottom: 22px;
+    padding-left: 0;
+    font-size: 22px;
+  }
+  #online .back { top: 18px; left: 18px; }
+  #online .online-choice,
+  #online .online-wait.show {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    align-items: stretch;
+  }
+  #online .online-choice .field:nth-of-type(3),
+  #online .join-row {
+    grid-column: auto;
+  }
+  #online .join-row { display: flex; }
+  .room-options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+  }
+  .room-players {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    margin: 12px 0 6px;
+    max-height: none;
+    overflow: visible;
+    padding-right: 0;
+  }
+  .room-code {
+    font-size: 52px;
+    letter-spacing: 12px;
+    padding-left: 12px;
+  }
+}
+
+@media (max-width: 560px) {
+  #online .room-code {
+    font-size: 40px;
+    letter-spacing: 8px;
+    padding-left: 8px;
+  }
 }
 
 /* ---------- Leaflet (cartes de guess / résultat) ---------- */
