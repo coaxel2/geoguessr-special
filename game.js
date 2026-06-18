@@ -231,7 +231,7 @@ const ZONE_REGIONS = {
   africa: [[-34, -26, 18, 31, 3], [30, 36, -10, 11, 1]],
 };
 const COUNTRY_REGIONS = {
-  france: [[42.3, 51.1, -5.1, 8.3, 5]],
+  france: [[42.3, 51.1, -5.1, 8.3, 5], [41.3, 43.1, 8.5, 9.6, 1]],
   usa: [[30, 47, -122, -75, 5]],
   canada: [[43, 50, -123, -73, 4]],
   "uk-ireland": [[51, 57, -8, 0, 4]],
@@ -330,6 +330,49 @@ function randomPointNear(lat, lng, meters) {
     lat: lat + (Math.cos(a) * d) / 111320,
     lng: lng + (Math.sin(a) * d) / (111320 * Math.cos(lat * Math.PI / 180)),
   };
+}
+function pointInBoxes(lat, lng, boxes) {
+  return (boxes || []).some((b) => lat >= b[0] && lat <= b[1] && lng >= b[2] && lng <= b[3]);
+}
+function pointInRing(lat, lng, ring) {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const xi = ring[i][0], yi = ring[i][1];
+    const xj = ring[j][0], yj = ring[j][1];
+    const hit = ((yi > lat) !== (yj > lat)) && (lng < (xj - xi) * (lat - yi) / ((yj - yi) || 1e-12) + xi);
+    if (hit) inside = !inside;
+  }
+  return inside;
+}
+function pointInPolygon(lat, lng, poly) {
+  if (!poly || !poly.length || !pointInRing(lat, lng, poly[0])) return false;
+  for (let i = 1; i < poly.length; i++) if (pointInRing(lat, lng, poly[i])) return false;
+  return true;
+}
+function pointInGeometry(lat, lng, geom) {
+  if (!geom) return false;
+  if (geom.type === "Polygon") return pointInPolygon(lat, lng, geom.coordinates);
+  if (geom.type === "MultiPolygon") return geom.coordinates.some((poly) => pointInPolygon(lat, lng, poly));
+  return false;
+}
+function zoneGeometryKey() {
+  if (G.zoneFilter === "country") return "country:" + G.countryFilter;
+  if (FR_REGION_ZONES[G.zoneFilter] || ZONE_REGIONS[G.zoneFilter] || CITY_ZONES[G.zoneFilter] || G.zoneFilter === "france-cities") return G.zoneFilter;
+  return null;
+}
+function locationAllowed(loc, pool, picked) {
+  if (!loc) return false;
+  if (pool.type === "city") {
+    const max = picked[2] || 12000;
+    return distM({ lat: picked[0], lng: picked[1] }, loc) <= max;
+  }
+  if (G.zoneFilter === "world") return true;
+  const shape = zoneShape(G.zoneFilter, G.countryFilter);
+  if (shape && shape.boxes && !pointInBoxes(loc.lat, loc.lng, shape.boxes)) return false;
+  const key = zoneGeometryKey();
+  if (key && ZGEO && ZGEO[key]) return pointInGeometry(loc.lat, loc.lng, ZGEO[key]);
+  if (shape && shape.boxes) return pointInBoxes(loc.lat, loc.lng, shape.boxes);
+  return true;
 }
 function activePool() {
   if (G.zoneFilter === "world-cities") return { type: "city", items: WORLD_CITIES };
@@ -660,15 +703,17 @@ function pickRegion() {
    =========================================================== */
 async function findOneLocation() {
   const sv = new google.maps.StreetViewService();
-  for (let attempt = 0; attempt < 40; attempt++) {
+  if (!ZGEO) await loadZones();
+  for (let attempt = 0; attempt < 70; attempt++) {
     const pool = activePool();
     const r = pickRegion();
+    const searchRadius = pool.type === "city" ? Math.max(2500, Math.min(9000, (r[2] || 12000) * 0.55)) : 70000;
     const target = pool.type === "city"
-      ? randomPointNear(r[0], r[1], r[2])
+      ? randomPointNear(r[0], r[1], (r[2] || 12000) * 0.55)
       : { lat: rand(r[0], r[1]), lng: rand(r[2], r[3]) };
     const req = {
       location: target,
-      radius: pool.type === "city" ? 12000 : 150000,
+      radius: searchRadius,
       // GOOGLE = imagerie officielle des voitures Street View uniquement
       // (exclut les photosphères utilisateur, qui rendent mal / en noir).
       source: google.maps.StreetViewSource.GOOGLE,
@@ -676,7 +721,8 @@ async function findOneLocation() {
     try {
       const res = await sv.getPanorama(req);
       const loc = res.data.location;
-      return { lat: loc.latLng.lat(), lng: loc.latLng.lng(), panoId: loc.pano };
+      const out = { lat: loc.latLng.lat(), lng: loc.latLng.lng(), panoId: loc.pano };
+      if (locationAllowed(out, pool, r)) return out;
     } catch (e) { /* ZERO_RESULTS → on retente ailleurs */ }
   }
   return null;
@@ -1294,6 +1340,7 @@ function createRoom() {
       $("online-status").textContent = "Un joueur se connecte…";
 
     } else if (m.type === "from" && m.from) {
+      if (!G.online.conns[m.from]) G.online.conns[m.from] = relayGuestConn(ws, m.from);
       onData(m.message, m.from);
 
     } else if (m.type === "peer-left" && m.id) {
@@ -1359,6 +1406,9 @@ function joinRoom(codeArg) {
 
     } else if (m.type === "from") {
       onData(m.message, "host");
+
+    } else if (m.type === "server-roster" && !G.online.started && m.roster) {
+      applyRoster(m.roster);
 
     } else if (m.type === "host-closed") {
       clearInterval(G.online.ka);
@@ -1487,6 +1537,9 @@ function onData(m, fromId) {
   } else if (m.type === "next") {
     if (!G.online.isHost && $("result").classList.contains("show")) advance();   // l'hôte a lancé la manche suivante
 
+  } else if (m.type === "lobby") {
+    if (!G.online.isHost) { applyRemoteSettings(m); enterOnlineLobby("Connecté — en attente de l'hôte"); }
+
   } else if (m.type === "replaystart") {
     if (!G.online.isHost) { showScreen("game"); cover("Nouvelle partie — l'hôte prépare les lieux…"); }
   }
@@ -1502,26 +1555,60 @@ function flashStatus(txt) {
 function replay() {
   if (!G.online.active) { startSolo(); return; }
   if (!G.online.isHost) return;     // seul l'hôte relance la partie
-  hostReplay();
+  hostReturnToLobby();
 }
 function updateReplayUI() {
   const btn = $("btn-replay");
   if (!btn) return;
-  if (!G.online.active || G.online.isHost) { btn.classList.remove("hidden"); btn.disabled = false; btn.textContent = "Rejouer"; }
+  if (!G.online.active) { btn.classList.remove("hidden"); btn.disabled = false; btn.textContent = "Rejouer"; }
+  else if (G.online.isHost) { btn.classList.remove("hidden"); btn.disabled = false; btn.textContent = "Retour au lobby"; }
   else btn.classList.add("hidden");   // l'invité attend que l'hôte relance
   const w = $("final-wait");
   if (w) w.classList.toggle("hidden", !(G.online.active && !G.online.isHost));
+  if (w && G.online.active && !G.online.isHost) w.textContent = "En attente de l'hôte pour retourner au lobby…";
 }
-async function hostReplay() {
-  broadcast({ type: "replaystart" });
-  showScreen("game"); cover("Nouvelle partie — recherche des lieux…");
+function resetOnlineGameState() {
+  clearTimer();
+  G.current = 0;
+  G.scores = [];
+  G.guess = null;
+  G.submitted = false;
+  G.lastDist = null;
   resetLocations();
-  const first = await findOneLocation();
-  if (!first) { cover("Impossible de trouver un lieu."); return; }
-  setLocationAt(0, first);
-  broadcast({ type: "init", rounds: G.rounds, locations: G.locations });
-  beginRoundsLocal();
-  preloadRemainingLocations(1, true);
+  playerList().forEach((p) => { p.scores = []; p.guess = null; p.done = false; });
+  G.online.started = false;
+  G.online.revealed = false;
+}
+function enterOnlineLobby(statusText) {
+  resetOnlineGameState();
+  showScreen("online");
+  $("online-choice").style.display = "none";
+  $("online-wait").classList.add("show");
+  $("room-code").textContent = G.online.code || "----";
+  $("btn-copy").textContent = "Copier le lien";
+  $("btn-copy").disabled = !G.online.isHost;
+  $("online-error").textContent = "";
+  if (G.online.isHost) {
+    $("room-options").classList.remove("hidden");
+    mirrorSettingsToRoom();
+    $("btn-start-room").classList.remove("hidden");
+    updateLobbyControls();
+    broadcastRoster();
+    sendRoomSettings();
+  } else {
+    $("room-options").classList.add("hidden");
+    $("btn-start-room").classList.add("hidden");
+    $("btn-start-room").disabled = true;
+    $("room-settings").textContent = settingsText();
+    $("online-status").textContent = statusText || "Connecté — en attente de l'hôte";
+  }
+  renderLobby();
+  updateMultiHud();
+}
+function hostReturnToLobby() {
+  if (!G.online.active || !G.online.isHost) return;
+  broadcast({ type: "lobby", rounds: G.rounds, zone: G.zoneFilter, country: G.countryFilter, time: G.timeLimit });
+  enterOnlineLobby();
 }
 
 /* ---------- navigation online ---------- */

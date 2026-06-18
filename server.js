@@ -39,6 +39,11 @@ function roomRoster(room) {
   }));
 }
 
+function broadcastServerRoster(room) {
+  const roster = roomRoster(room);
+  room.clients.forEach((client) => send(client, { type: "server-roster", roster }));
+}
+
 function cleanupClient(ws) {
   if (ws.cleaned) return;
   ws.cleaned = true;
@@ -55,6 +60,7 @@ function cleanupClient(ws) {
 
   const host = room.clients.get(room.hostId);
   send(host, { type: "peer-left", id: ws.playerId });
+  broadcastServerRoster(room);
 }
 
 wss.on("connection", (ws) => {
@@ -92,8 +98,9 @@ wss.on("connection", (ws) => {
       ws.playerAv = Number.isFinite(msg.av) ? msg.av : 0;
       room.clients.set(id, ws);
       console.log("[rooms] join " + code + " guest=" + id);
-      send(ws, { type: "joined", code, hostId: room.hostId, roster: roomRoster(room) });
       send(host, { type: "peer-joined", player: { id, name: ws.playerName, av: ws.playerAv } });
+      send(ws, { type: "joined", code, hostId: room.hostId, roster: roomRoster(room) });
+      broadcastServerRoster(room);
 
     } else if (msg.type === "to-host") {
       const room = ws.roomCode ? rooms.get(ws.roomCode) : null;
