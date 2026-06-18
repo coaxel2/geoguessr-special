@@ -2210,7 +2210,7 @@ function renderAuthUI() {
   if (isLogged()) {
     btn.textContent = "👤 " + (AUTH.user.pseudo || "Compte");
     btn.classList.add("logged");
-    btn.title = "Cliquer pour se déconnecter";
+    btn.title = "Voir mon profil";
   } else {
     btn.textContent = "Se connecter";
     btn.classList.remove("logged");
@@ -2231,8 +2231,8 @@ function setAuthMode(mode) {
   if (err) err.textContent = "";
 }
 function openAuthModal() {
-  // Déjà connecté : le bouton sert de déconnexion.
-  if (isLogged()) { logout(); return; }
+  // Déjà connecté : on ouvre le profil (la déconnexion s'y trouve désormais).
+  if (isLogged()) { openProfile(); return; }
   const m = $("auth-modal");
   if (!m) return;
   setAuthMode("login");
@@ -2245,6 +2245,105 @@ function openAuthModal() {
 function closeAuthModal() {
   const m = $("auth-modal");
   if (m) m.hidden = true;
+}
+
+/* ---------- Profil (modale) : collection cosmétique + équipement ----------
+   Réutilise SHOP_ITEMS / ownedItems / equippedItems / buyOrEquip / applyCosmetics.
+   N'affiche QUE les items débloqués, regroupés par catégorie, avec aperçu live. */
+// id d'item → classe d'aperçu CSS (.shop-art.<classe>). Items sans aperçu dédié
+// (badge, avatars, themeDefault, fxNone) → fond neutre/vert par défaut (.shop-art seule).
+const PROFILE_ART = {
+  boreal: "", aurora: "aurora", sunset: "sunset", emerald: "emerald", magma: "magma",
+  cyber: "cyber", sakura: "sakura", mono: "mono", themeDefault: "emerald",
+  badge: "badge", badgeCompass: "badge-compass", badgeFlame: "badge-flame",
+  badgeStar: "badge-star", badgeCrown: "badge-crown",
+  avatars: "compass", avatarsBot: "pack-bot", avatarsPixel: "pack-pixel",
+  fxNone: "", fxAurora: "fx-aurora",
+};
+const PROFILE_CATS = [
+  ["theme", "Thèmes"],
+  ["badge", "Badges"],
+  ["avatarPack", "Avatars"],
+  ["fx", "Effets"],
+];
+function openProfile() {
+  // Le profil complet nécessite d'être connecté ; sinon on bascule sur le login.
+  if (!isLogged()) { openAuthModal(); return; }
+  const m = $("profile-modal");
+  if (!m) return;
+  const av = $("profile-avatar");
+  if (av) {
+    if (typeof setAvatar === "function") setAvatar("profile-avatar", G.avatarChoice);
+    else av.innerHTML = '<img src="' + avatarURL(G.avatarChoice) + '" alt="" draggable="false" />';
+  }
+  const ps = $("profile-pseudo");
+  if (ps) ps.textContent = G.playerName || (AUTH.user && AUTH.user.pseudo) || "Joueur";
+  const coins = $("profile-coins");
+  if (coins) coins.innerHTML = '<span aria-hidden="true">🪙</span> ' + getCoins().toLocaleString("fr-FR");
+  renderProfileCollections();
+  m.hidden = false;
+}
+function closeProfile() {
+  const m = $("profile-modal");
+  if (m) m.hidden = true;
+}
+function renderProfileCollections() {
+  const wrap = $("profile-collections");
+  if (!wrap) return;
+  const owned = ownedItems();
+  const equipped = equippedItems();
+  const ids = Object.keys(SHOP_ITEMS);
+  const total = ids.length;
+  const unlocked = ids.filter((id) => owned[id]).length;
+  const stat = $("profile-unlocked");
+  if (stat) stat.textContent = unlocked + " / " + total + " débloqués";
+  const coins = $("profile-coins");
+  if (coins) coins.innerHTML = '<span aria-hidden="true">🪙</span> ' + getCoins().toLocaleString("fr-FR");
+
+  wrap.innerHTML = "";
+  PROFILE_CATS.forEach(([slot, title]) => {
+    const items = ids.filter((id) => SHOP_ITEMS[id].slot === slot && owned[id]);
+    const sec = document.createElement("section");
+    sec.className = "profile-cat";
+    const h = document.createElement("h3");
+    h.className = "profile-cat-title";
+    h.textContent = title;
+    sec.appendChild(h);
+
+    const grid = document.createElement("div");
+    grid.className = "profile-grid";
+    items.forEach((id) => {
+      const item = SHOP_ITEMS[id];
+      const isEq = equipped[slot] === id;
+      const cell = document.createElement("button");
+      cell.type = "button";
+      cell.className = "profile-item" + (isEq ? " equipped" : "");
+      cell.dataset.item = id;
+      cell.disabled = isEq;
+      cell.title = isEq ? item.label + " — équipé" : "Équiper " + item.label;
+      const artCls = PROFILE_ART[id] || "";
+      cell.innerHTML =
+        '<span class="profile-art shop-art ' + artCls + '"></span>' +
+        '<span class="profile-item-label">' + item.label + "</span>" +
+        '<span class="profile-item-state">' + (isEq ? "Équipé ✓" : "Équiper") + "</span>";
+      grid.appendChild(cell);
+    });
+    sec.appendChild(grid);
+
+    // Catégorie réduite au seul item par défaut → invite vers la Boutique.
+    if (items.length <= 1) {
+      const more = document.createElement("button");
+      more.type = "button";
+      more.className = "profile-more";
+      more.textContent = "Débloque-en plus dans la Boutique →";
+      more.addEventListener("click", () => {
+        closeProfile();
+        if (typeof goTab === "function") goTab("shop");
+      });
+      sec.appendChild(more);
+    }
+    wrap.appendChild(sec);
+  });
 }
 function setAuthBusy(busy) {
   const ok = $("auth-submit");
@@ -2320,6 +2419,22 @@ function wireAuth() {
   if (pw) pw.addEventListener("keydown", (e) => { if (e.key === "Enter") submitAuth(); });
   const ps = $("auth-pseudo");
   if (ps) ps.addEventListener("keydown", (e) => { if (e.key === "Enter") submitAuth(); });
+  wireProfile();
+}
+function wireProfile() {
+  const m = $("profile-modal");
+  if (!m) return;
+  const close = $("profile-close");
+  if (close) close.addEventListener("click", closeProfile);
+  m.addEventListener("click", (e) => { if (e.target === m) closeProfile(); });
+  const out = $("profile-logout");
+  if (out) out.addEventListener("click", () => { logout(); closeProfile(); });
+  const coll = $("profile-collections");
+  if (coll) coll.addEventListener("click", (e) => {
+    const cell = e.target.closest(".profile-item"); if (!cell) return;
+    buyOrEquip(cell.dataset.item); // item possédé → équipe + applyCosmetics live
+    renderProfileCollections();    // rafraîchit l'état « équipé »
+  });
 }
 
 function wire() {
