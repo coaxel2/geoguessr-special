@@ -1361,6 +1361,7 @@ function clearTimer() {
   G.timer = null;
   const el = $("hud-timer");
   if (el) { el.classList.add("hidden"); el.classList.remove("danger"); }
+  document.body.classList.remove("time-critical");
 }
 function startTimer(seconds) {
   clearTimer();
@@ -1368,15 +1369,17 @@ function startTimer(seconds) {
   G.timer = { id: null, remaining: seconds, red: false };
   const el = $("hud-timer");
   if (el) { el.classList.remove("hidden", "danger"); el.textContent = "⏱ " + fmtTime(seconds); }
+  document.body.classList.remove("time-critical");
   G.timer.id = setInterval(tickTimer, 1000);
 }
 function tickTimer() {
   if (!G.timer) return;
   G.timer.remaining--;
   const el = $("hud-timer");
-  if (G.timer.remaining <= 30 && !G.timer.red) {            // 30 s restantes : rouge + son
+  if (G.timer.remaining <= 30 && !G.timer.red) {            // 30 s restantes : rouge + son + aura
     G.timer.red = true;
     if (el) el.classList.add("danger");
+    document.body.classList.add("time-critical");
     beep(880, 0.18);
   }
   if (el) el.textContent = "⏱ " + fmtTime(G.timer.remaining);
@@ -1650,10 +1653,10 @@ function updateMultiHud(prog) {
 function renderLobby() {
   const box = $("room-players"); if (!box) return;
   box.innerHTML = "";
-  box.dataset.count = "0";
+  box.dataset.label = "Salon";
   if (!G.online.active) return;
   const players = playerList();
-  box.dataset.count = String(players.length);
+  box.dataset.label = players.length + (players.length > 1 ? " joueurs" : " joueur") + " dans le salon";
   players.forEach((p) => {
     const row = document.createElement("div");
     row.className = "lobby-player" + (p.id === meId() ? " me" : "");
