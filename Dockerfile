@@ -4,7 +4,7 @@
 FROM nginx:alpine
 
 # Fichiers de l'application
-COPY index.html style.css game.js favicon.svg zones-geo.json /usr/share/nginx/html/
+COPY index.html style.css game.js favicon.svg zones-geo.json globe-land.json /usr/share/nginx/html/
 
 # Config nginx : revalidation du cache (évite les versions périmées chez les visiteurs)
 COPY nginx-default.conf /etc/nginx/conf.d/default.conf

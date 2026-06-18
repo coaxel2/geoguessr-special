@@ -1488,22 +1488,19 @@ function goHome() { clearTimer(); onlineReset(); G.online.active = false; showSc
 let globeRAF = null;
 function initHomeGlobe() {
   const cv = document.getElementById("home-globe");
-  if (!cv) return;
-  if (!ZGEO || !ZGEO["europe"]) { setTimeout(initHomeGlobe, 250); return; }  // attendre les contours
-  if (globeRAF) return;
-
-  const CONTINENTS = ["africa", "europe", "asia", "north-america", "south-america", "oceania"];
+  if (!cv || globeRAF) return;
+  globeRAF = true;   // verrou le temps du chargement
+  fetch("globe-land.json?v=1").then((r) => r.json()).then((geo) => startGlobe(cv, geo)).catch(() => { globeRAF = null; });
+}
+function startGlobe(cv, geo) {
+  // côtes détaillées (Natural Earth 50m, masses terrestres fusionnées) → uniquement le littoral, aucune frontière interne
   const rings = [];
-  CONTINENTS.forEach((k) => {
-    const g = ZGEO[k]; if (!g) return;
-    const polys = g.type === "MultiPolygon" ? g.coordinates : (g.type === "Polygon" ? [g.coordinates] : []);
-    polys.forEach((poly) => poly.forEach((ring) => {
-      const step = ring.length > 400 ? 4 : (ring.length > 160 ? 2 : 1);   // décimation pour la perf
-      const pts = [];
-      for (let i = 0; i < ring.length; i += step) pts.push([ring[i][0] * Math.PI / 180, ring[i][1] * Math.PI / 180]);
-      if (pts.length > 3) rings.push(pts);
-    }));
-  });
+  const polys = geo.type === "MultiPolygon" ? geo.coordinates : [geo.coordinates];
+  polys.forEach((poly) => poly.forEach((ring) => {
+    const pts = [];
+    for (let i = 0; i < ring.length; i++) pts.push([ring[i][0] * Math.PI / 180, ring[i][1] * Math.PI / 180]);
+    if (pts.length > 2) rings.push(pts);
+  }));
 
   const ctx = cv.getContext("2d");
   const tilt = 16 * Math.PI / 180, sinT = Math.sin(tilt), cosT = Math.cos(tilt);
@@ -1518,21 +1515,32 @@ function initHomeGlobe() {
   resize();
   window.addEventListener("resize", resize);
 
-  // la souris « pousse » le globe : un mouvement horizontal accélère la rotation, puis friction
-  const baseSpeed = 0.0016;
-  let boost = 0, lastX = null;
-  function pushGlobe(e) {
-    const x = (e.touches && e.touches[0]) ? e.touches[0].clientX : e.clientX;
-    if (x == null) return;
-    if (lastX !== null) boost += (x - lastX) * 0.00006;
-    boost = Math.max(-0.06, Math.min(0.06, boost));
+  // on fait tourner le globe en cliquant-glissant dessus ; au relâcher, l'élan continue puis revient à la vitesse de base
+  const baseSpeed = 0.0026;
+  let vel = baseSpeed, dragging = false, lastX = null;
+  cv.style.pointerEvents = "auto"; cv.style.cursor = "grab";
+  const px = (e) => (e.touches && e.touches[0]) ? e.touches[0].clientX : e.clientX;
+  function down(e) { dragging = true; lastX = px(e); cv.style.cursor = "grabbing"; }
+  function move(e) {
+    if (!dragging) return;
+    const x = px(e); if (x == null) return;
+    if (lastX !== null) { const dx = x - lastX; lon0 -= dx * 0.006; vel = Math.max(-0.15, Math.min(0.15, -dx * 0.006)); }
     lastX = x;
   }
-  window.addEventListener("mousemove", pushGlobe);
-  window.addEventListener("touchmove", pushGlobe, { passive: true });
+  function up() { if (!dragging) return; dragging = false; lastX = null; cv.style.cursor = "grab"; }
+  cv.addEventListener("mousedown", down);
+  window.addEventListener("mousemove", move);
+  window.addEventListener("mouseup", up);
+  cv.addEventListener("touchstart", down, { passive: true });
+  window.addEventListener("touchmove", move, { passive: true });
+  window.addEventListener("touchend", up);
 
-  function frame() {
-    if (!document.getElementById("menu").classList.contains("show")) { globeRAF = requestAnimationFrame(frame); return; }
+  let lastT = 0;
+  function frame(t) {
+    globeRAF = requestAnimationFrame(frame);
+    if (t - lastT < 26) return;   // ~38 fps : suffisant et plus léger avec des côtes détaillées
+    lastT = t;
+    if (!document.getElementById("menu").classList.contains("show")) return;
     ctx.clearRect(0, 0, cv.width, cv.height);
     ctx.save();
     ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.clip();
@@ -1596,8 +1604,7 @@ function initHomeGlobe() {
     ag.addColorStop(0, "rgba(46,230,166,.18)"); ag.addColorStop(1, "rgba(46,230,166,0)");
     ctx.beginPath(); ctx.arc(cx, cy, R * 1.12, 0, Math.PI * 2); ctx.fillStyle = ag; ctx.fill();
 
-    lon0 += baseSpeed + boost; boost *= 0.94;   // rotation lente + impulsion à la souris
-    globeRAF = requestAnimationFrame(frame);
+    if (!dragging) { lon0 += vel; vel += (baseSpeed - vel) * 0.03; }   // hors glisser : élan + retour doux à la vitesse de base
   }
   globeRAF = requestAnimationFrame(frame);
 }
