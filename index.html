@@ -7,14 +7,14 @@
   <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests" />
   <title>Geoloc — devine où tu te trouves dans le monde</title>
   <meta name="description" content="Geoloc : largué quelque part en vue Street View, devine où tu te trouves sur la carte. Solo ou multijoueur en ligne." />
-  <link rel="icon" type="image/svg+xml" href="favicon.svg?v=29" />
+  <link rel="icon" type="image/svg+xml" href="favicon.svg?v=30" />
   <meta name="theme-color" content="#0f1419" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="preconnect" href="https://api.dicebear.com" />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-  <link rel="stylesheet" href="style.css?v=29" />
+  <link rel="stylesheet" href="style.css?v=30" />
 </head>
 <body>
 
@@ -355,10 +355,21 @@
     </div>
   </div>
 
+  <!-- ====================== PSEUDO (popup) ====================== -->
+  <div class="modal-overlay" id="name-modal" hidden>
+    <div class="modal-card">
+      <h2 class="panel-title">Ton pseudo</h2>
+      <p class="hint" style="margin: -6px 0 16px">Choisis un pseudo pour rejoindre la partie.</p>
+      <input id="name-modal-input" class="text-input" maxlength="18" placeholder="Joueur" autocomplete="nickname" spellcheck="false" />
+      <p class="err" id="name-modal-err"></p>
+      <button class="btn btn-primary" id="name-modal-ok">Valider</button>
+    </div>
+  </div>
+
   <!-- Leaflet : cartes de guess / résultat (tuiles raster, pas de WebGL) -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <!-- PeerJS for multiplayer signaling (same lib as the chess project) -->
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js" integrity="sha384-nlUQ8ZqCbvStErob+biJNzSgltf6urV3VGqhfIfzhmg9RXmpeRm76ELw0pYnKlTR" crossorigin="anonymous"></script>
-  <script src="game.js?v=29"></script>
+  <script src="game.js?v=30"></script>
 </body>
 </html>

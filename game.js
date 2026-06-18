@@ -52,6 +52,34 @@ function requirePlayerName(errorId) {
   $("player-name").focus();
   return false;
 }
+// popup pseudo : demande un pseudo s'il manque, puis exécute cb
+let pendingJoin = null;
+function requestName(cb) {
+  if (savePlayerName()) { if (cb) cb(); return; }
+  try { const n = localStorage.getItem("geoq-name"); if (n) { $("player-name").value = n; if (savePlayerName()) { if (cb) cb(); return; } } } catch (e) {}
+  const m = $("name-modal");
+  if (!m) { requirePlayerName("online-error"); return; }
+  m._cb = cb || null;
+  $("name-modal-input").value = "";
+  $("name-modal-err").textContent = "";
+  m.hidden = false;
+  setTimeout(() => { try { $("name-modal-input").focus(); } catch (e) {} }, 60);
+}
+function confirmName() {
+  const m = $("name-modal"); if (!m) return;
+  $("player-name").value = $("name-modal-input").value;
+  if (!savePlayerName()) { $("name-modal-err").textContent = "Entre un pseudo valide."; return; }
+  m.hidden = true;
+  const cb = m._cb; m._cb = null;
+  if (cb) cb();
+}
+function autoJoin() {
+  if (!pendingJoin) return;
+  if (!mapsReady) { setTimeout(autoJoin, 250); return; }   // attendre que la carte soit prête
+  const code = pendingJoin; pendingJoin = null;
+  showScreen("online");
+  joinRoom(code);
+}
 function labelForSelect(id) {
   const el = $(id);
   return el && el.selectedOptions[0] ? el.selectedOptions[0].textContent : "";
@@ -1604,13 +1632,16 @@ function startGlobe(cv, geo) {
       lng -= TWO * Math.floor((lng + Math.PI) / TWO);   // ramener dans -π..π
       let tx = ((lng / TWO) + 0.5) * TW | 0; if (tx < 0) tx = 0; else if (tx >= TW) tx = TW - 1;
       let ty = (0.5 - latG[i] / Math.PI) * TH | 0; if (ty < 0) ty = 0; else if (ty >= TH) ty = TH - 1;
-      const sh = shade[i];
-      if (land[ty * TW + tx]) { d[o] = 26 + 70 * sh; d[o + 1] = 150 + 95 * sh; d[o + 2] = 112 + 70 * sh; d[o + 3] = 240; }
-      else { d[o] = 8 + 26 * sh; d[o + 1] = 34 + 48 * sh; d[o + 2] = 64 + 58 * sh; d[o + 3] = 255; }
+      if (land[ty * TW + tx]) { const sh = shade[i]; d[o] = 26 + 70 * sh; d[o + 1] = 150 + 95 * sh; d[o + 2] = 112 + 70 * sh; d[o + 3] = 240; }
+      else d[o + 3] = 0;   // mer transparente → l'océan dégradé en dessous reste visible
     }
     octx.putImageData(oimg, 0, 0);
     ctx.save();
     ctx.beginPath(); ctx.arc(cx, cy, R, 0, TWO); ctx.clip();
+    // océan : un seul disque dégradé couvrant tout le globe jusqu'au bord (évite tout « second cercle »)
+    const og = ctx.createRadialGradient(cx - R * 0.35, cy - R * 0.4, R * 0.12, cx, cy, R * 1.12);
+    og.addColorStop(0, "#1b4d80"); og.addColorStop(.6, "#103258"); og.addColorStop(1, "#0a2240");
+    ctx.fillStyle = og; ctx.fillRect(cx - R, cy - R, 2 * R, 2 * R);
     ctx.imageSmoothingEnabled = true;
     ctx.drawImage(oc, cx - R, cy - R, 2 * R, 2 * R);
 
@@ -1632,12 +1663,10 @@ function startGlobe(cv, geo) {
     }
     ctx.restore();
 
-    // contour + halo atmosphérique
-    ctx.beginPath(); ctx.arc(cx, cy, R, 0, TWO);
-    ctx.lineWidth = Math.max(1.5, R * 0.016); ctx.strokeStyle = "rgba(46,230,166,.30)"; ctx.stroke();
-    const ag = ctx.createRadialGradient(cx, cy, R * 0.97, cx, cy, R * 1.12);
-    ag.addColorStop(0, "rgba(46,230,166,.18)"); ag.addColorStop(1, "rgba(46,230,166,0)");
-    ctx.beginPath(); ctx.arc(cx, cy, R * 1.12, 0, TWO); ctx.fillStyle = ag; ctx.fill();
+    // halo atmosphérique doux uniquement (un seul globe, pas de cercle de contour distinct)
+    const ag = ctx.createRadialGradient(cx, cy, R * 0.99, cx, cy, R * 1.14);
+    ag.addColorStop(0, "rgba(46,230,166,.16)"); ag.addColorStop(1, "rgba(46,230,166,0)");
+    ctx.beginPath(); ctx.arc(cx, cy, R * 1.14, 0, TWO); ctx.fillStyle = ag; ctx.fill();
 
     if (!dragging) { lon0 += vel; vel += (baseSpeed - vel) * 0.03; }
   }
@@ -1730,15 +1759,18 @@ function wire() {
 
   $("btn-solo").addEventListener("click", startSolo);
   $("btn-online").addEventListener("click", () => {
-    if (!requirePlayerName()) return;
-    readMenuSettings();
-    mirrorSettingsToOnline();
-    backToOnlineChoice();
-    $("online-error").textContent = "";
-    showScreen("online");
+    requestName(() => {
+      readMenuSettings();
+      mirrorSettingsToOnline();
+      backToOnlineChoice();
+      $("online-error").textContent = "";
+      showScreen("online");
+    });
   });
-  $("btn-create").addEventListener("click", createRoom);
-  $("btn-join").addEventListener("click", () => joinRoom());
+  $("btn-create").addEventListener("click", () => requestName(createRoom));
+  $("btn-join").addEventListener("click", () => requestName(() => joinRoom()));
+  $("name-modal-ok").addEventListener("click", confirmName);
+  $("name-modal-input").addEventListener("keydown", (e) => { if (e.key === "Enter") confirmName(); });
   $("btn-start-room").addEventListener("click", hostStartGame);
   // croix d'exclusion : délégation sur la liste des joueurs du salon
   $("room-players").addEventListener("click", (e) => {
@@ -1766,16 +1798,18 @@ function wire() {
   $("btn-replay").addEventListener("click", replay);
   $("btn-home").addEventListener("click", goHome);
 
-  // auto-join via ?join=CODE
+  // lien ?join=CODE → rejoint directement la salle (popup pseudo si besoin)
   const params = new URLSearchParams(location.search);
   const j = params.get("join");
   if (j) {
-    $("join-code").value = j.toUpperCase().slice(0, 4);
-    if (G.playerName) showScreen("online");
-    else {
-      setMapsState("Entre un pseudo, puis ouvre le multijoueur pour rejoindre la salle.");
-      showScreen("menu");
-    }
+    pendingJoin = j.toUpperCase().slice(0, 4);
+    $("join-code").value = pendingJoin;
+    readMenuSettings();
+    mirrorSettingsToOnline();
+    backToOnlineChoice();
+    showScreen("online");
+    $("online-status").textContent = "Connexion à la salle…";
+    requestName(autoJoin);
   }
 }
 
