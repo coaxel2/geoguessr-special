@@ -35,22 +35,41 @@ function syncTabs(id) {
     b.classList.toggle("on", (id === "menu" && tab === "menu") || (id === "online" && tab === "online") || (id === "leaderboard" && tab === "leaderboard"));
   });
 }
-function goTab(tab) {
+function routeForTab(tab) {
+  if (tab === "online") return "/multi";
+  if (tab === "leaderboard") return "/classement";
+  return "/";
+}
+function tabForPath(path) {
+  const clean = (path || "/").replace(/\/+$/, "") || "/";
+  if (clean === "/multi") return "online";
+  if (clean === "/classement") return "leaderboard";
+  return "menu";
+}
+function setRoute(tab, replace) {
+  if (!window.history) return;
+  const path = routeForTab(tab);
+  if (location.pathname === path && !location.search) return;
+  const fn = replace ? "replaceState" : "pushState";
+  history[fn]({ tab: tab }, "", path);
+}
+function goTab(tab, opts) {
+  opts = opts || {};
   const current = document.querySelector(".screen.show");
   const inRound = current && (current.id === "game" || current.id === "result");
   if (inRound && !confirm("Quitter la partie en cours ?")) return;
   if (tab === "online") {
-    requestName(() => {
-      readMenuSettings();
-      mirrorSettingsToOnline();
-      backToOnlineChoice();
-      $("online-error").textContent = "";
-      showScreen("online");
-    });
+    readMenuSettings();
+    mirrorSettingsToOnline();
+    backToOnlineChoice();
+    $("online-error").textContent = "";
+    showScreen("online");
+    if (!opts.fromPop) setRoute("online", opts.replace);
     return;
   }
   if (tab === "leaderboard") {
     showScreen("leaderboard");
+    if (!opts.fromPop) setRoute("leaderboard", opts.replace);
     return;
   }
   clearTimer();
@@ -58,6 +77,7 @@ function goTab(tab) {
   backToOnlineChoice();
   G.online.active = false;
   showScreen("menu");
+  if (!opts.fromPop) setRoute("menu", opts.replace);
 }
 function fmtDist(m) {
   if (m == null) return "— km";
@@ -2055,6 +2075,7 @@ function wire() {
   $("btn-next").addEventListener("click", nextRound);
   $("btn-replay").addEventListener("click", replay);
   $("btn-home").addEventListener("click", goHome);
+  window.addEventListener("popstate", () => goTab(tabForPath(location.pathname), { fromPop: true }));
 
   // lien ?join=CODE → rejoint directement la salle (popup pseudo si besoin)
   const params = new URLSearchParams(location.search);
@@ -2066,14 +2087,17 @@ function wire() {
     mirrorSettingsToOnline();
     backToOnlineChoice();
     showScreen("online");
+    setRoute("online", true);
     $("online-status").textContent = "Connexion à la salle…";
     requestName(autoJoin);
+  } else {
+    goTab(tabForPath(location.pathname), { replace: true });
   }
 }
 
 function copyLink() {
   if (!G.online.code || $("btn-copy").disabled) return;
-  const url = location.origin + location.pathname + "?join=" + (G.online.code || "");
+  const url = location.origin + "/multi?join=" + (G.online.code || "");
   navigator.clipboard.writeText(url).then(
     () => { $("btn-copy").textContent = "Lien copié ✓"; setTimeout(() => ($("btn-copy").textContent = "Copier le lien"), 1800); },
     () => { $("btn-copy").textContent = url; }
