@@ -14,9 +14,13 @@
   <link rel="preconnect" href="https://api.dicebear.com" />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-  <link rel="stylesheet" href="style.css?v=48" />
+  <link rel="stylesheet" href="style.css?v=49" />
 </head>
 <body>
+  <div class="wallet-pill" id="wallet-pill" aria-label="Monnaie disponible">
+    <span class="wallet-icon" aria-hidden="true">🪙</span>
+    <span id="wallet-amount">0</span>
+  </div>
 
   <!-- ====================== MENU ====================== -->
   <section id="menu" class="screen show">
@@ -407,34 +411,47 @@
               <h2>Nuit boréale</h2>
               <p>Interface givrée, halo polaire et badge explorateur arctique.</p>
             </div>
-            <button type="button" class="btn btn-primary">Équiper</button>
+            <button type="button" class="btn btn-primary" data-shop-item="boreal">Acheter</button>
           </div>
           <div class="shop-grid">
-            <article class="shop-card">
+            <article class="shop-card" data-shop-card="aurora">
               <span class="shop-art aurora"></span>
               <h3>Thème Aurora</h3>
               <p>Fond sombre, cartes turquoise et effets lumineux.</p>
-              <span class="shop-price">1 200 pts</span>
+              <div class="shop-card-foot">
+                <span class="shop-price">1 200 🪙</span>
+                <button type="button" class="btn btn-mini" data-shop-item="aurora">Acheter</button>
+              </div>
             </article>
-            <article class="shop-card">
+            <article class="shop-card" data-shop-card="sunset">
               <span class="shop-art sunset"></span>
               <h3>Thème Sunset</h3>
               <p>Ambiance coucher de soleil pour les salons privés.</p>
-              <span class="shop-price">900 pts</span>
+              <div class="shop-card-foot">
+                <span class="shop-price">900 🪙</span>
+                <button type="button" class="btn btn-mini" data-shop-item="sunset">Acheter</button>
+              </div>
             </article>
-            <article class="shop-card">
+            <article class="shop-card" data-shop-card="badge">
               <span class="shop-art badge"></span>
               <h3>Badge Globe</h3>
               <p>Affiché près de ton pseudo dans le lobby.</p>
-              <span class="shop-price">500 pts</span>
+              <div class="shop-card-foot">
+                <span class="shop-price">500 🪙</span>
+                <button type="button" class="btn btn-mini" data-shop-item="badge">Acheter</button>
+              </div>
             </article>
-            <article class="shop-card">
+            <article class="shop-card" data-shop-card="avatars">
               <span class="shop-art compass"></span>
               <h3>Pack Avatars</h3>
               <p>Six profils façon explorateurs urbains.</p>
-              <span class="shop-price">Gratuit</span>
+              <div class="shop-card-foot">
+                <span class="shop-price">Gratuit</span>
+                <button type="button" class="btn btn-mini" data-shop-item="avatars">Équiper</button>
+              </div>
             </article>
           </div>
+          <p class="shop-feedback" id="shop-feedback"></p>
         </section>
       </main>
     </div>
@@ -470,23 +487,23 @@
               <p class="shop-eyebrow">Défi hebdo</p>
               <h2>Capitales cachées</h2>
               <p>5 manches, grandes villes du monde, timer 5 minutes. Objectif : dépasser 18 000 pts.</p>
-              <button type="button" class="btn btn-primary">Lancer le défi</button>
+              <button type="button" class="btn btn-primary" id="btn-weekly-challenge">Lancer le défi</button>
             </article>
             <div class="community-list">
               <article class="community-row">
                 <span class="community-dot live"></span>
                 <div><strong>Salon public FR-01</strong><small>4 joueurs · Europe · 5 manches</small></div>
-                <button type="button" class="btn btn-mini">Voir</button>
+                <button type="button" class="btn btn-mini" id="btn-public-room">Voir</button>
               </article>
               <article class="community-row">
                 <span class="community-dot"></span>
                 <div><strong>Ax730 a battu son record</strong><small>339 pts · Monde entier</small></div>
-                <button type="button" class="btn btn-mini">Profil</button>
+                <button type="button" class="btn btn-mini" id="btn-community-profile">Profil</button>
               </article>
               <article class="community-row">
                 <span class="community-dot hot"></span>
-                <div><strong>Vote de zone</strong><small>Prochain tournoi : Japon ou France ?</small></div>
-                <button type="button" class="btn btn-mini">Voter</button>
+                <div><strong>Vote de zone</strong><small id="community-vote-text">Prochain tournoi : Japon ou France ?</small></div>
+                <button type="button" class="btn btn-mini" id="btn-community-vote">Voter</button>
               </article>
             </div>
           </div>
@@ -545,6 +562,7 @@
       <div id="final-emoji" class="final-emoji">🏆</div>
       <h2 id="final-title">Partie terminée</h2>
       <div class="final-scores" id="final-scores"></div>
+      <p class="coin-earned hidden" id="final-coins"></p>
       <div class="lb-block hidden" id="lb-block">
         <h3 class="lb-title">🏆 Meilleurs scores</h3>
         <p class="lb-myrank" id="lb-myrank"></p>
@@ -599,6 +617,6 @@
 
   <!-- Leaflet : cartes de guess / résultat (tuiles raster, pas de WebGL) -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script src="game.js?v=48"></script>
+  <script src="game.js?v=49"></script>
 </body>
 </html>

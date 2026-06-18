@@ -166,6 +166,149 @@ function settingsText() {
   const t = G.timeLimit ? " · " + Math.round(G.timeLimit / 60) + " min/manche" : "";
   return G.rounds + " manches · " + (zone || "Monde entier") + t;
 }
+
+/* ---------- monnaie + boutique ---------- */
+const COINS_KEY = "geoq-coins";
+const OWNED_KEY = "geoq-owned";
+const EQUIPPED_KEY = "geoq-equipped";
+const SHOP_ITEMS = {
+  boreal: { price: 1500, type: "theme", slot: "theme", label: "Nuit boréale" },
+  aurora: { price: 1200, type: "theme", slot: "theme", label: "Thème Aurora" },
+  sunset: { price: 900, type: "theme", slot: "theme", label: "Thème Sunset" },
+  badge: { price: 500, type: "badge", slot: "badge", label: "Badge Globe" },
+  avatars: { price: 0, type: "avatarPack", slot: "avatarPack", label: "Pack Avatars" },
+};
+function readJSON(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch (e) {
+    return fallback;
+  }
+}
+function writeJSON(key, value) {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
+}
+function getCoins() {
+  try {
+    const n = parseInt(localStorage.getItem(COINS_KEY), 10);
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  } catch (e) {
+    return 0;
+  }
+}
+function setCoins(n) {
+  const value = Math.max(0, Math.floor(n || 0));
+  try { localStorage.setItem(COINS_KEY, String(value)); } catch (e) {}
+  updateWallet();
+}
+function addCoins(n) { setCoins(getCoins() + Math.max(0, Math.floor(n || 0))); }
+function updateWallet() {
+  const el = $("wallet-amount");
+  if (el) el.textContent = getCoins().toLocaleString("fr-FR");
+}
+function ownedItems() {
+  const owned = readJSON(OWNED_KEY, {});
+  owned.avatars = true;
+  return owned;
+}
+function equippedItems() {
+  return readJSON(EQUIPPED_KEY, { avatarPack: "avatars" });
+}
+function saveOwnedItems(owned) { writeJSON(OWNED_KEY, owned); }
+function saveEquippedItems(equipped) { writeJSON(EQUIPPED_KEY, equipped); }
+function applyCosmetics() {
+  const equipped = equippedItems();
+  document.body.dataset.theme = equipped.theme || "";
+  document.body.dataset.badge = equipped.badge === "badge" ? "globe" : "";
+}
+function setShopFeedback(text) {
+  const el = $("shop-feedback");
+  if (!el) return;
+  el.textContent = text || "";
+}
+function buyOrEquip(itemId) {
+  const item = SHOP_ITEMS[itemId];
+  if (!item) return;
+  const owned = ownedItems();
+  const equipped = equippedItems();
+  if (!owned[itemId]) {
+    const coins = getCoins();
+    if (coins < item.price) {
+      setShopFeedback("Pas assez de pièces pour " + item.label + ".");
+      return;
+    }
+    setCoins(coins - item.price);
+    owned[itemId] = true;
+    saveOwnedItems(owned);
+  }
+  equipped[item.slot] = itemId;
+  saveEquippedItems(equipped);
+  applyCosmetics();
+  renderShop();
+  setShopFeedback(item.label + " équipé.");
+}
+function renderShop() {
+  updateWallet();
+  applyCosmetics();
+  const owned = ownedItems();
+  const equipped = equippedItems();
+  Object.keys(SHOP_ITEMS).forEach((id) => {
+    const item = SHOP_ITEMS[id];
+    const isOwned = !!owned[id];
+    const isEquipped = equipped[item.slot] === id;
+    document.querySelectorAll('[data-shop-card="' + id + '"]').forEach((card) => {
+      card.classList.toggle("owned", isOwned);
+      card.classList.toggle("equipped", isEquipped);
+    });
+    document.querySelectorAll('[data-shop-item="' + id + '"]').forEach((btn) => {
+      btn.disabled = false;
+      if (isEquipped) btn.textContent = "Équipé";
+      else if (isOwned) btn.textContent = "Équiper";
+      else btn.textContent = item.price ? "Acheter" : "Équiper";
+    });
+  });
+}
+function rewardForScore(score) {
+  if (!score || score <= 0) return 0;
+  return Math.max(5, Math.round(score / 75));
+}
+function awardGameCoins(score) {
+  if (G.rewarded) return 0;
+  G.rewarded = true;
+  const earned = rewardForScore(score);
+  if (earned > 0) addCoins(earned);
+  return earned;
+}
+function startWeeklyChallenge() {
+  G.rounds = 5;
+  G.timeLimit = 5 * 60;
+  G.zoneFilter = "world-cities";
+  setRoundSeg("rounds-seg", 5);
+  setTimeSeg("time-seg", G.timeLimit);
+  $("zone-filter").value = G.zoneFilter;
+  updateZoneTrigger();
+  setShopFeedback("");
+  startSolo();
+}
+function openPublicRoom() {
+  goTab("online");
+  $("join-code").value = "FR01";
+  $("online-error").textContent = "Code FR01 prérempli : rejoins si le salon est ouvert.";
+}
+function toggleCommunityVote() {
+  const current = readJSON("geoq-community-vote", { choice: "Japon" });
+  current.choice = current.choice === "Japon" ? "France" : "Japon";
+  writeJSON("geoq-community-vote", current);
+  renderCommunity();
+}
+function renderCommunity() {
+  const vote = readJSON("geoq-community-vote", { choice: "Japon" });
+  const txt = $("community-vote-text");
+  const btn = $("btn-community-vote");
+  if (txt) txt.textContent = "Ton vote : " + vote.choice + " · clique pour changer.";
+  if (btn) btn.textContent = "Changer";
+}
 /* ---------- avatars « bonhomme » via DiceBear (style avataaars) ----------
    Déterministes : générés depuis le pseudo (+ une graine cyclable au clic).
    En P2P on ne transmet que le pseudo + la graine ; chaque client recompose
@@ -224,6 +367,7 @@ const G = {
   scores: [],
   guess: null,
   submitted: false,
+  rewarded: false,
   lastDist: null,
   playerName: "",
   avatarChoice: 0,
@@ -911,6 +1055,7 @@ async function startSolo() {
 
 function beginRoundsLocal() {
   G.current = 0; G.scores = []; G.submitted = false;
+  G.rewarded = false;
   playerList().forEach((p) => { p.scores = []; p.guess = null; p.done = false; });
   G.online.revealed = false;
   $("hud-opp").classList.toggle("hidden", !G.online.active);
@@ -1232,6 +1377,14 @@ function showFinal() {
     });
   }
   if (!G.online.active) recordSoloScore();
+  const earned = awardGameCoins(myTotal);
+  const coinEl = $("final-coins");
+  if (coinEl) {
+    coinEl.textContent = earned > 0
+      ? "+" + earned.toLocaleString("fr-FR") + " pièces gagnées avec ton score"
+      : "Aucune pièce gagnée cette fois.";
+    coinEl.classList.remove("hidden");
+  }
   updateReplayUI();
 }
 
@@ -1750,6 +1903,7 @@ function resetOnlineGameState() {
   G.scores = [];
   G.guess = null;
   G.submitted = false;
+  G.rewarded = false;
   G.lastDist = null;
   resetLocations();
   playerList().forEach((p) => { p.scores = []; p.guess = null; p.done = false; });
@@ -1979,6 +2133,8 @@ function wire() {
   $("player-name").addEventListener("blur", savePlayerName);
   buildAvatarGrid();
   setAvatar("avatar-current", G.avatarChoice);
+  renderShop();
+  renderCommunity();
   $("avatar-grid").addEventListener("click", (e) => {
     const b = e.target.closest(".avatar-opt"); if (!b) return;
     selectAvatar(parseInt(b.dataset.i, 10));
@@ -2050,6 +2206,21 @@ function wire() {
     sendRoomSettings();
   });
   $("room-country-filter").addEventListener("change", sendRoomSettings);
+
+  const shop = $("shop");
+  if (shop) shop.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-shop-item]");
+    if (!b) return;
+    buyOrEquip(b.dataset.shopItem);
+  });
+  const weekly = $("btn-weekly-challenge");
+  if (weekly) weekly.addEventListener("click", () => requestName(startWeeklyChallenge));
+  const publicRoom = $("btn-public-room");
+  if (publicRoom) publicRoom.addEventListener("click", openPublicRoom);
+  const profile = $("btn-community-profile");
+  if (profile) profile.addEventListener("click", () => goTab("leaderboard"));
+  const vote = $("btn-community-vote");
+  if (vote) vote.addEventListener("click", toggleCommunityVote);
 
   document.querySelectorAll(".tab-link").forEach((b) =>
     b.addEventListener("click", () => goTab(b.dataset.tab)));
