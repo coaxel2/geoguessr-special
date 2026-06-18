@@ -348,43 +348,51 @@ function tileURL(lat, lng, z) {
 }
 // Catalogue trié par catégorie. {l:label, z:zoneFilter, co:countryFilter?, la,lo:centre, tz:zoom tuile}
 function zoneGroups() {
-  const frReg = FR_REGIONS.map((r) => ({ l: r[1], z: r[0], la: (r[2] + r[3]) / 2, lo: (r[4] + r[5]) / 2, tz: 6 }));
-  const frCity = CITIES_FR.map((c) => ({ l: c[1], z: c[0], la: c[2], lo: c[3], tz: 10 }));
-  const wCity = CITIES_WORLD.map((c) => ({ l: c[1], z: c[0], la: c[2], lo: c[3], tz: 10 }));
+  const byLabel = (a, b) => a.l.localeCompare(b.l, "fr", { sensitivity: "base" });
+  const frReg = FR_REGIONS.map((r) => ({ l: r[1], z: r[0], la: (r[2] + r[3]) / 2, lo: (r[4] + r[5]) / 2, tz: 6 })).sort(byLabel);
+  const frCity = CITIES_FR.map((c) => ({ l: c[1], z: c[0], la: c[2], lo: c[3], tz: 10 })).sort(byLabel);
+  const wCity = CITIES_WORLD.map((c) => ({ l: c[1], z: c[0], la: c[2], lo: c[3], tz: 10 })).sort(byLabel);
+  // pays : France en tête (favori), puis ordre alphabétique
+  const FR = { l: "France", co: "france", la: 46.6, lo: 2.4, tz: 5 };
+  const others = [
+    { l: "États-Unis", co: "usa", la: 39, lo: -98, tz: 3 },
+    { l: "Canada", co: "canada", la: 56, lo: -100, tz: 3 },
+    { l: "Royaume-Uni / Irlande", co: "uk-ireland", la: 54, lo: -4, tz: 5 },
+    { l: "Espagne / Portugal", co: "spain-portugal", la: 40, lo: -4, tz: 5 },
+    { l: "Italie", co: "italy", la: 42, lo: 12.5, tz: 5 },
+    { l: "Allemagne", co: "germany", la: 51, lo: 10, tz: 5 },
+    { l: "Japon", co: "japan", la: 37, lo: 138, tz: 5 },
+    { l: "Corée du Sud", co: "south-korea", la: 36.5, lo: 127.8, tz: 6 },
+    { l: "Australie", co: "australia", la: -25, lo: 134, tz: 4 },
+    { l: "Nouvelle-Zélande", co: "new-zealand", la: -41, lo: 173, tz: 5 },
+    { l: "Brésil", co: "brazil", la: -12, lo: -50, tz: 3 },
+    { l: "Argentine / Chili", co: "argentina-chile", la: -35, lo: -65, tz: 4 },
+    { l: "Afrique du Sud", co: "south-africa", la: -30, lo: 24, tz: 5 },
+    { l: "Mexique", co: "mexico", la: 23, lo: -102, tz: 4 },
+  ].sort(byLabel);
+  const countries = [FR, ...others].map((c) => ({ ...c, z: "country" }));
   return [
-    ["Le monde", [
+    ["🌍 Le monde", [
       { l: "Monde entier", z: "world", la: 25, lo: 0, tz: 1 },
-      { l: "Grandes villes du monde", z: "world-cities", la: 25, lo: 0, tz: 1 },
-      { l: "France — grandes villes", z: "france-cities", la: 46.6, lo: 2.4, tz: 5 },
     ]],
-    ["Continents", [
+    ["🧭 Continents", [
       { l: "Europe", z: "europe", la: 50, lo: 10, tz: 3 },
       { l: "Amérique du Nord", z: "north-america", la: 45, lo: -100, tz: 2 },
       { l: "Amérique du Sud", z: "south-america", la: -15, lo: -60, tz: 2 },
       { l: "Asie", z: "asia", la: 35, lo: 100, tz: 2 },
-      { l: "Océanie", z: "oceania", la: -25, lo: 140, tz: 3 },
       { l: "Afrique", z: "africa", la: 2, lo: 20, tz: 2 },
+      { l: "Océanie", z: "oceania", la: -25, lo: 140, tz: 3 },
     ]],
-    ["Pays", [
-      { l: "France", z: "country", co: "france", la: 46.6, lo: 2.4, tz: 5 },
-      { l: "États-Unis", z: "country", co: "usa", la: 39, lo: -98, tz: 3 },
-      { l: "Canada", z: "country", co: "canada", la: 56, lo: -100, tz: 3 },
-      { l: "Royaume-Uni / Irlande", z: "country", co: "uk-ireland", la: 54, lo: -4, tz: 5 },
-      { l: "Espagne / Portugal", z: "country", co: "spain-portugal", la: 40, lo: -4, tz: 5 },
-      { l: "Italie", z: "country", co: "italy", la: 42, lo: 12.5, tz: 5 },
-      { l: "Allemagne", z: "country", co: "germany", la: 51, lo: 10, tz: 5 },
-      { l: "Japon", z: "country", co: "japan", la: 37, lo: 138, tz: 5 },
-      { l: "Corée du Sud", z: "country", co: "south-korea", la: 36.5, lo: 127.8, tz: 6 },
-      { l: "Australie", z: "country", co: "australia", la: -25, lo: 134, tz: 4 },
-      { l: "Nouvelle-Zélande", z: "country", co: "new-zealand", la: -41, lo: 173, tz: 5 },
-      { l: "Brésil", z: "country", co: "brazil", la: -12, lo: -50, tz: 3 },
-      { l: "Argentine / Chili", z: "country", co: "argentina-chile", la: -35, lo: -65, tz: 4 },
-      { l: "Afrique du Sud", z: "country", co: "south-africa", la: -30, lo: 24, tz: 5 },
-      { l: "Mexique", z: "country", co: "mexico", la: 23, lo: -102, tz: 4 },
+    ["🏳️ Pays", countries],
+    ["🌆 Villes du monde", [
+      { l: "Toutes les grandes villes du monde", z: "world-cities", la: 25, lo: 0, tz: 1 },
+      ...wCity,
     ]],
-    ["Régions de France", frReg],
-    ["Villes de France", frCity],
-    ["Villes du monde", wCity],
+    ["🇫🇷 Régions de France", frReg],
+    ["🏙️ Villes de France", [
+      { l: "Toutes les grandes villes de France", z: "france-cities", la: 46.6, lo: 2.4, tz: 5 },
+      ...frCity,
+    ]],
   ];
 }
 function zoneLabel() {
@@ -1473,6 +1481,99 @@ function goHome() { clearTimer(); onlineReset(); G.online.active = false; showSc
 /* ===========================================================
    Wiring UI
    =========================================================== */
+/* ===========================================================
+   Globe terrestre animé (accueil) — canvas, projection orthographique
+   dessiné à partir des contours de continents déjà embarqués (ZGEO)
+   =========================================================== */
+let globeRAF = null;
+function initHomeGlobe() {
+  const cv = document.getElementById("home-globe");
+  if (!cv) return;
+  if (!ZGEO || !ZGEO["europe"]) { setTimeout(initHomeGlobe, 250); return; }  // attendre les contours
+  if (globeRAF) return;
+
+  const CONTINENTS = ["africa", "europe", "asia", "north-america", "south-america", "oceania"];
+  const rings = [];
+  CONTINENTS.forEach((k) => {
+    const g = ZGEO[k]; if (!g) return;
+    const polys = g.type === "MultiPolygon" ? g.coordinates : (g.type === "Polygon" ? [g.coordinates] : []);
+    polys.forEach((poly) => poly.forEach((ring) => {
+      const step = ring.length > 400 ? 4 : (ring.length > 160 ? 2 : 1);   // décimation pour la perf
+      const pts = [];
+      for (let i = 0; i < ring.length; i += step) pts.push([ring[i][0] * Math.PI / 180, ring[i][1] * Math.PI / 180]);
+      if (pts.length > 3) rings.push(pts);
+    }));
+  });
+
+  const ctx = cv.getContext("2d");
+  const tilt = 16 * Math.PI / 180, sinT = Math.sin(tilt), cosT = Math.cos(tilt);
+  let lon0 = -0.2, R = 0, cx = 0, cy = 0;
+  function resize() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const box = cv.getBoundingClientRect();
+    cv.width = Math.max(2, Math.round((box.width || 400) * dpr));
+    cv.height = Math.max(2, Math.round((box.height || 400) * dpr));
+    R = Math.min(cv.width, cv.height) / 2 * 0.9; cx = cv.width / 2; cy = cv.height / 2;
+  }
+  resize();
+  window.addEventListener("resize", resize);
+
+  function frame() {
+    if (!document.getElementById("menu").classList.contains("show")) { globeRAF = requestAnimationFrame(frame); return; }
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    ctx.save();
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.clip();
+    const og = ctx.createRadialGradient(cx - R * 0.35, cy - R * 0.4, R * 0.1, cx, cy, R * 1.15);
+    og.addColorStop(0, "#16406e"); og.addColorStop(.55, "#0e2a52"); og.addColorStop(1, "#071a36");
+    ctx.fillStyle = og; ctx.fillRect(cx - R, cy - R, R * 2, R * 2);
+
+    ctx.lineJoin = "round";
+    ctx.fillStyle = "rgba(46,230,166,.48)";
+    ctx.strokeStyle = "rgba(125,245,205,.85)";
+    ctx.lineWidth = Math.max(1, R * 0.004);
+    for (let r = 0; r < rings.length; r++) {
+      const ring = rings[r];
+      // remplissage : points cachés rabattus sur le limbe → formes pleines sans corde traversante
+      ctx.beginPath();
+      let anyVisible = false;
+      for (let i = 0; i < ring.length; i++) {
+        const lng = ring[i][0], lat = ring[i][1], dl = lng - lon0;
+        const cosc = sinT * Math.sin(lat) + cosT * Math.cos(lat) * Math.cos(dl);
+        if (cosc >= 0) anyVisible = true;
+        let x = R * Math.cos(lat) * Math.sin(dl);
+        let y = -R * (cosT * Math.sin(lat) - sinT * Math.cos(lat) * Math.cos(dl));
+        if (cosc < 0) { const d = Math.hypot(x, y) || 1; x = x / d * R; y = y / d * R; }
+        x += cx; y += cy;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      if (anyVisible) ctx.fill();
+      // contour net : uniquement les segments entièrement sur la face visible
+      ctx.beginPath(); let pen = false;
+      for (let i = 0; i < ring.length; i++) {
+        const lng = ring[i][0], lat = ring[i][1], dl = lng - lon0;
+        const cosc = sinT * Math.sin(lat) + cosT * Math.cos(lat) * Math.cos(dl);
+        if (cosc < 0) { pen = false; continue; }
+        const x = cx + R * Math.cos(lat) * Math.sin(dl);
+        const y = cy - R * (cosT * Math.sin(lat) - sinT * Math.cos(lat) * Math.cos(dl));
+        if (!pen) { ctx.moveTo(x, y); pen = true; } else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // contour + halo atmosphérique
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2);
+    ctx.lineWidth = Math.max(1.5, R * 0.016); ctx.strokeStyle = "rgba(46,230,166,.30)"; ctx.stroke();
+    const ag = ctx.createRadialGradient(cx, cy, R * 0.97, cx, cy, R * 1.12);
+    ag.addColorStop(0, "rgba(46,230,166,.18)"); ag.addColorStop(1, "rgba(46,230,166,0)");
+    ctx.beginPath(); ctx.arc(cx, cy, R * 1.12, 0, Math.PI * 2); ctx.fillStyle = ag; ctx.fill();
+
+    lon0 += 0.0016;   // rotation lente (~tour complet en ~65 s)
+    globeRAF = requestAnimationFrame(frame);
+  }
+  globeRAF = requestAnimationFrame(frame);
+}
+
 function wire() {
   fillZoneOptions();
   try {
@@ -1620,3 +1721,4 @@ function copyLink() {
 /* ---------- boot ---------- */
 wire();
 loadMaps();
+initHomeGlobe();

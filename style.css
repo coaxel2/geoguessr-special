@@ -100,6 +100,74 @@ input { font-family: inherit; }
 }
 .tagline { color: var(--muted); margin: 10px 0 26px; font-size: 15px; }
 
+/* ===========================================================
+   ACCUEIL IMMERSIF — globe terrestre + panneau (remplace la carte)
+   =========================================================== */
+#menu.screen { align-items: stretch; justify-content: flex-start; flex-direction: row; }
+.home-globe {
+  position: absolute; z-index: 1; pointer-events: none;
+  top: 50%; left: 66%; transform: translate(-50%, -50%);
+  width: min(78vh, 54vw); height: min(78vh, 54vw);
+  filter: drop-shadow(0 0 70px rgba(46, 230, 166, .20));
+}
+.home-bg {
+  position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(1200px 820px at 66% 50%, rgba(25, 183, 230, .12), transparent 62%),
+    radial-gradient(900px 700px at 10% 16%, rgba(46, 230, 166, .10), transparent 60%),
+    linear-gradient(160deg, #070b16 0%, #0a1124 55%, #070a14 100%);
+}
+.home-bg::after {
+  content: ""; position: absolute; inset: 0;
+  background-image:
+    radial-gradient(rgba(255, 255, 255, .55) 1px, transparent 1.5px),
+    radial-gradient(rgba(255, 255, 255, .30) 1px, transparent 1.5px);
+  background-size: 140px 140px, 90px 90px;
+  background-position: 0 0, 40px 60px;
+  opacity: .55; animation: twinkle 9s ease-in-out infinite alternate;
+}
+@keyframes twinkle { to { opacity: .28; } }
+
+.home-layout {
+  position: relative; z-index: 2;
+  height: 100%; width: min(430px, 100%);
+  margin-left: clamp(20px, 7vw, 130px);
+  display: flex; flex-direction: column; justify-content: center; gap: 16px;
+  padding: 5vh 0;
+}
+.home-brand { padding-left: 2px; }
+.home-brand .logo { font-size: clamp(40px, 5.4vw, 58px); }
+.home-brand .tagline { font-size: 17px; margin: 12px 0 4px; color: var(--text); opacity: .92; }
+.brand-sub { color: var(--muted); font-size: 12.5px; letter-spacing: .2px; }
+
+.home-panel {
+  background: linear-gradient(180deg, rgba(13, 19, 38, .76), rgba(10, 15, 30, .68));
+  backdrop-filter: blur(20px) saturate(140%); -webkit-backdrop-filter: blur(20px) saturate(140%);
+  border: 1px solid var(--stroke); border-radius: 20px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .5);
+  padding: 20px 22px 18px;
+  max-height: 74vh; overflow-y: auto; overscroll-behavior: contain;
+}
+.home-panel .field { margin-bottom: 15px; }
+.home-panel .menu-actions { margin-top: 4px; }
+.menu-actions .btn { font-size: 16px; padding: 15px; }
+
+/* accueil — tablette / mobile : globe en filigrane + panneau en bas */
+@media (max-width: 860px) {
+  #menu.screen { flex-direction: column; }
+  .home-globe { left: 50%; top: 29%; transform: translate(-50%, -50%); width: min(86vw, 46vh); height: min(86vw, 46vh); opacity: .6; }
+  .home-layout { width: 100%; margin: 0; padding: 0; justify-content: flex-end; gap: 0; }
+  .home-brand { text-align: center; padding: 7vh 22px 14px; }
+  .home-brand .tagline { margin: 8px 0 2px; }
+  .home-panel {
+    width: 100%; max-height: 72vh;
+    border-radius: 26px 26px 0 0;
+    border-left: none; border-right: none; border-bottom: none;
+    padding: 22px 18px calc(20px + env(safe-area-inset-bottom));
+    background: linear-gradient(180deg, rgba(10, 15, 30, .88), rgba(8, 12, 24, .95));
+  }
+}
+
 /* ---------- Manches segmented ---------- */
 .field { text-align: left; margin-bottom: 24px; }
 .field > label {
