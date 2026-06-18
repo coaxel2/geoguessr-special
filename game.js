@@ -400,16 +400,13 @@ function renderCommunity() {
   const recentEl = $("community-recent");
   if (!statsEl && !topEl && !recentEl) return;
 
-  if (statsEl) statsEl.innerHTML = "";
-  if (topEl) topEl.innerHTML = "";
-  if (recentEl) recentEl.innerHTML = "";
-
   fetch("/api/community", { credentials: "same-origin" })
     .then((r) => (r.ok ? r.json() : null))
     .then((d) => {
       d = d || {};
       // --- Stats ---
       if (statsEl) {
+        statsEl.innerHTML = "";
         const stats = d.stats || {};
         const wrap = document.createElement("div");
         wrap.className = "comm-stats";
@@ -428,6 +425,7 @@ function renderCommunity() {
       }
       // --- Podium ---
       if (topEl) {
+        topEl.innerHTML = "";
         const top = Array.isArray(d.top) ? d.top : [];
         if (!top.length) {
           topEl.appendChild(commEmpty());
@@ -446,6 +444,7 @@ function renderCommunity() {
       }
       // --- Parties récentes ---
       if (recentEl) {
+        recentEl.innerHTML = "";
         const recent = Array.isArray(d.recent) ? d.recent : [];
         if (!recent.length) {
           recentEl.appendChild(commEmpty());
