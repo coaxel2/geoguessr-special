@@ -1052,9 +1052,12 @@ body {
   gap: clamp(34px, 6vw, 88px);
 }
 
-.home-copy,
 .page-heading {
   padding-top: clamp(8px, 4vh, 42px);
+}
+
+.home-copy {
+  padding-top: 0;
 }
 
 .home-copy {
