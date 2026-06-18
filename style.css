@@ -108,8 +108,7 @@ input { font-family: inherit; }
 .home-globe {
   position: absolute; z-index: 1; pointer-events: auto;
   top: 54%; left: 50%; transform: translate(-50%, -50%);
-  width: min(68vh, 44vw, 620px); height: min(68vh, 44vw, 620px);
-  filter: drop-shadow(0 0 70px rgba(46, 230, 166, .20));
+  width: min(78vh, 54vw, 740px); height: min(78vh, 54vw, 740px);
 }
 .home-bg {
   position: absolute; inset: 0; z-index: 0; pointer-events: none;
@@ -1335,8 +1334,8 @@ body {
   .home-globe {
     left: 50%;
     top: 35%;
-    width: min(88vw, 420px);
-    height: min(88vw, 420px);
+    width: min(96vw, 520px);
+    height: min(96vw, 520px);
     opacity: .42;
   }
 

@@ -1830,8 +1830,8 @@ function startGlobe(cv, geo) {
     const box = cv.getBoundingClientRect();
     cv.width = Math.max(2, Math.round((box.width || 400) * dpr));
     cv.height = Math.max(2, Math.round((box.height || 400) * dpr));
-    // Garde une marge pour le halo atmosphérique dessiné à R * 1.14.
-    R = Math.min(cv.width, cv.height) / 2 * 0.78; cx = cv.width / 2; cy = cv.height / 2;
+    // Garde une large marge pour le halo atmosphérique dessiné à R * 1.14.
+    R = Math.min(cv.width, cv.height) / 2 * 0.68; cx = cv.width / 2; cy = cv.height / 2;
     const od = Math.min(Math.round(2 * R), 380), oR = od / 2;   // résolution du remplissage plafonnée
     oc.width = Math.max(2, od); oc.height = oc.width;
     oimg = octx.createImageData(oc.width, oc.height);
