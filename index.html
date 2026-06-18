@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://api.dicebear.com" />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-  <link rel="stylesheet" href="style.css?v=47" />
+  <link rel="stylesheet" href="style.css?v=48" />
 </head>
 <body>
 
@@ -32,6 +32,8 @@
           <button type="button" class="tab-link on" data-tab="menu">Solo</button>
           <button type="button" class="tab-link" data-tab="online">Multijoueur</button>
           <button type="button" class="tab-link" data-tab="leaderboard">Classement</button>
+          <button type="button" class="tab-link" data-tab="shop">Boutique</button>
+          <button type="button" class="tab-link" data-tab="community">Communauté</button>
         </nav>
       </header>
 
@@ -149,6 +151,8 @@
           <button type="button" class="tab-link" data-tab="menu">Solo</button>
           <button type="button" class="tab-link on" data-tab="online">Multijoueur</button>
           <button type="button" class="tab-link" data-tab="leaderboard">Classement</button>
+          <button type="button" class="tab-link" data-tab="shop">Boutique</button>
+          <button type="button" class="tab-link" data-tab="community">Communauté</button>
         </nav>
       </header>
 
@@ -348,6 +352,8 @@
           <button type="button" class="tab-link" data-tab="menu">Solo</button>
           <button type="button" class="tab-link" data-tab="online">Multijoueur</button>
           <button type="button" class="tab-link on" data-tab="leaderboard">Classement</button>
+          <button type="button" class="tab-link" data-tab="shop">Boutique</button>
+          <button type="button" class="tab-link" data-tab="community">Communauté</button>
         </nav>
       </header>
 
@@ -364,6 +370,125 @@
           </div>
           <div class="lb-list lb-list-page" id="leaderboard-list">
             <p class="lb-empty">Chargement…</p>
+          </div>
+        </section>
+      </main>
+    </div>
+  </section>
+
+  <!-- ====================== SHOP ====================== -->
+  <section id="shop" class="screen">
+    <div class="home-bg"></div>
+    <div class="app-shell shop-shell">
+      <header class="site-header">
+        <button type="button" class="brand-mark tab-link" data-tab="menu" aria-label="Accueil Geoloc">
+          <span class="brand-pin">📍</span>
+          <span class="logo">Geo<span>loc</span></span>
+        </button>
+        <nav class="site-tabs" aria-label="Navigation principale">
+          <button type="button" class="tab-link" data-tab="menu">Solo</button>
+          <button type="button" class="tab-link" data-tab="online">Multijoueur</button>
+          <button type="button" class="tab-link" data-tab="leaderboard">Classement</button>
+          <button type="button" class="tab-link on" data-tab="shop">Boutique</button>
+          <button type="button" class="tab-link" data-tab="community">Communauté</button>
+        </nav>
+      </header>
+
+      <main class="feature-page shop-page">
+        <header class="page-heading">
+          <p class="kicker">Cosmétiques</p>
+          <h1>Boutique</h1>
+          <p>Débloque des ambiances, avatars et badges pour personnaliser tes parties sans changer les règles du jeu.</p>
+        </header>
+        <section class="feature-panel">
+          <div class="shop-hero">
+            <div>
+              <p class="shop-eyebrow">Pack du moment</p>
+              <h2>Nuit boréale</h2>
+              <p>Interface givrée, halo polaire et badge explorateur arctique.</p>
+            </div>
+            <button type="button" class="btn btn-primary">Équiper</button>
+          </div>
+          <div class="shop-grid">
+            <article class="shop-card">
+              <span class="shop-art aurora"></span>
+              <h3>Thème Aurora</h3>
+              <p>Fond sombre, cartes turquoise et effets lumineux.</p>
+              <span class="shop-price">1 200 pts</span>
+            </article>
+            <article class="shop-card">
+              <span class="shop-art sunset"></span>
+              <h3>Thème Sunset</h3>
+              <p>Ambiance coucher de soleil pour les salons privés.</p>
+              <span class="shop-price">900 pts</span>
+            </article>
+            <article class="shop-card">
+              <span class="shop-art badge"></span>
+              <h3>Badge Globe</h3>
+              <p>Affiché près de ton pseudo dans le lobby.</p>
+              <span class="shop-price">500 pts</span>
+            </article>
+            <article class="shop-card">
+              <span class="shop-art compass"></span>
+              <h3>Pack Avatars</h3>
+              <p>Six profils façon explorateurs urbains.</p>
+              <span class="shop-price">Gratuit</span>
+            </article>
+          </div>
+        </section>
+      </main>
+    </div>
+  </section>
+
+  <!-- ====================== COMMUNITY ====================== -->
+  <section id="community" class="screen">
+    <div class="home-bg"></div>
+    <div class="app-shell community-shell">
+      <header class="site-header">
+        <button type="button" class="brand-mark tab-link" data-tab="menu" aria-label="Accueil Geoloc">
+          <span class="brand-pin">📍</span>
+          <span class="logo">Geo<span>loc</span></span>
+        </button>
+        <nav class="site-tabs" aria-label="Navigation principale">
+          <button type="button" class="tab-link" data-tab="menu">Solo</button>
+          <button type="button" class="tab-link" data-tab="online">Multijoueur</button>
+          <button type="button" class="tab-link" data-tab="leaderboard">Classement</button>
+          <button type="button" class="tab-link" data-tab="shop">Boutique</button>
+          <button type="button" class="tab-link on" data-tab="community">Communauté</button>
+        </nav>
+      </header>
+
+      <main class="feature-page community-page">
+        <header class="page-heading">
+          <p class="kicker">Événements</p>
+          <h1>Communauté</h1>
+          <p>Retrouve les défis de la semaine, les salons ouverts et les derniers exploits des joueurs.</p>
+        </header>
+        <section class="feature-panel">
+          <div class="challenge-board">
+            <article class="challenge-main">
+              <p class="shop-eyebrow">Défi hebdo</p>
+              <h2>Capitales cachées</h2>
+              <p>5 manches, grandes villes du monde, timer 5 minutes. Objectif : dépasser 18 000 pts.</p>
+              <button type="button" class="btn btn-primary">Lancer le défi</button>
+            </article>
+            <div class="community-list">
+              <article class="community-row">
+                <span class="community-dot live"></span>
+                <div><strong>Salon public FR-01</strong><small>4 joueurs · Europe · 5 manches</small></div>
+                <button type="button" class="btn btn-mini">Voir</button>
+              </article>
+              <article class="community-row">
+                <span class="community-dot"></span>
+                <div><strong>Ax730 a battu son record</strong><small>339 pts · Monde entier</small></div>
+                <button type="button" class="btn btn-mini">Profil</button>
+              </article>
+              <article class="community-row">
+                <span class="community-dot hot"></span>
+                <div><strong>Vote de zone</strong><small>Prochain tournoi : Japon ou France ?</small></div>
+                <button type="button" class="btn btn-mini">Voter</button>
+              </article>
+            </div>
           </div>
         </section>
       </main>
@@ -474,6 +599,6 @@
 
   <!-- Leaflet : cartes de guess / résultat (tuiles raster, pas de WebGL) -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script src="game.js?v=47"></script>
+  <script src="game.js?v=48"></script>
 </body>
 </html>

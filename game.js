@@ -25,25 +25,29 @@ function showScreen(id) {
   $(id).classList.add("show");
   syncTabs(id);
   if (id === "leaderboard") loadLeaderboardPage();
-  if (id === "menu" || id === "online" || id === "leaderboard") {
+  if (id === "menu" || id === "online" || id === "leaderboard" || id === "shop" || id === "community") {
     try { $(id).scrollTop = 0; } catch (e) {}
   }
 }
 function syncTabs(id) {
   document.querySelectorAll(".tab-link").forEach((b) => {
     const tab = b.dataset.tab;
-    b.classList.toggle("on", (id === "menu" && tab === "menu") || (id === "online" && tab === "online") || (id === "leaderboard" && tab === "leaderboard"));
+    b.classList.toggle("on", (id === "menu" && tab === "menu") || (id === "online" && tab === "online") || (id === "leaderboard" && tab === "leaderboard") || (id === "shop" && tab === "shop") || (id === "community" && tab === "community"));
   });
 }
 function routeForTab(tab) {
   if (tab === "online") return "/multi";
   if (tab === "leaderboard") return "/classement";
+  if (tab === "shop") return "/boutique";
+  if (tab === "community") return "/communaute";
   return "/";
 }
 function tabForPath(path) {
   const clean = (path || "/").replace(/\/+$/, "") || "/";
   if (clean === "/multi") return "online";
   if (clean === "/classement") return "leaderboard";
+  if (clean === "/boutique") return "shop";
+  if (clean === "/communaute") return "community";
   return "menu";
 }
 function setRoute(tab, replace) {
@@ -70,6 +74,16 @@ function goTab(tab, opts) {
   if (tab === "leaderboard") {
     showScreen("leaderboard");
     if (!opts.fromPop) setRoute("leaderboard", opts.replace);
+    return;
+  }
+  if (tab === "shop") {
+    showScreen("shop");
+    if (!opts.fromPop) setRoute("shop", opts.replace);
+    return;
+  }
+  if (tab === "community") {
+    showScreen("community");
+    if (!opts.fromPop) setRoute("community", opts.replace);
     return;
   }
   clearTimer();
