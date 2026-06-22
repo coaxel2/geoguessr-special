@@ -1176,18 +1176,34 @@ function makePano(loc, pov) {
     linksControl: true, panControl: true, zoomControl: true,
   });
 }
-// Cartes plates : Leaflet + tuiles claires CartoDB Voyager (raster, sans WebGL ni clé)
+// Tuiles claires CartoDB Voyager — utilisées UNIQUEMENT pour les mini-cartes du sélecteur de
+// zone (Leaflet). Les cartes en jeu (guess + résultat) sont passées à Google Maps (POI/commerces).
 const TILE_URL = "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
 const TILE_OPT = { maxZoom: 19, subdomains: "abcd" };
+// Carte de guess : Google Maps (roadmap détaillé — commerces, POI, rues visibles).
+// clickableIcons:false → cliquer un POI place le marqueur au lieu d'ouvrir l'info Google.
 function ensureGuessMap() {
-  if (G.gmap) return;
-  G.gmap = L.map("map", { worldCopyJump: true, zoomControl: true, attributionControl: false, minZoom: 1 })
-    .setView([20, 0], 1);
-  L.tileLayer(TILE_URL, TILE_OPT).addTo(G.gmap);
-  G.gmap.on("click", (e) => placeGuess(e.latlng));
+  if (G.gmap || typeof google === "undefined" || !google.maps) return;
+  G.gmap = new google.maps.Map(document.getElementById("map"), {
+    center: { lat: 20, lng: 0 }, zoom: 2, minZoom: 2,
+    disableDefaultUI: true, zoomControl: true, gestureHandling: "greedy",
+    clickableIcons: false, mapTypeControl: false, streetViewControl: false,
+    fullscreenControl: false, keyboardShortcuts: false,
+  });
+  G.gmap.addListener("click", (e) => { if (e && e.latLng) placeGuess(e.latLng.lat(), e.latLng.lng()); });
 }
+// Convertit un LatLngBounds Leaflet (calculé par la logique de zone) en bounds Google.
+function llToGoogleBounds(b){ return new google.maps.LatLngBounds({ lat: b.getSouth(), lng: b.getWest() }, { lat: b.getNorth(), lng: b.getEast() }); }
 function zoneBoundsForGuess(){const z=G.zoneFilter,co=G.countryFilter;if(z==="world"||z==="world-cities")return null;try{const feats=zoneFeatures(z,co);if(feats&&feats.length){const b=L.geoJSON({type:"FeatureCollection",features:feats}).getBounds();if(b&&b.isValid())return b;}}catch(e){}try{const s=zoneShape(z,co);if(s&&s.circle)return L.latLng(s.circle[0],s.circle[1]).toBounds(s.r*2.2);if(s&&s.boxes)return bboxOf(s.boxes);}catch(e){}return null;}
-function frameGuessMapToZone(){if(!G.gmap)return;const b=zoneBoundsForGuess();if(b)G.gmap.fitBounds(b,{padding:[12,12],maxZoom:12});else G.gmap.setView([20,0],1);}
+function frameGuessMapToZone(){
+  if (!G.gmap) return;
+  const b = zoneBoundsForGuess();
+  if (b) {
+    try { G.gmap.fitBounds(llToGoogleBounds(b), 18);
+      google.maps.event.addListenerOnce(G.gmap, "idle", () => { if (G.gmap.getZoom() > 13) G.gmap.setZoom(13); });
+    } catch (e) { G.gmap.setCenter({ lat: 20, lng: 0 }); G.gmap.setZoom(2); }
+  } else { G.gmap.setCenter({ lat: 20, lng: 0 }); G.gmap.setZoom(2); }
+}
 // Couleur d'accent courante (suit le thème équipé ; ne jamais hardcoder le vert).
 function accentColor(){ try { return (getComputedStyle(document.body).getPropertyValue('--accent') || '').trim() || '#2ee6a6'; } catch(e){ return '#2ee6a6'; } }
 // Compteur animé (easeOutCubic) pour faire « monter » les scores au reveal / récap.
@@ -1210,12 +1226,16 @@ function scoreQuality(pts){
   if (pts > 0)     return "Loin du compte";
   return "Manqué";
 }
-function placeGuess(latlng) {
-  if (G.submitted) return;
-  const style = { radius: 8, color: "#fff", weight: 2, fillColor: accentColor(), fillOpacity: 1 };
-  if (!G.marker) G.marker = L.circleMarker(latlng, style).addTo(G.gmap);
-  else G.marker.setLatLng(latlng);
-  G.guess = { lat: latlng.lat, lng: latlng.lng };
+function placeGuess(lat, lng) {
+  if (G.submitted || !G.gmap) return;
+  const pos = { lat: lat, lng: lng };
+  if (!G.marker) {
+    G.marker = new google.maps.Marker({
+      position: pos, map: G.gmap, zIndex: 999,
+      icon: { path: google.maps.SymbolPath.CIRCLE, scale: 8, fillColor: accentColor(), fillOpacity: 1, strokeColor: "#fff", strokeWeight: 2 },
+    });
+  } else G.marker.setPosition(pos);
+  G.guess = { lat: lat, lng: lng };
   $("btn-guess").disabled = false;
 }
 
@@ -1256,7 +1276,7 @@ async function loadRound() {
   G.guess = null; G.submitted = false;
   G.round30 = false;                  // un joueur a-t-il déjà deviné cette manche (=> plafond 30 s)
   if (G.online.active) resetRoundFlags();
-  if (G.marker && G.gmap) { G.gmap.removeLayer(G.marker); G.marker = null; }
+  if (G.marker) { G.marker.setMap(null); G.marker = null; }
   $("btn-guess").disabled = true;
   $("guess-hint").textContent = "Place ton marqueur sur la carte";
   $("opp-flag").classList.add("hidden");
@@ -1276,7 +1296,8 @@ async function loadRound() {
 
   ensureGuessMap();
   frameGuessMapToZone();
-  setTimeout(() => { G.gmap.invalidateSize(); frameGuessMapToZone(); }, 80);
+  // la div #map vient d'être affichée → forcer Google à relire sa taille puis recadrer
+  setTimeout(() => { if (G.gmap) { google.maps.event.trigger(G.gmap, "resize"); frameGuessMapToZone(); } }, 120);
 
   if (!G.locations[round]) {
     cover("Préparation de la manche…");
@@ -1459,24 +1480,39 @@ function shrinkTimerTo30() {
 /* ---------- résultat de manche ---------- */
 let resMap = null, resOverlays = [];
 function ensureResultMap() {
-  if (resMap) return;
-  resMap = L.map("result-map", { worldCopyJump: true, zoomControl: true, attributionControl: false, minZoom: 1 })
-    .setView([20, 0], 2);
-  L.tileLayer(TILE_URL, TILE_OPT).addTo(resMap);
+  if (resMap || typeof google === "undefined" || !google.maps) return;
+  resMap = new google.maps.Map(document.getElementById("result-map"), {
+    center: { lat: 20, lng: 0 }, zoom: 2, minZoom: 2,
+    disableDefaultUI: true, zoomControl: true, gestureHandling: "greedy",
+    clickableIcons: false, mapTypeControl: false, streetViewControl: false,
+    fullscreenControl: false, keyboardShortcuts: false,
+  });
 }
-function clearResultOverlays() { resOverlays.forEach((o) => resMap.removeLayer(o)); resOverlays = []; }
-function pin(latlng, color, r) {
-  return L.circleMarker(latlng, { radius: r || 7, color: "#fff", weight: 2, fillColor: color, fillOpacity: 1 });
+function clearResultOverlays() { resOverlays.forEach((o) => o.setMap(null)); resOverlays = []; }
+function pin(lat, lng, color, scale, title) {
+  const m = new google.maps.Marker({
+    position: { lat: lat, lng: lng },
+    icon: { path: google.maps.SymbolPath.CIRCLE, scale: scale || 7, fillColor: color, fillOpacity: 1, strokeColor: "#fff", strokeWeight: 2 },
+  });
+  if (title) m.setTitle(title);
+  return m;
 }
 function drawResult(loc) {
+  if (!resMap) return;
   clearResultOverlays();
-  const actual = [loc.lat, loc.lng];
-  const pts = [actual];
-  resOverlays.push(pin(actual, "#ffd35c", 9).addTo(resMap).bindTooltip("Lieu réel"));
+  const actual = { lat: loc.lat, lng: loc.lng };
+  const gb = new google.maps.LatLngBounds(); gb.extend(actual);
+  const real = pin(loc.lat, loc.lng, "#ffd35c", 9, "Lieu réel"); real.setMap(resMap); resOverlays.push(real);
+  let n = 0;
   const drawFor = (la, ln, color, label) => {
-    const g = [la, ln]; pts.push(g);
-    resOverlays.push(pin(g, color).addTo(resMap).bindTooltip(label));
-    resOverlays.push(L.polyline([g, actual], { color: color, weight: 2, dashArray: "4 6" }).addTo(resMap));
+    gb.extend({ lat: la, lng: ln }); n++;
+    const m = pin(la, ln, color, 7, label); m.setMap(resMap); resOverlays.push(m);
+    // ligne pointillée guess → lieu réel (Google : trait masqué + symboles répétés)
+    const line = new google.maps.Polyline({
+      path: [{ lat: la, lng: ln }, actual], map: resMap, strokeOpacity: 0,
+      icons: [{ icon: { path: "M 0,-1 0,1", strokeOpacity: 1, strokeColor: color, scale: 3 }, offset: "0", repeat: "11px" }],
+    });
+    resOverlays.push(line);
   };
   if (G.online.active) {
     playerList().forEach((p) => {
@@ -1486,8 +1522,10 @@ function drawResult(loc) {
   } else if (G.guess) {
     drawFor(G.guess.lat, G.guess.lng, accentColor(), "Toi");
   }
-  if (pts.length > 1) resMap.fitBounds(L.latLngBounds(pts).pad(0.35), { maxZoom: 12 });
-  else resMap.setView(actual, 5);
+  if (n > 0) {
+    resMap.fitBounds(gb, 56);
+    google.maps.event.addListenerOnce(resMap, "idle", () => { if (resMap.getZoom() > 13) resMap.setZoom(13); });
+  } else { resMap.setCenter(actual); resMap.setZoom(5); }
 }
 
 function revealRound() {
@@ -1495,9 +1533,8 @@ function revealRound() {
   showScreen("result");
   ensureResultMap();
   const loc = G.locations[G.current];
-  resMap.invalidateSize();
   drawResult(loc);
-  setTimeout(() => { resMap.invalidateSize(); drawResult(loc); }, 160);
+  setTimeout(() => { if (resMap) { google.maps.event.trigger(resMap, "resize"); drawResult(loc); } }, 160);
 
   $("result-title").textContent = "Manche " + (G.current + 1) + " / " + G.rounds;
   const sub = $("result-sub");
@@ -2737,13 +2774,17 @@ function wire() {
 
   $("btn-guess").addEventListener("click", submitGuess);
   $("btn-reset-view").addEventListener("click", resetView);
+  const reflowGuessMap = () => {
+    if (!G.gmap) return;
+    setTimeout(() => { const c = G.gmap.getCenter(); google.maps.event.trigger(G.gmap, "resize"); if (c) G.gmap.setCenter(c); }, 280);
+  };
   $("btn-expand").addEventListener("click", () => {
     $("guess-panel").classList.toggle("expanded");
-    if (G.gmap) setTimeout(() => G.gmap.invalidateSize(), 280);
+    reflowGuessMap();
   });
-  // la carte de guess s'agrandit au survol (CSS) → prévenir Leaflet du resize
+  // la carte de guess s'agrandit au survol (CSS) → prévenir Google du resize
   ["mouseenter", "mouseleave"].forEach((ev) =>
-    $("guess-panel").addEventListener(ev, () => { if (G.gmap) setTimeout(() => G.gmap.invalidateSize(), 280); }));
+    $("guess-panel").addEventListener(ev, reflowGuessMap));
   $("btn-quit").addEventListener("click", () => { if (confirm("Quitter la partie en cours ?")) goHome(); });
 
   $("btn-next").addEventListener("click", nextRound);
