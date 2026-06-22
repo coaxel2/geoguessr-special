@@ -1065,9 +1065,11 @@ body.time-critical::after {
   top: 0;
   z-index: 1;
   display: block;
-  padding: 7px 2px 9px;
+  padding: 11px 16px;
+  border: 1px solid var(--stroke);
+  border-radius: 13px;
   color: var(--muted);
-  background: linear-gradient(180deg, rgba(8, 13, 27, .96), rgba(8, 13, 27, .78));
+  background: linear-gradient(180deg, rgba(8, 13, 27, .96), rgba(8, 13, 27, .82));
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 1px;
