@@ -1261,6 +1261,15 @@ async function loadRound() {
   $("opp-flag").classList.add("hidden");
 
   $("hud-round").textContent = "Manche " + (round + 1) + "/" + G.rounds;
+  const prog = $("hud-progress");
+  if (prog) {
+    prog.innerHTML = "";
+    for (let i = 0; i < G.rounds; i++) {
+      const s = document.createElement("span");
+      s.className = "seg" + (i < round ? " done" : i === round ? " current" : "");
+      prog.appendChild(s);
+    }
+  }
   $("hud-score").textContent = sum(G.scores) + " pts";
   updateMultiHud();
 
@@ -2755,6 +2764,16 @@ function wire() {
       if (bn && !bn.classList.contains("hidden")) { e.preventDefault(); nextRound(); }
     }
   });
+
+  // Débloque l'audio dès le 1er geste : sinon la politique « autoplay » des navigateurs
+  // crée l'AudioContext suspendu et avale le 1er bip du chrono.
+  const unlockAudio = () => {
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === "suspended") audioCtx.resume();
+    } catch (e) {}
+  };
+  document.addEventListener("pointerdown", unlockAudio, { once: true });
   window.addEventListener("popstate", () => goTab(tabForPath(location.pathname), { fromPop: true }));
 
   // lien ?join=CODE → rejoint directement la salle (popup pseudo si besoin)
