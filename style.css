@@ -479,9 +479,11 @@ body[data-fx="aurora"] .home-bg::after {
 }
 .seg button {
   flex: 1;
-  padding: 11px 0;
+  padding: 11px 4px;
   border-radius: 10px;
   font-weight: 600;
+  font-size: 13.5px;
+  white-space: nowrap;          /* « 5 min » sur une seule ligne, jamais coupé */
   color: var(--muted);
   transition: .18s;
 }
@@ -692,9 +694,9 @@ body[data-fx="aurora"] .home-bg::after {
 #online .online-choice .field:nth-of-type(3) .zone-trigger {
   display: grid;
   grid-template-columns: 1fr auto;
-  grid-template-rows: minmax(210px, 1fr) auto;
+  grid-template-rows: minmax(120px, 1fr) auto;
   gap: 0;
-  min-height: 292px;
+  min-height: 168px;
   padding: 0;
   overflow: hidden;
 }
@@ -702,7 +704,7 @@ body[data-fx="aurora"] .home-bg::after {
   grid-column: 1 / -1;
   width: 100%;
   height: 100%;
-  min-height: 210px;
+  min-height: 120px;
   border: 0;
   border-bottom: 1px solid var(--stroke);
   border-radius: 0;
@@ -728,10 +730,8 @@ body[data-fx="aurora"] .home-bg::after {
 .online-action-card {
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  gap: 22px;
-  min-height: 230px;
-  padding: 24px;
+  gap: 16px;
+  padding: 22px;
   border: 1px solid var(--stroke);
   border-radius: 18px;
   background:
@@ -739,10 +739,19 @@ body[data-fx="aurora"] .home-bg::after {
     rgba(0,0,0,.18);
   box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
 }
+/* le bouton / le champ code se collent en bas pour aligner les 2 cartes sans vide béant */
+.online-action-card > .btn,
+.online-action-card > .join-row { margin-top: auto; }
 .online-action-card h3 {
   margin: 4px 0 0;
-  font-size: 24px;
-  line-height: 1.1;
+  font-size: 22px;
+  line-height: 1.15;
+}
+.online-card-desc {
+  margin: 9px 0 0;
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.45;
 }
 .online-card-kicker {
   margin: 0;
@@ -794,45 +803,34 @@ body[data-fx="aurora"] .home-bg::after {
 
 .online-wait { display: none; flex-direction: column; align-items: center; gap: 14px; }
 .online-wait.show { display: flex; }
+/* Lobby : 2 colonnes nettes — gauche = code à partager + statut, droite = réglages + joueurs,
+   et le bouton « Lancer » pleine largeur dessous. Chaque colonne est un flex compact. */
 #online .online-wait.show {
   display: grid;
-  grid-template-columns: minmax(300px, .86fr) minmax(430px, 1.14fr);
-  grid-template-areas:
-    "label options"
-    "code options"
-    "copy players"
-    "settings players"
-    "status players"
-    "start players";
-  gap: 14px 24px;
+  grid-template-columns: minmax(280px, .92fr) minmax(360px, 1.08fr);
+  gap: 18px 26px;
   align-items: start;
 }
+.wait-share, .wait-room { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 .online-wait .btn-primary { width: 100%; }
 .online-wait .btn-ghost { width: 100%; }
-#online .wait-label { grid-area: label; align-self: end; }
-#online .room-display { grid-area: code; }
-#online #btn-copy { grid-area: copy; justify-self: stretch; }
-#online .room-options { grid-area: options; }
-#online .room-players { grid-area: players; }
-#online #room-settings { grid-area: settings; margin: 0; }
-#online #online-status { grid-area: status; align-self: start; justify-self: start; }
-#online #btn-start-room { grid-area: start; align-self: stretch; }
+#online #btn-copy { width: 100%; }
+#online #room-settings { margin: 0; }
+#online #online-status { align-self: flex-start; }
+#online #btn-start-room { grid-column: 1 / -1; align-self: stretch; }
+/* Réglages du salon : une seule colonne, chaque segment occupe toute la largeur
+   (en 2 colonnes les boutons « 10 min » étaient trop serrés et se coupaient). */
 .room-options {
   width: 100%;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  display: flex;
+  flex-direction: column;
   gap: 12px;
-  padding: 14px;
+  padding: 16px;
   border: 1px solid var(--stroke);
   border-radius: 16px;
   background: rgba(0,0,0,.18);
 }
-.room-options .field:nth-child(3) { grid-column: 1 / -1; }
-/* Manches / Temps : colonnes de même hauteur, segments alignés en bas
-   (le label « Temps / manche » est plus long → sans ça les .seg sont décalés). */
-.room-options { align-items: stretch; }
-.room-options .field { margin-bottom: 0; display: flex; flex-direction: column; }
-.room-options .field .seg { margin-top: auto; }
+.room-options .field { margin-bottom: 0; }
 .wait-label { color: var(--muted); font-size: 14px; }
 .room-display {
   width: 100%;
