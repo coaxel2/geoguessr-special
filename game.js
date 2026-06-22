@@ -1334,7 +1334,10 @@ function geomBBox(geom){let laMin=90,laMax=-90,loMin=180,loMax=-180;const scan=(
 function bboxRadiusKm(b){return distM({lat:b[0],lng:b[2]},{lat:b[1],lng:b[3]})/1000/2;}
 const MEDIAN=(arr)=>{const s=[...arr].sort((x,y)=>x-y);return s[Math.floor(s.length/2)];};
 function zoneRadiusKm(){const z=G.zoneFilter,co=G.countryFilter;if(z==="world")return 9000;if(typeof CITY_ZONES!=="undefined"&&CITY_ZONES[z])return(CITY_ZONES[z][2]||12000)/1000;if(z==="world-cities"&&typeof WORLD_CITIES!=="undefined")return MEDIAN(WORLD_CITIES.map((c)=>c[2]))/1000;if(z==="france-cities"&&typeof FRANCE_CITIES!=="undefined")return MEDIAN(FRANCE_CITIES.map((c)=>c[2]))/1000;try{const key=zoneGeometryKey();if(key&&ZGEO&&ZGEO[key])return bboxRadiusKm(geomBBox(ZGEO[key]));}catch(e){}try{const s=zoneShape(z,co);if(s&&s.boxes){const b=bboxOf(s.boxes);return distM({lat:b.getSouth(),lng:b.getWest()},{lat:b.getNorth(),lng:b.getEast()})/1000/2;}}catch(e){}return 1500;}
-function scoreFor(d){const km=d/1000;const R=zoneRadiusKm();const tau=Math.max(2,Math.min(2000,R*0.18));const perfect=Math.max(0.05,Math.min(50,R*0.01));if(km<=perfect)return 5000;const s=Math.round(5000*Math.exp(-(km-perfect)/tau));return Math.max(0,Math.min(5000,s));}
+// Score adaptatif à la taille de la zone. tau = distance de décroissance (à tau, ~37% des points).
+// Loi sur-linéaire R^1.08 : la tolérance grandit plus vite que la zone → monde clément, ville exigeante
+// (à >100 km dans une ville = 0 ; un même écart vaut beaucoup plus en monde qu'en ville).
+function scoreFor(d){const km=d/1000;const R=zoneRadiusKm();const tau=Math.max(1.2,Math.min(3200,0.16*Math.pow(R,1.08)));const perfect=Math.max(0.08,Math.min(80,R*0.012));if(km<=perfect)return 5000;const s=Math.round(5000*Math.exp(-(km-perfect)/tau));return Math.max(0,Math.min(5000,s));}
 
 /* ---------- chrono + son ---------- */
 let audioCtx = null;
