@@ -788,6 +788,10 @@ function zoneGeometryKey() {
 function locationAllowed(loc, pool, picked) {
   if (!loc) return false;
   if (pool.type === "city") {
+    // si la ville a un contour réel (frontière), le lieu doit tomber DEDANS (resserré, fidèle) ;
+    // sinon on se rabat sur le rayon du cercle.
+    const key = zoneGeometryKey();
+    if (key && ZGEO && ZGEO[key]) return pointInGeometry(loc.lat, loc.lng, ZGEO[key]);
     const max = picked[2] || 12000;
     return distM({ lat: picked[0], lng: picked[1] }, loc) <= max;
   }
@@ -989,9 +993,13 @@ function loadZones() {
   loadZones._p = fetch("zones-geo.json?v=21").then((r) => r.json())
     .then((j) => {
       ZGEO = j;
-      // si des zones communautaires ont déjà été chargées (course possible), ré-applique
-      // leurs contours — sinon ce gros fetch écraserait ZGEO et perdrait community:<id>.
+      // si des zones communautaires / villes-packs ont déjà été chargées (course possible),
+      // ré-applique leurs contours — sinon ce gros fetch écraserait ZGEO et les perdrait.
       if (COMMUNITY_ZONES && COMMUNITY_ZONES.length) COMMUNITY_ZONES.forEach((z) => { if (z.geojson) ZGEO[czKey(z.id)] = z.geojson; });
+      Object.keys(CITY_PACKS).forEach((country) => {
+        const p = CITY_PACKS[country]; if (!p || !p.cities) return;
+        p.cities.forEach((c) => { if (c[5]) ZGEO[cpKey(country, c[0])] = c[5]; });
+      });
       return ZGEO;
     }).catch(() => { ZGEO = {}; return ZGEO; });
   return loadZones._p;
@@ -1035,7 +1043,7 @@ const BIG_PACK_ORDER = ["france", "usa", "canada", "uk-ireland", "spain-portugal
 function cpKey(country, slug) { return "cp:" + country + ":" + slug; }
 function loadCityPacks() {
   if (loadCityPacks._p) return loadCityPacks._p;
-  loadCityPacks._p = fetch("cities-by-country.json?v=3").then((r) => r.json())
+  loadCityPacks._p = fetch("cities-by-country.json?v=4").then((r) => r.json())
     .then((packs) => {
       CITY_PACKS = packs || {};
       // dédup : retire des packs toute ville proche d'une ville NATIVE (qui a déjà un vrai
@@ -1046,7 +1054,11 @@ function loadCityPacks() {
         const pack = CITY_PACKS[country];
         if (!pack || !pack.cities) return;
         pack.cities = pack.cities.filter((c) => !nearNative(c[2], c[3]));
-        pack.cities.forEach((c) => { CITY_ZONES[cpKey(country, c[0])] = [c[2], c[3], c[4]]; });
+        pack.cities.forEach((c) => {
+          const key = cpKey(country, c[0]);
+          CITY_ZONES[key] = [c[2], c[3], c[4]];
+          if (c[5]) { ZGEO = ZGEO || {}; ZGEO[key] = c[5]; }   // contour réel (frontière) si géocodé
+        });
       });
       return CITY_PACKS;
     }).catch(() => { CITY_PACKS = {}; return CITY_PACKS; });

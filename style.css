@@ -2298,55 +2298,47 @@ body {
 @media (max-width: 900px) {
   /* Header en colonne (logo en haut, onglets dessous) : monnaie + profil restent
      groupés en haut à droite, alignés sur la rangée du logo, sans chevaucher. */
-  .wallet-pill {
-    top: 18px;
-    right: 14px;
-    height: 38px;
-    padding: 0 12px;
-  }
-
-  .account-btn {
-    top: 18px;
-    right: calc(14px + 108px);
-    height: 38px;
-    max-width: 140px;
-    padding: 0 12px;
-  }
-
-  .app-shell {
-    width: min(calc(100vw - 28px), 680px);
-    padding-top: 132px;
-  }
-
+  /* ===== Barre de navigation MOBILE =====
+     Fixe en haut, pleine largeur, 2 rangées : (1) logo à gauche + monnaie/profil
+     à droite ; (2) onglets défilables horizontalement. */
   .site-header {
-    top: 10px;
-    width: min(calc(100vw - 28px), 680px);
-    flex-direction: column;
-    align-items: stretch;
-    gap: 10px;
-    padding: 10px;
-    border-radius: 18px;
+    position: fixed; top: 0; left: 0; right: 0;
+    width: 100%; transform: none; min-height: 0;
+    flex-direction: column; align-items: stretch; gap: 9px;
+    padding: calc(9px + env(safe-area-inset-top)) 12px 9px;
+    border: none; border-bottom: 1px solid rgba(255, 255, 255, .09);
+    border-radius: 0;
+    background: linear-gradient(180deg, rgba(12, 18, 34, .98), rgba(10, 15, 30, .97));
+    box-shadow: 0 6px 22px rgba(0, 0, 0, .35);
+    z-index: 40;
   }
-
-  /* Logo centré mais décalé pour laisser respirer la monnaie + le profil à droite. */
+  /* rangée 1 : logo calé à gauche (la monnaie + le profil flottent à droite) */
   .brand-mark {
-    justify-content: center;
-    padding-right: 250px;
-    padding-left: 0;
+    justify-content: flex-start; align-self: flex-start;
+    padding: 0; min-height: 40px;
   }
-
+  /* rangée 2 : onglets, défilement horizontal sans barre visible */
   .site-tabs {
-    width: 100%;
-    min-width: 0;
-    overflow-x: auto;
-    justify-content: stretch;
+    width: 100%; min-width: 0;
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+    justify-content: flex-start; gap: 4px;
+    scrollbar-width: none; -ms-overflow-style: none;
   }
-
+  .site-tabs::-webkit-scrollbar { display: none; }
   .site-tabs .tab-link {
-    flex: 1;
-    padding: 0 10px;
-    font-size: 14px;
+    flex: 0 0 auto;
+    padding: 9px 15px; font-size: 13.5px;
+    white-space: nowrap;
   }
+  /* monnaie + profil : alignés sur la rangée du logo, à droite, compacts */
+  .wallet-pill, .account-btn {
+    position: fixed; top: calc(11px + env(safe-area-inset-top));
+    height: 36px; padding: 0 11px; z-index: 41;
+  }
+  .wallet-pill { right: 12px; }
+  .account-btn { right: calc(24px + 92px); max-width: 130px; }
+  /* le contenu démarre sous la barre fixe (logo ~40 + onglets ~38 + paddings ≈ 112) */
+  .app-shell { width: min(calc(100vw - 24px), 680px); padding-top: 112px; }
 
   .home-main,
   .online-page,
@@ -2422,48 +2414,14 @@ body {
 }
 
 @media (max-width: 520px) {
-  .wallet-pill {
-    top: 15px;
-    right: 11px;
-    height: 36px;
-    padding: 0 11px;
-    gap: 7px;
-    font-size: 14px;
-  }
+  .wallet-pill { right: 11px; height: 35px; padding: 0 10px; gap: 7px; font-size: 13.5px; }
   .wallet-icon { width: 22px; height: 22px; }
+  .account-btn { right: calc(22px + 86px); height: 35px; max-width: 116px; padding: 0 10px; font-size: 13px; }
 
-  .account-btn {
-    top: 15px;
-    right: calc(11px + 92px);
-    height: 36px;
-    max-width: 116px;
-    padding: 0 11px;
-    font-size: 13px;
-  }
-
-  .app-shell {
-    width: calc(100vw - 20px);
-    padding-bottom: 28px;
-  }
-
-  .site-header {
-    width: calc(100vw - 20px);
-  }
-
-  /* écran étroit : logo centré sous la monnaie/profil ; padding réduit pour rester lisible */
-  .brand-mark {
-    padding-right: 210px;
-  }
-
-  .brand-mark .logo {
-    font-size: 23px;
-  }
-
-  .site-tabs .tab-link {
-    min-height: 38px;
-    padding: 0 8px;
-    font-size: 12px;
-  }
+  .app-shell { width: calc(100vw - 18px); padding-bottom: 28px; }
+  .site-header { padding-left: 11px; padding-right: 11px; }
+  .brand-mark .logo { font-size: 22px; }
+  .site-tabs .tab-link { padding: 8px 12px; font-size: 12.5px; }
 
   .home-copy .tagline,
   .page-heading p:not(.kicker) {
@@ -2498,4 +2456,13 @@ body {
   .lb-pts {
     grid-column: 2;
   }
+}
+
+/* Très petit écran : le profil n'affiche que son icône (pseudo masqué) pour que
+   monnaie + profil + logo tiennent sans se chevaucher. */
+@media (max-width: 374px) {
+  .account-btn #account-name { display: none; }
+  .account-btn { max-width: 44px; right: calc(18px + 78px); padding: 0 9px; }
+  .wallet-pill { padding: 0 9px; }
+  .brand-mark .logo { font-size: 21px; }
 }
