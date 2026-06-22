@@ -2,6 +2,7 @@
 // ET expose un classement persistant (PostgreSQL).
 const path = require("path");
 const crypto = require("crypto");
+const https = require("https");
 const express = require("express");
 const cookieParser = require("cookie-parser");
 const bcrypt = require("bcryptjs");
@@ -433,7 +434,22 @@ async function initDb() {
     );
   `);
   await db.query(`CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions (user_id);`);
-  console.log("[db] tables 'scores', 'users', 'sessions' prêtes");
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS community_zones (
+      id          SERIAL      PRIMARY KEY,
+      user_id     INTEGER     NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      pseudo      TEXT        NOT NULL,
+      name        TEXT        NOT NULL,
+      geojson     JSONB       NOT NULL,
+      center_lat  DOUBLE PRECISION NOT NULL,
+      center_lng  DOUBLE PRECISION NOT NULL,
+      bbox        JSONB       NOT NULL,
+      radius_km   DOUBLE PRECISION NOT NULL DEFAULT 50,
+      created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+  `);
+  await db.query(`CREATE INDEX IF NOT EXISTS idx_czones_created ON community_zones (created_at DESC);`);
+  console.log("[db] tables 'scores', 'users', 'sessions', 'community_zones' prêtes");
 }
 
 function requireDb(res) {
@@ -629,6 +645,118 @@ app.put("/api/me/state", requireAuth, async (req, res) => {
     console.error("[me/state]", e.message);
     res.status(500).json({ ok: false, error: "db-error" });
   }
+});
+
+// ====================================================================
+// Zones communautaires : un joueur tape un nom de ville/région, on géocode
+// via Nominatim (OSM), on récupère le contour, et la zone devient jouable
+// par tous depuis l'onglet « Communauté » du sélecteur de zone.
+// ====================================================================
+
+function httpsGetJson(url, headers) {
+  return new Promise((resolve, reject) => {
+    const req = https.get(url, { headers, timeout: 15000 }, (resp) => {
+      if (resp.statusCode >= 400) { resp.resume(); return reject(new Error("http-" + resp.statusCode)); }
+      let data = "";
+      resp.on("data", (c) => { data += c; if (data.length > 8000000) { req.destroy(); reject(new Error("too-large")); } });
+      resp.on("end", () => { try { resolve(JSON.parse(data)); } catch (e) { reject(new Error("bad-json")); } });
+    });
+    req.on("error", reject);
+    req.on("timeout", () => { req.destroy(); reject(new Error("timeout")); });
+  });
+}
+
+// Géocode un nom libre → contour GeoJSON (Polygon/MultiPolygon). Nominatim impose
+// un User-Agent identifiable et ~1 req/s (on borne via rateLimit en amont).
+async function geocodeZone(query) {
+  const u = "https://nominatim.openstreetmap.org/search?format=geojson&polygon_geojson=1&limit=1&q=" + encodeURIComponent(query);
+  const j = await httpsGetJson(u, { "User-Agent": "GeolocGame/1.0 (axelcourty1@gmail.com)", "Accept-Language": "fr" });
+  const f = j && j.features && j.features[0];
+  if (!f || !f.geometry) throw new Error("not-found");
+  const g = f.geometry;
+  if (g.type !== "Polygon" && g.type !== "MultiPolygon") throw new Error("no-area");  // lieu ponctuel sans contour
+  return g;
+}
+
+// Décime + arrondit un contour pour alléger le stockage et le transfert.
+function decimateGeom(geom, maxPerRing) {
+  const thin = (ring) => {
+    const round = (p) => [Math.round(p[0] * 1e4) / 1e4, Math.round(p[1] * 1e4) / 1e4];
+    if (ring.length <= maxPerRing) return ring.map(round);
+    const step = Math.ceil(ring.length / maxPerRing), out = [];
+    for (let i = 0; i < ring.length; i += step) out.push(round(ring[i]));
+    out.push(round(ring[0]));   // referme l'anneau
+    return out;
+  };
+  if (geom.type === "Polygon") return { type: "Polygon", coordinates: geom.coordinates.map(thin) };
+  return { type: "MultiPolygon", coordinates: geom.coordinates.map((poly) => poly.map(thin)) };
+}
+
+// bbox [minLng,minLat,maxLng,maxLat], centre, rayon (demi-diagonale haversine, km).
+function geoMeta(geom) {
+  let mnLng = 180, mnLat = 90, mxLng = -180, mxLat = -90;
+  const scan = (ring) => ring.forEach(([lng, lat]) => { if (lng < mnLng) mnLng = lng; if (lng > mxLng) mxLng = lng; if (lat < mnLat) mnLat = lat; if (lat > mxLat) mxLat = lat; });
+  if (geom.type === "Polygon") geom.coordinates.forEach(scan);
+  else geom.coordinates.forEach((poly) => poly.forEach(scan));
+  const cLat = (mnLat + mxLat) / 2, cLng = (mnLng + mxLng) / 2;
+  const R = 6371, toR = (x) => x * Math.PI / 180;
+  const a = Math.sin(toR(mxLat - mnLat) / 2) ** 2 + Math.cos(toR(mnLat)) * Math.cos(toR(mxLat)) * Math.sin(toR(mxLng - mnLng) / 2) ** 2;
+  const diag = 2 * R * Math.asin(Math.min(1, Math.sqrt(a)));
+  return { bbox: [mnLng, mnLat, mxLng, mxLat], centerLat: cLat, centerLng: cLng, radiusKm: Math.round(diag / 2 * 10) / 10 };
+}
+
+// POST : crée une zone (auth requise). Géocode → simplifie → stocke.
+app.post("/api/community/zones", requireAuth, async (req, res) => {
+  const name = String((req.body && req.body.name) || "").trim().replace(/\s+/g, " ").slice(0, 40);
+  if (name.length < 2) return res.status(400).json({ ok: false, error: "Donne un nom de lieu (ville, région…)." });
+  if (!rateLimit("czone:" + req.user.id, 6, 10 * 60 * 1000)) return res.status(429).json({ ok: false, error: "Trop de zones créées, réessaie dans quelques minutes." });
+  let geom;
+  try { geom = await geocodeZone(name); }
+  catch (e) {
+    if (e.message === "no-area") return res.status(404).json({ ok: false, error: "Ce lieu n'a pas de contour (essaie une ville ou une région)." });
+    if (e.message === "not-found") return res.status(404).json({ ok: false, error: "Lieu introuvable — vérifie l'orthographe." });
+    return res.status(502).json({ ok: false, error: "Géocodage indisponible, réessaie dans un instant." });
+  }
+  const small = decimateGeom(geom, 360);
+  if (JSON.stringify(small).length > 500000) return res.status(400).json({ ok: false, error: "Zone trop vaste — choisis une ville ou une région plus précise." });
+  const meta = geoMeta(small);
+  try {
+    const { rows } = await db.query(
+      `INSERT INTO community_zones (user_id, pseudo, name, geojson, center_lat, center_lng, bbox, radius_km)
+       VALUES ($1,$2,$3,$4::jsonb,$5,$6,$7::jsonb,$8)
+       RETURNING id, name, pseudo, center_lat, center_lng, bbox, radius_km, created_at`,
+      [req.user.id, req.user.pseudo, name, JSON.stringify(small), meta.centerLat, meta.centerLng, JSON.stringify(meta.bbox), meta.radiusKm]
+    );
+    const z = rows[0];
+    res.json({ ok: true, zone: { id: z.id, name: z.name, pseudo: z.pseudo, center: [z.center_lat, z.center_lng], bbox: z.bbox, radius_km: z.radius_km, geojson: small } });
+  } catch (e) {
+    console.error("[czone-create]", e.message);
+    res.status(500).json({ ok: false, error: "Erreur d'enregistrement." });
+  }
+});
+
+// GET : liste publique des zones communautaires (dégradation gracieuse sans DB).
+app.get("/api/community/zones", async (req, res) => {
+  if (!db) return res.json({ ok: true, zones: [] });
+  try {
+    const { rows } = await db.query(
+      `SELECT id, name, pseudo, center_lat, center_lng, bbox, radius_km, geojson, created_at
+       FROM community_zones ORDER BY created_at DESC LIMIT 80`);
+    res.json({ ok: true, zones: rows.map((z) => ({ id: z.id, name: z.name, pseudo: z.pseudo, center: [z.center_lat, z.center_lng], bbox: z.bbox, radius_km: z.radius_km, geojson: z.geojson })) });
+  } catch (e) {
+    console.error("[czones]", e.message);
+    res.json({ ok: true, zones: [] });
+  }
+});
+
+// DELETE : un joueur retire sa propre zone.
+app.delete("/api/community/zones/:id", requireAuth, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (!Number.isInteger(id)) return res.status(400).json({ ok: false, error: "id-invalide" });
+  try {
+    const { rowCount } = await db.query(`DELETE FROM community_zones WHERE id = $1 AND user_id = $2`, [id, req.user.id]);
+    res.json({ ok: rowCount > 0 });
+  } catch (e) { res.status(500).json({ ok: false, error: "db-error" }); }
 });
 
 // ====================================================================

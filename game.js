@@ -392,7 +392,56 @@ function commEmpty() {
   return p;
 }
 // Communauté : vraies données depuis /api/community (stats + podium + parties récentes).
+/* ---------- Communauté : création + liste des zones joueurs ---------- */
+function setCzMsg(text, isErr) {
+  const m = $("czone-msg"); if (!m) return;
+  m.textContent = text || "";
+  m.classList.toggle("err", !!isErr);
+  m.classList.toggle("ok", !!text && !isErr);
+}
+async function submitCommunityZone(ev) {
+  if (ev) ev.preventDefault();
+  if (typeof isLogged === "function" && !isLogged()) { setCzMsg("Connecte-toi pour créer une zone.", true); if (typeof openAuthModal === "function") openAuthModal(); return; }
+  const inp = $("czone-input"), btn = $("czone-submit");
+  const name = (inp && inp.value || "").trim();
+  if (name.length < 2) { setCzMsg("Entre le nom d'un lieu (ville, région, pays…).", true); return; }
+  if (btn) { btn.disabled = true; btn.dataset.old = btn.textContent; btn.textContent = "Recherche…"; }
+  setCzMsg("Recherche du contour de « " + name + " »…", false);
+  try {
+    const r = await fetch("/api/community/zones", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "same-origin", body: JSON.stringify({ name }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j.ok) { setCzMsg(j.error || "Échec de la création de la zone.", true); }
+    else {
+      injectCommunityZone(j.zone);
+      COMMUNITY_ZONES = [j.zone].concat(COMMUNITY_ZONES.filter((z) => z.id !== j.zone.id));
+      buildZoneModal(true);   // régénère le sélecteur avec la nouvelle zone
+      if (inp) inp.value = "";
+      setCzMsg("✓ Zone « " + j.zone.name + " » ajoutée — choisis-la dans le sélecteur de zone.", false);
+      renderCommunityZones();
+    }
+  } catch (e) { setCzMsg("Erreur réseau, réessaie.", true); }
+  if (btn) { btn.disabled = false; btn.textContent = btn.dataset.old || "Ajouter"; }
+}
+function renderCommunityZones() {
+  const box = $("czone-list"); if (!box) return;
+  loadCommunityZones(true).then(() => {
+    if (!COMMUNITY_ZONES.length) { box.innerHTML = '<p class="comm-empty">Aucune zone pour l\'instant — sois le premier à en créer une !</p>'; return; }
+    box.innerHTML = "";
+    COMMUNITY_ZONES.slice(0, 14).forEach((z) => {
+      const row = document.createElement("button");
+      row.type = "button"; row.className = "czone-item";
+      const nm = document.createElement("span"); nm.className = "czone-item-name"; nm.textContent = z.name;
+      const by = document.createElement("span"); by.className = "czone-item-by"; by.textContent = "par " + z.pseudo;
+      const go = document.createElement("span"); go.className = "czone-item-go"; go.textContent = "Jouer ›";
+      row.appendChild(nm); row.appendChild(by); row.appendChild(go);
+      row.addEventListener("click", () => { selectZone(czKey(z.id)); startSolo(); });
+      box.appendChild(row);
+    });
+  });
+}
+
 function renderCommunity() {
+  renderCommunityZones();
   // ancien faux « vote » : peut avoir disparu de l'HTML → guards systématiques.
   const voteTxt = $("community-vote-text");
   if (voteTxt) voteTxt.textContent = "";
@@ -818,7 +867,7 @@ function zoneGroups() {
     { l: "Mexique", co: "mexico", la: 23, lo: -102, tz: 4 },
   ].sort(byLabel);
   const countries = [FR, ...others].map((c) => ({ ...c, z: "country" }));
-  return [
+  const groups = [
     ["🌍 Le monde", [
       { l: "Monde entier", z: "world", la: 25, lo: 0, tz: 1 },
     ]],
@@ -841,6 +890,14 @@ function zoneGroups() {
       ...frCity,
     ]],
   ];
+  // Zones créées par les joueurs (chargées via loadCommunityZones, injectées dans ZGEO/ZONE_REGIONS).
+  if (COMMUNITY_ZONES && COMMUNITY_ZONES.length) {
+    groups.push(["👥 Communauté", COMMUNITY_ZONES.map((z) => ({
+      l: z.name, by: z.pseudo, z: czKey(z.id), la: z.center[0], lo: z.center[1],
+      tz: z.radius_km <= 30 ? 9 : (z.radius_km <= 200 ? 6 : 4),
+    }))]);
+  }
+  return groups;
 }
 function zoneLabel() {
   let label = "Monde entier";
@@ -849,9 +906,11 @@ function zoneLabel() {
   }));
   return label;
 }
-function buildZoneModal() {
+function buildZoneModal(force) {
   const wrap = $("zone-groups");
-  if (!wrap || wrap.dataset.built) return;
+  if (!wrap) return;
+  if (wrap.dataset.built && !force) return;
+  if (force) { wrap.innerHTML = ""; wrap.dataset.built = ""; }
   zoneGroups().forEach((g) => {
     const sec = document.createElement("div");
     sec.className = "zone-section";
@@ -864,9 +923,14 @@ function buildZoneModal() {
       const b = document.createElement("button");
       b.type = "button"; b.className = "zone-card";
       b.dataset.z = e.z; b.dataset.co = e.co || "";
-      b.innerHTML =
-        '<div class="zone-card-map" data-la="' + e.la + '" data-lo="' + e.lo + '" data-lz="' + e.tz + '" data-z="' + e.z + '" data-co="' + (e.co || "") + '"></div>' +
-        '<span class="zone-card-label">' + e.l + "</span>";
+      const map = document.createElement("div");
+      map.className = "zone-card-map";
+      map.dataset.la = e.la; map.dataset.lo = e.lo; map.dataset.lz = e.tz; map.dataset.z = e.z; map.dataset.co = e.co || "";
+      b.appendChild(map);
+      const lbl = document.createElement("span");
+      lbl.className = "zone-card-label"; lbl.textContent = e.l;   // textContent : nom de zone communautaire = saisie utilisateur
+      b.appendChild(lbl);
+      if (e.by) { const by = document.createElement("span"); by.className = "zone-card-by"; by.textContent = "par " + e.by; b.appendChild(by); }
       grid.appendChild(b);
     });
     sec.appendChild(grid);
@@ -915,6 +979,36 @@ function loadZones() {
   loadZones._p = fetch("zones-geo.json?v=21").then((r) => r.json())
     .then((j) => { ZGEO = j; return j; }).catch(() => { ZGEO = {}; return ZGEO; });
   return loadZones._p;
+}
+
+/* ---------- Zones communautaires (créées par les joueurs, géocodées au serveur) ---------- */
+let COMMUNITY_ZONES = [];
+function czKey(id) { return "community:" + id; }
+// Injecte une zone communautaire dans les structures du moteur de jeu pour qu'elle soit
+// jouable (spawn), scorée, cadrée et affichée — exactement comme une zone native.
+function injectCommunityZone(z) {
+  if (!z || z.id == null) return;
+  const key = czKey(z.id);
+  if (z.geojson) { ZGEO = ZGEO || {}; ZGEO[key] = z.geojson; }
+  const bb = z.bbox;   // [minLng, minLat, maxLng, maxLat]
+  if (z.radius_km && z.radius_km <= 30) {
+    // petite zone → traitée comme une ville (spawn dans un cercle autour du centre)
+    CITY_ZONES[key] = [z.center[0], z.center[1], Math.max(2500, z.radius_km * 1000)];
+  } else if (bb && bb.length === 4) {
+    // grande zone → région : spawn dans la bbox, validé par le contour GeoJSON
+    ZONE_REGIONS[key] = [[bb[1], bb[3], bb[0], bb[2], 1]];
+  } else {
+    CITY_ZONES[key] = [z.center[0], z.center[1], Math.max(4000, (z.radius_km || 25) * 1000)];
+  }
+}
+function loadCommunityZones(force) {
+  if (force) loadCommunityZones._p = null;
+  if (loadCommunityZones._p) return loadCommunityZones._p;
+  loadCommunityZones._p = fetch("/api/community/zones")
+    .then((r) => r.json())
+    .then((j) => { COMMUNITY_ZONES = (j && j.zones) || []; COMMUNITY_ZONES.forEach(injectCommunityZone); return COMMUNITY_ZONES; })
+    .catch(() => { COMMUNITY_ZONES = []; return COMMUNITY_ZONES; });
+  return loadCommunityZones._p;
 }
 function zoneFeatures(z, co) {
   if (!ZGEO) return null;
@@ -2674,13 +2768,17 @@ function wire() {
   buildZoneModal();
   updateZoneTrigger();
   loadZones().then(() => updateZoneTrigger());
+  loadCommunityZones();   // précharge les zones communautaires (sélecteur prêt dès la 1re ouverture)
   ["zone-trigger", "online-zone-trigger", "room-zone-trigger"].forEach((id) => {
     const t = $(id);
     if (t) t.addEventListener("click", () => {
       if ($("zone-search")) { $("zone-search").value = ""; filterZones(""); }
-      $("zone-modal").hidden = false; loadZones().then(initZoneMaps);
+      $("zone-modal").hidden = false;
+      Promise.all([loadZones(), loadCommunityZones()]).then(() => { buildZoneModal(true); initZoneMaps(); });
     });
   });
+  // formulaire « Crée ta zone » de la page Communauté
+  if ($("czone-form")) $("czone-form").addEventListener("submit", submitCommunityZone);
   if ($("zone-search")) $("zone-search").addEventListener("input", (e) => filterZones(e.target.value));
   $("zone-modal-close").addEventListener("click", () => { $("zone-modal").hidden = true; });
   $("zone-modal").addEventListener("click", (e) => { if (e.target.id === "zone-modal") $("zone-modal").hidden = true; });

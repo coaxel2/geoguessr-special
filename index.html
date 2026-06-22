@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://api.dicebear.com" />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-  <link rel="stylesheet" href="style.css?v=70" />
+  <link rel="stylesheet" href="style.css?v=71" />
 </head>
 <body>
   <div class="wallet-pill" id="wallet-pill" aria-label="Monnaie disponible">
@@ -664,6 +664,19 @@
           </div>
         </section>
         <section class="feature-panel comm-panel">
+          <p class="shop-eyebrow">🗺️ Zones de la communauté</p>
+          <h2>Crée ta zone</h2>
+          <p class="czone-help">Tape le nom d'une ville, d'une région ou d'un pays — le jeu trace automatiquement son contour et l'ajoute aux zones jouables, visible par tout le monde dans l'onglet « Communauté » du sélecteur.</p>
+          <form class="czone-form" id="czone-form">
+            <input id="czone-input" type="text" maxlength="40" placeholder="ex : Marseille, Bretagne, Toscane…" autocomplete="off" spellcheck="false" />
+            <button type="submit" class="btn btn-primary" id="czone-submit">Ajouter</button>
+          </form>
+          <p class="czone-msg" id="czone-msg"></p>
+          <div id="czone-list" class="czone-list">
+            <p class="comm-empty">Chargement…</p>
+          </div>
+        </section>
+        <section class="feature-panel comm-panel">
           <p class="shop-eyebrow">Cette semaine en chiffres</p>
           <h2>Statistiques</h2>
           <div id="community-stats" class="comm-stats">
@@ -841,6 +854,6 @@
 
   <!-- Leaflet : cartes de guess / résultat (tuiles raster, pas de WebGL) -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script src="game.js?v=70"></script>
+  <script src="game.js?v=71"></script>
 </body>
 </html>
