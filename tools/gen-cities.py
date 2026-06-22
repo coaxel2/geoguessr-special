@@ -4,7 +4,7 @@
 # monde ont leur top 10. La délimitation affichée dans le sélecteur est un cercle (= la zone
 # jouable réelle), pas besoin de géocoder des contours.
 # Source : GeoNames cities5000 (population) + countryInfo (liste des pays). Domaine public.
-import urllib.request, zipfile, io, json, re, unicodedata
+import urllib.request, zipfile, io, json, re, unicodedata, math
 
 UA = {"User-Agent": "GeolocGame/1.0 (axelcourty1@gmail.com)"}
 
@@ -36,16 +36,23 @@ def radius_m(pop):
     if pop >= 100_000:   return 2800
     return 2200
 
-def top_cities(rows, n):
+def hav(la1, lo1, la2, lo2):
+    dla, dlo = math.radians(la2 - la1), math.radians(lo2 - lo1)
+    a = math.sin(dla / 2) ** 2 + math.cos(math.radians(la1)) * math.cos(math.radians(la2)) * math.sin(dlo / 2) ** 2
+    return 2 * 6371 * math.asin(min(1, math.sqrt(a)))
+
+# top N villes DISTINCTES : tri par population, on saute les villes à <11 km d'une déjà
+# gardée (élimine arrondissements/quartiers/banlieues collés qui faisaient des doublons).
+def top_cities(rows, n, min_km=11):
     rows.sort(key=lambda x: -x[0])
-    seen, out = set(), []
+    kept = []
     for pop, name, lat, lng in rows:
         sl = slugify(name)
-        if sl in seen: continue
-        seen.add(sl)
-        out.append([sl, name, round(lat, 4), round(lng, 4), radius_m(pop)])
-        if len(out) >= n: break
-    return out
+        if any(k[0] == sl for k in kept): continue
+        if any(hav(lat, lng, k[2], k[3]) < min_km for k in kept): continue
+        kept.append([sl, name, round(lat, 4), round(lng, 4), radius_m(pop)])
+        if len(kept) >= n: break
+    return kept
 
 print("Téléchargement GeoNames countryInfo…")
 ci = urllib.request.urlopen(urllib.request.Request("https://download.geonames.org/export/dump/countryInfo.txt", headers=UA), timeout=120).read().decode("utf-8")
@@ -64,6 +71,7 @@ by_cc = {}
 for line in txt.split("\n"):
     f = line.split("\t")
     if len(f) < 15: continue
+    if f[7] == "PPLX": continue          # section de ville (arrondissement/quartier) → pas une ville à part
     try: pop = int(f[14]); lat = float(f[4]); lng = float(f[5])
     except ValueError: continue
     by_cc.setdefault(f[8], []).append((pop, f[1], lat, lng))

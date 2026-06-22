@@ -1035,7 +1035,7 @@ const BIG_PACK_ORDER = ["france", "usa", "canada", "uk-ireland", "spain-portugal
 function cpKey(country, slug) { return "cp:" + country + ":" + slug; }
 function loadCityPacks() {
   if (loadCityPacks._p) return loadCityPacks._p;
-  loadCityPacks._p = fetch("cities-by-country.json?v=2").then((r) => r.json())
+  loadCityPacks._p = fetch("cities-by-country.json?v=3").then((r) => r.json())
     .then((packs) => {
       CITY_PACKS = packs || {};
       // dédup : retire des packs toute ville proche d'une ville NATIVE (qui a déjà un vrai
