@@ -1254,6 +1254,7 @@ function beginRoundsLocal() {
 async function loadRound() {
   const round = G.current;
   G.guess = null; G.submitted = false;
+  G.round30 = false;                  // un joueur a-t-il déjà deviné cette manche (=> plafond 30 s)
   if (G.online.active) resetRoundFlags();
   if (G.marker && G.gmap) { G.gmap.removeLayer(G.marker); G.marker = null; }
   $("btn-guess").disabled = true;
@@ -1293,7 +1294,9 @@ async function loadRound() {
   G.startPanoId = loc.panoId;
   makePano(loc, G.startPov);
   let done = false;
-  const reveal = () => { if (done) return; done = true; uncover(); startTimer(G.timeLimit); };
+  // Si un joueur a déjà deviné pendant que ce pano chargeait, démarrer directement plafonné à 30 s
+  // (sinon le timer complet écraserait — ou supprimerait en mode illimité — le compte à rebours des 30 s).
+  const reveal = () => { if (done) return; done = true; uncover(); startTimer(G.round30 ? Math.min(30, G.timeLimit || 30) : G.timeLimit); };
   google.maps.event.addListenerOnce(G.pano, "position_changed", reveal);
   setTimeout(reveal, 4000); // filet de sécurité
 }
@@ -1374,10 +1377,10 @@ function geomRadiusKm(geom){return Math.sqrt(Math.max(1,geomAreaKm2(geom))/Math.
 const MEDIAN=(arr)=>{const s=[...arr].sort((x,y)=>x-y);return s[Math.floor(s.length/2)];};
 function zoneRadiusKm(){const z=G.zoneFilter,co=G.countryFilter;if(z==="world")return 9000;if(typeof CITY_ZONES!=="undefined"&&CITY_ZONES[z])return(CITY_ZONES[z][2]||12000)/1000;if(z==="world-cities"&&typeof WORLD_CITIES!=="undefined")return MEDIAN(WORLD_CITIES.map((c)=>c[2]))/1000;if(z==="france-cities"&&typeof FRANCE_CITIES!=="undefined")return MEDIAN(FRANCE_CITIES.map((c)=>c[2]))/1000;try{const key=zoneGeometryKey();if(key&&ZGEO&&ZGEO[key])return geomRadiusKm(ZGEO[key]);}catch(e){}try{const s=zoneShape(z,co);if(s&&s.boxes){const b=bboxOf(s.boxes);return distM({lat:b.getSouth(),lng:b.getWest()},{lat:b.getNorth(),lng:b.getEast()})/1000/2;}}catch(e){}return 1500;}
 // Score adaptatif à la taille de la zone. tau = distance de décroissance (à tau, ~37% des points).
-// Loi sur-linéaire R^1.08 : la tolérance grandit plus vite que la zone → monde clément, ville exigeante
-// (à >100 km dans une ville = 0 ; un même écart vaut beaucoup plus en monde qu'en ville).
-// Coef tau = facteur de sévérité global (plus bas = plus sévère). 0.11 = barème durci (v62).
-function scoreFor(d){const km=d/1000;const R=zoneRadiusKm();const tau=Math.max(1.0,Math.min(3000,0.11*Math.pow(R,1.08)));const perfect=Math.max(0.06,Math.min(60,R*0.010));if(km<=perfect)return 5000;const s=Math.round(5000*Math.exp(-(km-perfect)/tau));return Math.max(0,Math.min(5000,s));}
+// Loi LINÉAIRE tau = 0.23·R : tolérance proportionnelle à la taille de la zone. Garde le monde
+// sévère (R grand) mais reste clément sur les petites zones (ville/région) — où la sur-linéaire
+// punissait trop. À >100 km dans une ville = toujours 0. Coef = curseur de sévérité (plus bas = + sévère).
+function scoreFor(d){const km=d/1000;const R=zoneRadiusKm();const tau=Math.max(1.0,Math.min(3000,0.23*R));const perfect=Math.max(0.06,Math.min(70,R*0.013));if(km<=perfect)return 5000;const s=Math.round(5000*Math.exp(-(km-perfect)/tau));return Math.max(0,Math.min(5000,s));}
 
 /* ---------- chrono + son ---------- */
 let audioCtx = null;
@@ -1448,6 +1451,7 @@ function timeUp() {
 // multi : dès que l'adversaire a deviné, 30 s pour conclure (même en illimité)
 function shrinkTimerTo30() {
   if (G.submitted) return;
+  G.round30 = true;                   // mémorise le plafond : tient même si le pano se révèle après
   if (!G.timer) startTimer(30);
   else if (G.timer.remaining > 30) { G.timer.remaining = 30; G.timer.red = false; }
 }

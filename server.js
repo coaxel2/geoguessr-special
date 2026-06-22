@@ -894,6 +894,19 @@ initDb().catch((e) => console.error("[db] init error:", e.message));
 const rooms = new Map();
 const wss = new WebSocketServer({ server, path: "/rooms" });
 
+// Heartbeat : un ping protocolaire toutes les 25 s maintient le flux bidirectionnel (les reverse
+// proxies coupent souvent les WebSocket inactives ⇒ « hôte déconnecté ») et détecte/ferme les
+// sockets morts (le navigateur répond « pong » automatiquement, aucun code client nécessaire).
+function heartbeat() { this.isAlive = true; }
+const wssHeartbeat = setInterval(() => {
+  wss.clients.forEach((ws) => {
+    if (ws.isAlive === false) { try { ws.terminate(); } catch (e) {} return; }
+    ws.isAlive = false;
+    try { ws.ping(); } catch (e) {}
+  });
+}, 25000);
+wss.on("close", () => clearInterval(wssHeartbeat));
+
 function send(ws, msg) {
   if (ws && ws.readyState === 1) ws.send(JSON.stringify(msg));
 }
@@ -932,6 +945,8 @@ function cleanupClient(ws) {
 }
 
 wss.on("connection", (ws) => {
+  ws.isAlive = true;
+  ws.on("pong", heartbeat);
   ws.on("message", (raw) => {
     let msg;
     try { msg = JSON.parse(raw.toString()); } catch (e) { return; }
