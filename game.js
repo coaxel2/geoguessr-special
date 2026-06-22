@@ -892,9 +892,9 @@ function zoneGroups() {
   ];
   // Villes par pays (centre + rayon court, chargées via loadCityPacks) : gros pays d'abord,
   // puis tous les autres pays du monde par ordre alphabétique de nom.
-  const others = Object.keys(CITY_PACKS).filter((k) => BIG_PACK_ORDER.indexOf(k) < 0)
+  const otherPacks = Object.keys(CITY_PACKS).filter((k) => BIG_PACK_ORDER.indexOf(k) < 0)
     .sort((a, b) => ((CITY_PACKS[a] || {}).name || "").localeCompare((CITY_PACKS[b] || {}).name || "", "fr"));
-  BIG_PACK_ORDER.concat(others).forEach((country) => {
+  BIG_PACK_ORDER.concat(otherPacks).forEach((country) => {
     const pack = CITY_PACKS[country];
     if (!pack || !pack.cities || !pack.cities.length) return;
     groups.push([(pack.flag || "🏙️") + " " + pack.name + " — top " + pack.cities.length + " villes",
