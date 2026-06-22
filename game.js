@@ -890,13 +890,15 @@ function zoneGroups() {
       ...frCity,
     ]],
   ];
-  // Top 50 villes par pays (centre + rayon court, chargées via loadCityPacks).
-  Object.keys(CITY_PACK_META).forEach((country) => {
-    const list = CITY_PACKS[country];
-    if (!list || !list.length) return;
-    const meta = CITY_PACK_META[country];
-    groups.push([meta[0] + " " + meta[1] + " — top 50 villes",
-      list.map((c) => ({ l: c[1], z: cpKey(country, c[0]), la: c[2], lo: c[3], tz: 9 }))]);
+  // Villes par pays (centre + rayon court, chargées via loadCityPacks) : gros pays d'abord,
+  // puis tous les autres pays du monde par ordre alphabétique de nom.
+  const others = Object.keys(CITY_PACKS).filter((k) => BIG_PACK_ORDER.indexOf(k) < 0)
+    .sort((a, b) => ((CITY_PACKS[a] || {}).name || "").localeCompare((CITY_PACKS[b] || {}).name || "", "fr"));
+  BIG_PACK_ORDER.concat(others).forEach((country) => {
+    const pack = CITY_PACKS[country];
+    if (!pack || !pack.cities || !pack.cities.length) return;
+    groups.push([(pack.flag || "🏙️") + " " + pack.name + " — top " + pack.cities.length + " villes",
+      pack.cities.map((c) => ({ l: c[1], z: cpKey(country, c[0]), la: c[2], lo: c[3], tz: 9 }))]);
   });
   // Zones créées par les joueurs (chargées via loadCommunityZones, injectées dans ZGEO/ZONE_REGIONS).
   if (COMMUNITY_ZONES && COMMUNITY_ZONES.length) {
@@ -1025,26 +1027,26 @@ function loadCommunityZones(force) {
   return loadCommunityZones._p;
 }
 
-/* ---------- Packs de villes par pays (top 50, centre + rayon court) ---------- */
+/* ---------- Packs de villes par pays (gros pays top 50, autres top 10 ; centre + rayon court) ---------- */
+// Format : { "<pays>": { flag, name, cities: [[slug, nom, lat, lng, rayon_m], …] } }
 let CITY_PACKS = {};
-const CITY_PACK_META = {
-  france: ["🇫🇷", "France"], usa: ["🇺🇸", "États-Unis"], canada: ["🇨🇦", "Canada"],
-  "uk-ireland": ["🇬🇧", "Royaume-Uni / Irlande"], "spain-portugal": ["🇪🇸", "Espagne / Portugal"],
-  italy: ["🇮🇹", "Italie"], germany: ["🇩🇪", "Allemagne"], japan: ["🇯🇵", "Japon"],
-  "south-korea": ["🇰🇷", "Corée du Sud"], australia: ["🇦🇺", "Australie"],
-  "new-zealand": ["🇳🇿", "Nouvelle-Zélande"], brazil: ["🇧🇷", "Brésil"],
-  "argentina-chile": ["🇦🇷", "Argentine / Chili"], "south-africa": ["🇿🇦", "Afrique du Sud"],
-  mexico: ["🇲🇽", "Mexique"],
-};
+// ordre d'affichage : les 15 « gros » pays d'abord, puis tous les autres par nom
+const BIG_PACK_ORDER = ["france", "usa", "canada", "uk-ireland", "spain-portugal", "italy", "germany", "japan", "south-korea", "australia", "new-zealand", "brazil", "argentina-chile", "south-africa", "mexico"];
 function cpKey(country, slug) { return "cp:" + country + ":" + slug; }
-// charge cities-by-country.json et injecte chaque ville dans CITY_ZONES (centre + rayon court)
 function loadCityPacks() {
   if (loadCityPacks._p) return loadCityPacks._p;
-  loadCityPacks._p = fetch("cities-by-country.json?v=1").then((r) => r.json())
+  loadCityPacks._p = fetch("cities-by-country.json?v=2").then((r) => r.json())
     .then((packs) => {
       CITY_PACKS = packs || {};
+      // dédup : retire des packs toute ville proche d'une ville NATIVE (qui a déjà un vrai
+      // contour) — évite les doublons (Paris/Londres/Tokyo… présents en natif ET en pack).
+      const natives = Object.keys(CITY_ZONES).filter((k) => k.indexOf("city-") === 0).map((k) => CITY_ZONES[k]);
+      const nearNative = (lat, lng) => natives.some((n) => Math.abs(n[0] - lat) < 0.08 && Math.abs(n[1] - lng) < 0.08);
       Object.keys(CITY_PACKS).forEach((country) => {
-        (CITY_PACKS[country] || []).forEach((c) => { CITY_ZONES[cpKey(country, c[0])] = [c[2], c[3], c[4]]; });
+        const pack = CITY_PACKS[country];
+        if (!pack || !pack.cities) return;
+        pack.cities = pack.cities.filter((c) => !nearNative(c[2], c[3]));
+        pack.cities.forEach((c) => { CITY_ZONES[cpKey(country, c[0])] = [c[2], c[3], c[4]]; });
       });
       return CITY_PACKS;
     }).catch(() => { CITY_PACKS = {}; return CITY_PACKS; });
@@ -1085,8 +1087,9 @@ function makeMiniMap(el, la, lo, zoom, zoneVal, co) {
     const gj = L.geoJSON({ type: "FeatureCollection", features: feats }, { style: stLine }).addTo(m);
     if (!bounds) bounds = gj.getBounds();                 // villes / régions : cadre sur le tracé
   } else if (s && s.circle) {
-    L.circle([s.circle[0], s.circle[1]], Object.assign({ radius: s.r }, stLine)).addTo(m);  // villes du monde
-    if (!bounds) bounds = L.latLng(s.circle[0], s.circle[1]).toBounds(s.r * 2.2);
+    // villes (centre + rayon) : cercle de délimitation bien visible = la zone jouable
+    L.circle([s.circle[0], s.circle[1]], { radius: s.r, color: "#2ee6a6", weight: 2.5, fillColor: "#2ee6a6", fillOpacity: 0.2 }).addTo(m);
+    if (!bounds) bounds = L.latLng(s.circle[0], s.circle[1]).toBounds(s.r * 2.6);
   } else if (s && s.boxes) {
     L.rectangle(bounds, stLine).addTo(m);                 // secours si frontières non chargées
   }
@@ -1223,9 +1226,10 @@ async function findOneLocation() {
   for (let attempt = 0; attempt < 70; attempt++) {
     const pool = activePool();
     const r = pickRegion();
-    const searchRadius = pool.type === "city" ? Math.max(2500, Math.min(9000, (r[2] || 12000) * 0.55)) : 70000;
+    // villes : recherche resserrée autour du centre (évite de spawner dans la ville d'à côté)
+    const searchRadius = pool.type === "city" ? Math.max(1800, Math.min(6000, (r[2] || 8000) * 0.6)) : 70000;
     const target = pool.type === "city"
-      ? randomPointNear(r[0], r[1], (r[2] || 12000) * 0.55)
+      ? randomPointNear(r[0], r[1], (r[2] || 8000) * 0.5)
       : { lat: rand(r[0], r[1]), lng: rand(r[2], r[3]) };
     const req = {
       location: target,
@@ -2821,7 +2825,12 @@ function wire() {
     if (t) t.addEventListener("click", () => {
       if ($("zone-search")) { $("zone-search").value = ""; filterZones(""); }
       $("zone-modal").hidden = false;
-      Promise.all([loadZones(), loadCommunityZones(), loadCityPacks()]).then(() => { buildZoneModal(true); initZoneMaps(); });
+      // ne reconstruit le (gros) sélecteur que si les données ont changé (packs/communauté)
+      Promise.all([loadZones(), loadCommunityZones(), loadCityPacks()]).then(() => {
+        const stamp = Object.keys(CITY_PACKS).length + ":" + (COMMUNITY_ZONES || []).length;
+        if (stamp !== buildZoneModal._stamp) { buildZoneModal(true); buildZoneModal._stamp = stamp; }
+        initZoneMaps();
+      });
     });
   });
   // formulaire « Crée ta zone » de la page Communauté

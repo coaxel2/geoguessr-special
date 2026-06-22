@@ -710,6 +710,11 @@ app.post("/api/community/zones", requireAuth, async (req, res) => {
   const name = String((req.body && req.body.name) || "").trim().replace(/\s+/g, " ").slice(0, 40);
   if (name.length < 2) return res.status(400).json({ ok: false, error: "Donne un nom de lieu (ville, région…)." });
   if (!rateLimit("czone:" + req.user.id, 6, 10 * 60 * 1000)) return res.status(429).json({ ok: false, error: "Trop de zones créées, réessaie dans quelques minutes." });
+  // anti-doublon : refuse une zone dont le nom existe déjà (insensible à la casse)
+  try {
+    const dup = await db.query(`SELECT id, pseudo FROM community_zones WHERE lower(name) = lower($1) LIMIT 1`, [name]);
+    if (dup.rows.length) return res.status(409).json({ ok: false, error: "Cette zone existe déjà (créée par " + dup.rows[0].pseudo + ")." });
+  } catch (e) { /* en cas d'erreur DB on laisse passer, l'INSERT tranchera */ }
   let geom;
   try { geom = await geocodeZone(name); }
   catch (e) {
