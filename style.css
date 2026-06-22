@@ -683,12 +683,12 @@ body[data-fx="aurora"] .home-bg::after {
 }
 #online .back { top: 64px; left: 48px; }
 .online-choice { display: flex; flex-direction: column; gap: 14px; }
-#online .online-choice {
-  display: grid;
-  grid-template-columns: minmax(480px, .9fr) minmax(420px, .7fr);
-  gap: 22px 28px;
-  align-items: stretch;
-}
+/* Écran de choix : on n'affiche QUE les 2 cartes Créer / Rejoindre. Les réglages
+   (manches / temps / zone) se définissent dans le salon une fois la partie créée ;
+   pour rejoindre, un code suffit. Les segments restent dans le DOM (cachés) pour leurs
+   valeurs par défaut lues par createRoom(). */
+#online .online-choice { display: block; }
+#online .online-choice > .field { display: none; }
 #online .online-choice .field { margin-bottom: 0; }
 #online .online-choice .field:nth-of-type(3) { grid-column: 1; }
 #online .online-choice .field:nth-of-type(3) .zone-trigger {
@@ -720,12 +720,10 @@ body[data-fx="aurora"] .home-bg::after {
 #online .online-choice .field:nth-of-type(4),
 #online .online-choice .field:nth-of-type(5) { grid-column: 1; }
 #online .online-actions {
-  grid-column: 2;
-  grid-row: 1 / span 5;
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto minmax(0, 1fr);
-  gap: 18px;
-  min-height: 100%;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: stretch;
+  gap: 0 24px;
 }
 .online-action-card {
   display: flex;
