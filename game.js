@@ -1332,8 +1332,14 @@ function distM(a, b) {
 }
 function geomBBox(geom){let laMin=90,laMax=-90,loMin=180,loMax=-180;const scan=(ring)=>ring.forEach(([lng,lat])=>{if(lat<laMin)laMin=lat;if(lat>laMax)laMax=lat;if(lng<loMin)loMin=lng;if(lng>loMax)loMax=lng;});if(geom.type==="Polygon")geom.coordinates.forEach(scan);else if(geom.type==="MultiPolygon")geom.coordinates.forEach((poly)=>poly.forEach(scan));return[laMin,laMax,loMin,loMax];}
 function bboxRadiusKm(b){return distM({lat:b[0],lng:b[2]},{lat:b[1],lng:b[3]})/1000/2;}
+// Rayon caractéristique d'une géométrie = rayon du disque de même aire (√(aire/π)).
+// Robuste aux territoires lointains (DOM-TOM, Alaska…) qui gonflaient la bbox : la bbox de la France
+// avec la Polynésie donnait un "rayon" de ~4000 km. L'aire, elle, reflète la vraie taille jouable.
+function ringAreaKm2(ring){let lat0=0;for(const p of ring)lat0+=p[1];lat0=lat0/ring.length*Math.PI/180;const kx=111.320*Math.cos(lat0),ky=110.574;let a=0;for(let i=0,n=ring.length;i<n;i++){const p=ring[i],q=ring[(i+1)%n];a+=(p[0]*kx)*(q[1]*ky)-(q[0]*kx)*(p[1]*ky);}return Math.abs(a)/2;}
+function geomAreaKm2(geom){let A=0;const add=(poly)=>{A+=ringAreaKm2(poly[0]);for(let h=1;h<poly.length;h++)A-=ringAreaKm2(poly[h]);};if(geom.type==="Polygon")add(geom.coordinates);else if(geom.type==="MultiPolygon")geom.coordinates.forEach(add);return A;}
+function geomRadiusKm(geom){return Math.sqrt(Math.max(1,geomAreaKm2(geom))/Math.PI);}
 const MEDIAN=(arr)=>{const s=[...arr].sort((x,y)=>x-y);return s[Math.floor(s.length/2)];};
-function zoneRadiusKm(){const z=G.zoneFilter,co=G.countryFilter;if(z==="world")return 9000;if(typeof CITY_ZONES!=="undefined"&&CITY_ZONES[z])return(CITY_ZONES[z][2]||12000)/1000;if(z==="world-cities"&&typeof WORLD_CITIES!=="undefined")return MEDIAN(WORLD_CITIES.map((c)=>c[2]))/1000;if(z==="france-cities"&&typeof FRANCE_CITIES!=="undefined")return MEDIAN(FRANCE_CITIES.map((c)=>c[2]))/1000;try{const key=zoneGeometryKey();if(key&&ZGEO&&ZGEO[key])return bboxRadiusKm(geomBBox(ZGEO[key]));}catch(e){}try{const s=zoneShape(z,co);if(s&&s.boxes){const b=bboxOf(s.boxes);return distM({lat:b.getSouth(),lng:b.getWest()},{lat:b.getNorth(),lng:b.getEast()})/1000/2;}}catch(e){}return 1500;}
+function zoneRadiusKm(){const z=G.zoneFilter,co=G.countryFilter;if(z==="world")return 9000;if(typeof CITY_ZONES!=="undefined"&&CITY_ZONES[z])return(CITY_ZONES[z][2]||12000)/1000;if(z==="world-cities"&&typeof WORLD_CITIES!=="undefined")return MEDIAN(WORLD_CITIES.map((c)=>c[2]))/1000;if(z==="france-cities"&&typeof FRANCE_CITIES!=="undefined")return MEDIAN(FRANCE_CITIES.map((c)=>c[2]))/1000;try{const key=zoneGeometryKey();if(key&&ZGEO&&ZGEO[key])return geomRadiusKm(ZGEO[key]);}catch(e){}try{const s=zoneShape(z,co);if(s&&s.boxes){const b=bboxOf(s.boxes);return distM({lat:b.getSouth(),lng:b.getWest()},{lat:b.getNorth(),lng:b.getEast()})/1000/2;}}catch(e){}return 1500;}
 // Score adaptatif à la taille de la zone. tau = distance de décroissance (à tau, ~37% des points).
 // Loi sur-linéaire R^1.08 : la tolérance grandit plus vite que la zone → monde clément, ville exigeante
 // (à >100 km dans une ville = 0 ; un même écart vaut beaucoup plus en monde qu'en ville).
