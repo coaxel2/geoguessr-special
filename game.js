@@ -1343,7 +1343,8 @@ function zoneRadiusKm(){const z=G.zoneFilter,co=G.countryFilter;if(z==="world")r
 // Score adaptatif à la taille de la zone. tau = distance de décroissance (à tau, ~37% des points).
 // Loi sur-linéaire R^1.08 : la tolérance grandit plus vite que la zone → monde clément, ville exigeante
 // (à >100 km dans une ville = 0 ; un même écart vaut beaucoup plus en monde qu'en ville).
-function scoreFor(d){const km=d/1000;const R=zoneRadiusKm();const tau=Math.max(1.2,Math.min(3200,0.16*Math.pow(R,1.08)));const perfect=Math.max(0.08,Math.min(80,R*0.012));if(km<=perfect)return 5000;const s=Math.round(5000*Math.exp(-(km-perfect)/tau));return Math.max(0,Math.min(5000,s));}
+// Coef tau = facteur de sévérité global (plus bas = plus sévère). 0.11 = barème durci (v62).
+function scoreFor(d){const km=d/1000;const R=zoneRadiusKm();const tau=Math.max(1.0,Math.min(3000,0.11*Math.pow(R,1.08)));const perfect=Math.max(0.06,Math.min(60,R*0.010));if(km<=perfect)return 5000;const s=Math.round(5000*Math.exp(-(km-perfect)/tau));return Math.max(0,Math.min(5000,s));}
 
 /* ---------- chrono + son ---------- */
 let audioCtx = null;
