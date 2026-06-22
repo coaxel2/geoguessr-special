@@ -977,7 +977,13 @@ function loadZones() {
   if (ZGEO) return Promise.resolve(ZGEO);
   if (loadZones._p) return loadZones._p;
   loadZones._p = fetch("zones-geo.json?v=21").then((r) => r.json())
-    .then((j) => { ZGEO = j; return j; }).catch(() => { ZGEO = {}; return ZGEO; });
+    .then((j) => {
+      ZGEO = j;
+      // si des zones communautaires ont déjà été chargées (course possible), ré-applique
+      // leurs contours — sinon ce gros fetch écraserait ZGEO et perdrait community:<id>.
+      if (COMMUNITY_ZONES && COMMUNITY_ZONES.length) COMMUNITY_ZONES.forEach((z) => { if (z.geojson) ZGEO[czKey(z.id)] = z.geojson; });
+      return ZGEO;
+    }).catch(() => { ZGEO = {}; return ZGEO; });
   return loadZones._p;
 }
 
