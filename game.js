@@ -1093,8 +1093,14 @@ function updateZoneTrigger() {
 function selectZone(z, co) {
   G.zoneFilter = z;
   if (co) G.countryFilter = co;
-  // synchronise les 3 sélecteurs cachés (compat read/mirror)
-  ["zone-filter", "online-zone-filter", "room-zone-filter"].forEach((id) => { const s = $(id); if (s) s.value = z; });
+  // synchronise les 3 sélecteurs cachés (compat read/mirror). Les zones communautaires
+  // (community:<id>) n'existent pas dans les <select> statiques → on ajoute l'option à la
+  // volée, sinon readMenuSettings() relirait une valeur vide et retomberait sur « monde ».
+  ["zone-filter", "online-zone-filter", "room-zone-filter"].forEach((id) => {
+    const s = $(id); if (!s) return;
+    if (z && !Array.from(s.options).some((o) => o.value === z)) { const o = document.createElement("option"); o.value = z; s.appendChild(o); }
+    s.value = z;
+  });
   if (co) ["country-filter", "online-country-filter", "room-country-filter"].forEach((id) => { const s = $(id); if (s) s.value = co; });
   highlightZone();
   updateZoneTrigger();
