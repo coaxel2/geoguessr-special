@@ -33,6 +33,7 @@ function showScreen(id) {
   if (accountBtn) accountBtn.style.display = isHub ? "" : "none";
   if (id === "leaderboard") loadLeaderboardPage();
   if (id === "community") renderCommunity();
+  if (id === "shop") renderShop();   // labels Acheter/Équiper/Équipé à jour à chaque ouverture
   if (isHub) {
     try { $(id).scrollTop = 0; } catch (e) {}
   }
@@ -70,6 +71,7 @@ function goTab(tab, opts) {
   const current = document.querySelector(".screen.show");
   const inRound = current && (current.id === "game" || current.id === "result");
   if (inRound && !confirm("Quitter la partie en cours ?")) return;
+  if (inRound) { clearTimer(); onlineReset(); G.online.active = false; document.body.classList.remove("time-critical"); }
   if (tab === "online") {
     readMenuSettings();
     mirrorSettingsToOnline();
@@ -1186,9 +1188,31 @@ function ensureGuessMap() {
 }
 function zoneBoundsForGuess(){const z=G.zoneFilter,co=G.countryFilter;if(z==="world"||z==="world-cities")return null;try{const feats=zoneFeatures(z,co);if(feats&&feats.length){const b=L.geoJSON({type:"FeatureCollection",features:feats}).getBounds();if(b&&b.isValid())return b;}}catch(e){}try{const s=zoneShape(z,co);if(s&&s.circle)return L.latLng(s.circle[0],s.circle[1]).toBounds(s.r*2.2);if(s&&s.boxes)return bboxOf(s.boxes);}catch(e){}return null;}
 function frameGuessMapToZone(){if(!G.gmap)return;const b=zoneBoundsForGuess();if(b)G.gmap.fitBounds(b,{padding:[12,12],maxZoom:12});else G.gmap.setView([20,0],1);}
+// Couleur d'accent courante (suit le thème équipé ; ne jamais hardcoder le vert).
+function accentColor(){ try { return (getComputedStyle(document.body).getPropertyValue('--accent') || '').trim() || '#2ee6a6'; } catch(e){ return '#2ee6a6'; } }
+// Compteur animé (easeOutCubic) pour faire « monter » les scores au reveal / récap.
+function animateCount(el, to, dur){
+  if (!el) return; to = Math.round(to || 0); dur = dur || 650;
+  const t0 = performance.now();
+  const step = (now) => {
+    const k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+    el.textContent = Math.round(to * e).toLocaleString("fr-FR");
+    if (k < 1) requestAnimationFrame(step); else el.textContent = to.toLocaleString("fr-FR");
+  };
+  requestAnimationFrame(step);
+}
+// Libellé qualitatif d'un score de manche (barème /5000).
+function scoreQuality(pts){
+  if (pts >= 4500) return "Dans le mille";
+  if (pts >= 3500) return "Excellent";
+  if (pts >= 2200) return "Bien vu";
+  if (pts >= 1000) return "Tu peux mieux faire";
+  if (pts > 0)     return "Loin du compte";
+  return "Manqué";
+}
 function placeGuess(latlng) {
   if (G.submitted) return;
-  const style = { radius: 7, color: "#fff", weight: 2, fillColor: "#2ee6a6", fillOpacity: 1 };
+  const style = { radius: 8, color: "#fff", weight: 2, fillColor: accentColor(), fillOpacity: 1 };
   if (!G.marker) G.marker = L.circleMarker(latlng, style).addTo(G.gmap);
   else G.marker.setLatLng(latlng);
   G.guess = { lat: latlng.lat, lng: latlng.lng };
@@ -1218,7 +1242,7 @@ async function startSolo() {
 
 function beginRoundsLocal() {
   G.current = 0; G.scores = []; G.submitted = false;
-  G.rewarded = false;
+  G.rewarded = false; G.streak = 0;
   playerList().forEach((p) => { p.scores = []; p.guess = null; p.done = false; });
   G.online.revealed = false;
   $("hud-opp").classList.toggle("hidden", !G.online.active);
@@ -1447,7 +1471,7 @@ function drawResult(loc) {
       if (g && g.lat != null) drawFor(g.lat, g.lng, playerColor(p.id), p.id === meId() ? "Toi" : p.name);
     });
   } else if (G.guess) {
-    drawFor(G.guess.lat, G.guess.lng, "#2ee6a6", "Toi");
+    drawFor(G.guess.lat, G.guess.lng, accentColor(), "Toi");
   }
   if (pts.length > 1) resMap.fitBounds(L.latLngBounds(pts).pad(0.35), { maxZoom: 12 });
   else resMap.setView(actual, 5);
@@ -1463,6 +1487,19 @@ function revealRound() {
   setTimeout(() => { resMap.invalidateSize(); drawResult(loc); }, 160);
 
   $("result-title").textContent = "Manche " + (G.current + 1) + " / " + G.rounds;
+  const sub = $("result-sub");
+  if (sub) {
+    if (!G.online.active) {
+      const pts = G.scores[G.current] || 0;
+      if (pts >= 3500) G.streak = (G.streak || 0) + 1; else G.streak = 0;
+      let s = "À " + fmtDist(G.lastDist) + " · " + scoreQuality(pts);
+      if (G.streak >= 2) s += " · Série ×" + G.streak;
+      sub.textContent = s;
+      sub.classList.remove("hidden");
+    } else {
+      sub.classList.add("hidden");
+    }
+  }
   renderResultRows();
 
   const last = G.current >= G.rounds - 1;
@@ -1486,7 +1523,7 @@ function renderResultRows() {
       color: playerColor(p.id), dist: p.guess ? p.guess.dist : null, pts: (p.scores[round] || 0),
     }));
   } else {
-    rows = [{ name: G.playerName || "Toi", av: G.avatarChoice, me: true, color: "#2ee6a6", dist: G.lastDist, pts: (G.scores[round] || 0) }];
+    rows = [{ name: G.playerName || "Toi", av: G.avatarChoice, me: true, color: accentColor(), dist: G.lastDist, pts: (G.scores[round] || 0) }];
   }
   rows.sort((a, b) => b.pts - a.pts);
   box.innerHTML = "";
@@ -1499,9 +1536,10 @@ function renderResultRows() {
       '<img class="rav" src="' + avatarURL(r.av) + '" alt="" draggable="false" />' +
       '<span class="who"></span>' +
       '<span class="dist">' + fmtDist(r.dist) + "</span>" +
-      '<span class="pts">' + r.pts + " pts</span>";
+      '<span class="pts"><b class="pts-n">0</b> pts</span>';
     row.querySelector(".who").textContent = r.name;
     box.appendChild(row);
+    animateCount(row.querySelector(".pts-n"), r.pts, 700);
   });
 }
 
@@ -1513,6 +1551,9 @@ function nextRound() {
   } else advance();
 }
 function advance() {
+  if (G._advancing) return;                 // anti double-clic / double-message réseau
+  G._advancing = true;
+  setTimeout(() => { G._advancing = false; }, 500);
   G.current++;
   if (G.current >= G.rounds) showFinal();
   else { showScreen("game"); loadRound(); }
@@ -1530,6 +1571,7 @@ function showFinal() {
   rows.sort((a, b) => b.total - a.total);
   const myRank = Math.max(0, rows.findIndex((r) => r.me));
   const myTotal = rows[myRank] ? rows[myRank].total : sum(G.scores);
+  G.lastFinalTotal = myTotal;
 
   if (G.online.active) {
     if (myRank === 0) { $("final-emoji").textContent = "🏆"; $("final-title").textContent = "Victoire !"; }
@@ -1553,9 +1595,10 @@ function showFinal() {
         '<span class="frank">' + (G.online.active ? (medals[i] || ((i + 1) + "ᵉ")) : "") + "</span>" +
         '<img class="fav" src="' + avatarURL(r.av) + '" alt="" draggable="false" />' +
         '<span class="who"></span>' +
-        '<span class="big">' + r.total.toLocaleString("fr-FR") + "</span>";
+        '<span class="big">0</span>';
       row.querySelector(".who").textContent = r.name;
       box.appendChild(row);
+      animateCount(row.querySelector(".big"), r.total, 850);
     });
   }
   if (!G.online.active) recordSoloScore();
@@ -2692,7 +2735,26 @@ function wire() {
 
   $("btn-next").addEventListener("click", nextRound);
   $("btn-replay").addEventListener("click", replay);
+  if ($("btn-share")) $("btn-share").addEventListener("click", shareResult);
   $("btn-home").addEventListener("click", goHome);
+
+  // Raccourcis clavier : Échap ferme une modale ; Entrée = deviner / manche suivante.
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      const modals = ["name-modal", "auth-modal", "profile-modal", "avatar-modal", "zone-modal", "lb-modal"];
+      for (const id of modals) { const m = $(id); if (m && !m.hidden) { m.hidden = true; e.preventDefault(); return; } }
+      return;
+    }
+    if (e.key !== "Enter") return;
+    const tag = (e.target && e.target.tagName) || "";
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;   // laisser les champs gérer Entrée
+    if ($("game") && $("game").classList.contains("show") && !$("btn-guess").disabled) { e.preventDefault(); submitGuess(); return; }
+    const res = $("result");
+    if (res && res.classList.contains("show")) {
+      const bn = $("btn-next");
+      if (bn && !bn.classList.contains("hidden")) { e.preventDefault(); nextRound(); }
+    }
+  });
   window.addEventListener("popstate", () => goTab(tabForPath(location.pathname), { fromPop: true }));
 
   // lien ?join=CODE → rejoint directement la salle (popup pseudo si besoin)
@@ -2719,6 +2781,16 @@ function copyLink() {
   navigator.clipboard.writeText(url).then(
     () => { $("btn-copy").textContent = "Lien copié ✓"; setTimeout(() => ($("btn-copy").textContent = "Copier le lien"), 1800); },
     () => { $("btn-copy").textContent = url; }
+  );
+}
+
+function shareResult() {
+  const btn = $("btn-share"); if (!btn) return;
+  const total = (G.lastFinalTotal != null ? G.lastFinalTotal : sum(G.scores)) || 0;
+  const txt = "🌍 J'ai marqué " + total.toLocaleString("fr-FR") + " pts sur Geoloc en " + G.rounds + " manches. Tu fais mieux ? " + location.origin;
+  navigator.clipboard.writeText(txt).then(
+    () => { btn.textContent = "Score copié ✓"; setTimeout(() => (btn.textContent = "Partager mon score"), 1800); },
+    () => { btn.textContent = "Copie impossible"; }
   );
 }
 

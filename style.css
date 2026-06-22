@@ -335,7 +335,10 @@ body[data-fx="aurora"] .home-bg::after {
   justify-content: center;
 }
 .screen.show { display: flex; }
+/* Fondu doux à chaque changement d'écran — sauf le jeu (#game = .game) pour ne pas faire clignoter le pano. */
+.screen.show:not(.game) { animation: fade .26s ease both; }
 @keyframes fade { from { opacity: 0; transform: scale(.985); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .screen.show:not(.game) { animation: none; } }
 
 /* ---------- Animated background ---------- */
 .menu-bg {
@@ -915,10 +918,10 @@ body[data-fx="aurora"] .home-bg::after {
 body.time-critical::after {
   content: "";
   position: fixed; inset: 0; z-index: 19; pointer-events: none;
-  box-shadow: inset 0 0 100px 16px rgba(255, 45, 45, .62);
-  animation: timePulse 1.05s ease-in-out infinite;
+  box-shadow: inset 0 0 72px 6px rgba(255, 45, 45, .42);
+  animation: timePulse 1.1s ease-in-out infinite;
 }
-@keyframes timePulse { 0%, 100% { opacity: .28; } 50% { opacity: 1; } }
+@keyframes timePulse { 0%, 100% { opacity: .16; } 50% { opacity: .7; } }
 .expand { font-size: 18px; }
 @media (hover: none) { .expand { font-size: 22px; padding: 4px 10px; } }
 
@@ -996,6 +999,9 @@ body.time-critical::after {
 .result-row.me .who { color: var(--accent); }
 .result-row .dist { color: var(--muted); font-size: 13px; }
 .result-row .pts { font-weight: 800; font-size: 16px; }
+.result-row .pts .pts-n { color: var(--accent); }
+.result-sub { margin: 4px 0 16px; color: var(--muted); font-size: 14px; font-weight: 600; letter-spacing: .2px; }
+.result-sub.hidden { display: none; }
 #btn-next { width: 100%; }
 
 /* ===========================================================
@@ -1453,6 +1459,9 @@ body {
   font-size: clamp(15px, 1.6vw, 18px);
   line-height: 1.5;
 }
+/* Sur l'accueil 2 colonnes, le tagline doit rester dans la colonne de gauche
+   (sinon il passe sous le panneau de réglages flottant et se fait tronquer). */
+@media (min-width: 861px) { #menu .home-copy .tagline { max-width: 340px; } }
 
 .home-panel,
 #online .menu-card,

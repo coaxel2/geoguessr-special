@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://api.dicebear.com" />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-  <link rel="stylesheet" href="style.css?v=62" />
+  <link rel="stylesheet" href="style.css?v=63" />
 </head>
 <body>
   <div class="wallet-pill" id="wallet-pill" aria-label="Monnaie disponible">
@@ -699,13 +699,13 @@
     </div>
 
     <!-- compass / reset view -->
-    <button class="reset-view" id="btn-reset-view" title="Revenir au point de départ">⟲</button>
+    <button class="reset-view" id="btn-reset-view" title="Revenir au point de départ" aria-label="Revenir au point de départ">⟲</button>
 
     <!-- guess panel -->
     <div class="guess-panel" id="guess-panel">
       <div class="guess-head">
         <span id="guess-hint">Place ton marqueur sur la carte</span>
-        <button class="expand" id="btn-expand" title="Agrandir / réduire">⤢</button>
+        <button class="expand" id="btn-expand" title="Agrandir / réduire" aria-label="Agrandir ou réduire la carte">⤢</button>
       </div>
       <div id="map" class="guessmap"></div>
       <button id="btn-guess" class="btn btn-primary btn-guess" disabled>Deviner</button>
@@ -718,6 +718,7 @@
     <div id="result-map" class="result-map"></div>
     <div class="result-card">
       <h2 id="result-title">Manche 1</h2>
+      <p class="result-sub hidden" id="result-sub"></p>
       <div class="result-rows" id="result-rows"></div>
       <button id="btn-next" class="btn btn-primary">Manche suivante ›</button>
       <p class="status mini hidden" id="next-wait">En attente de l'adversaire…</p>
@@ -739,6 +740,7 @@
       </div>
       <button id="btn-replay" class="btn btn-primary">Rejouer</button>
       <p class="status mini hidden" id="final-wait">En attente de l'hôte pour rejouer…</p>
+      <button id="btn-share" class="btn btn-ghost">Partager mon score</button>
       <button id="btn-home" class="btn btn-ghost">Menu principal</button>
     </div>
   </section>
@@ -829,6 +831,6 @@
 
   <!-- Leaflet : cartes de guess / résultat (tuiles raster, pas de WebGL) -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script src="game.js?v=62"></script>
+  <script src="game.js?v=63"></script>
 </body>
 </html>
