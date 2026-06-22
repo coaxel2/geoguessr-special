@@ -8,7 +8,7 @@ COPY package.json package-lock.json* ./
 RUN npm install --omit=dev --no-audit --no-fund
 
 # Fichiers de l'application
-COPY index.html style.css game.js favicon.svg zones-geo.json globe-land.json server.js entrypoint.sh ./
+COPY index.html style.css game.js favicon.svg zones-geo.json globe-land.json cities-by-country.json server.js entrypoint.sh ./
 RUN chmod +x entrypoint.sh
 
 EXPOSE 80

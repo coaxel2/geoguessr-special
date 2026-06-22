@@ -890,6 +890,14 @@ function zoneGroups() {
       ...frCity,
     ]],
   ];
+  // Top 50 villes par pays (centre + rayon court, chargées via loadCityPacks).
+  Object.keys(CITY_PACK_META).forEach((country) => {
+    const list = CITY_PACKS[country];
+    if (!list || !list.length) return;
+    const meta = CITY_PACK_META[country];
+    groups.push([meta[0] + " " + meta[1] + " — top 50 villes",
+      list.map((c) => ({ l: c[1], z: cpKey(country, c[0]), la: c[2], lo: c[3], tz: 9 }))]);
+  });
   // Zones créées par les joueurs (chargées via loadCommunityZones, injectées dans ZGEO/ZONE_REGIONS).
   if (COMMUNITY_ZONES && COMMUNITY_ZONES.length) {
     groups.push(["👥 Communauté", COMMUNITY_ZONES.map((z) => ({
@@ -1015,6 +1023,32 @@ function loadCommunityZones(force) {
     .then((j) => { COMMUNITY_ZONES = (j && j.zones) || []; COMMUNITY_ZONES.forEach(injectCommunityZone); return COMMUNITY_ZONES; })
     .catch(() => { COMMUNITY_ZONES = []; return COMMUNITY_ZONES; });
   return loadCommunityZones._p;
+}
+
+/* ---------- Packs de villes par pays (top 50, centre + rayon court) ---------- */
+let CITY_PACKS = {};
+const CITY_PACK_META = {
+  france: ["🇫🇷", "France"], usa: ["🇺🇸", "États-Unis"], canada: ["🇨🇦", "Canada"],
+  "uk-ireland": ["🇬🇧", "Royaume-Uni / Irlande"], "spain-portugal": ["🇪🇸", "Espagne / Portugal"],
+  italy: ["🇮🇹", "Italie"], germany: ["🇩🇪", "Allemagne"], japan: ["🇯🇵", "Japon"],
+  "south-korea": ["🇰🇷", "Corée du Sud"], australia: ["🇦🇺", "Australie"],
+  "new-zealand": ["🇳🇿", "Nouvelle-Zélande"], brazil: ["🇧🇷", "Brésil"],
+  "argentina-chile": ["🇦🇷", "Argentine / Chili"], "south-africa": ["🇿🇦", "Afrique du Sud"],
+  mexico: ["🇲🇽", "Mexique"],
+};
+function cpKey(country, slug) { return "cp:" + country + ":" + slug; }
+// charge cities-by-country.json et injecte chaque ville dans CITY_ZONES (centre + rayon court)
+function loadCityPacks() {
+  if (loadCityPacks._p) return loadCityPacks._p;
+  loadCityPacks._p = fetch("cities-by-country.json?v=1").then((r) => r.json())
+    .then((packs) => {
+      CITY_PACKS = packs || {};
+      Object.keys(CITY_PACKS).forEach((country) => {
+        (CITY_PACKS[country] || []).forEach((c) => { CITY_ZONES[cpKey(country, c[0])] = [c[2], c[3], c[4]]; });
+      });
+      return CITY_PACKS;
+    }).catch(() => { CITY_PACKS = {}; return CITY_PACKS; });
+  return loadCityPacks._p;
 }
 function zoneFeatures(z, co) {
   if (!ZGEO) return null;
@@ -2781,12 +2815,13 @@ function wire() {
   updateZoneTrigger();
   loadZones().then(() => updateZoneTrigger());
   loadCommunityZones();   // précharge les zones communautaires (sélecteur prêt dès la 1re ouverture)
+  loadCityPacks();        // précharge les top 50 villes par pays
   ["zone-trigger", "online-zone-trigger", "room-zone-trigger"].forEach((id) => {
     const t = $(id);
     if (t) t.addEventListener("click", () => {
       if ($("zone-search")) { $("zone-search").value = ""; filterZones(""); }
       $("zone-modal").hidden = false;
-      Promise.all([loadZones(), loadCommunityZones()]).then(() => { buildZoneModal(true); initZoneMaps(); });
+      Promise.all([loadZones(), loadCommunityZones(), loadCityPacks()]).then(() => { buildZoneModal(true); initZoneMaps(); });
     });
   });
   // formulaire « Crée ta zone » de la page Communauté
