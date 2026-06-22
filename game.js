@@ -2260,7 +2260,7 @@ function startGlobe(cv, geo) {
     cv.height = Math.max(2, Math.round((box.height || 400) * dpr));
     // Garde une large marge pour le halo atmosphérique dessiné à R * 1.14.
     R = Math.min(cv.width, cv.height) / 2 * 0.68; cx = cv.width / 2; cy = cv.height / 2;
-    const od = Math.min(Math.round(2 * R), 720), oR = od / 2;   // résolution du remplissage (haute = globe net, plafonnée pour la perf)
+    const od = Math.min(Math.round(2 * R), 560), oR = od / 2;   // résolution du remplissage (haute = globe net, plafonnée pour la perf)
     oc.width = Math.max(2, od); oc.height = oc.width;
     oimg = octx.createImageData(oc.width, oc.height);
     const N = oc.width * oc.height;
