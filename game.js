@@ -3581,7 +3581,16 @@ function wire() {
     G.online.open = b.dataset.open === "1";
     if (G.online.active && G.online.isHost && G.online.code) { if (G.online.open) announceOpenGame(); else closeOpenGame(); }
   }));
-  setInterval(pollFriendGames, 25000);   // rafraîchit les parties d'amis
+  setInterval(pollFriendGames, 15000);   // rafraîchit demandes d'ami + parties d'amis
+  // poll immédiat quand l'utilisateur revient sur l'onglet/l'app (notif quasi-instantanée,
+  // utile en test multi-appareils : on regarde son téléphone → la partie apparaît tout de suite)
+  document.addEventListener("visibilitychange", () => { if (!document.hidden && isLogged()) pollFriendGames(); });
+  window.addEventListener("focus", () => { if (isLogged()) pollFriendGames(); });
+  // heartbeat : ré-annonce le salon ouvert toutes les 45 s tant qu'on l'héberge. La liste
+  // serveur est en mémoire (Map openGames) → cela la repeuple après un redémarrage du conteneur.
+  setInterval(() => {
+    if (isLogged() && G.online && G.online.active && G.online.isHost && G.online.open && G.online.code) announceOpenGame();
+  }, 45000);
 
   $("btn-next").addEventListener("click", nextRound);
   $("btn-replay").addEventListener("click", replay);
