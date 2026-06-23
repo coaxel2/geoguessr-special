@@ -2841,8 +2841,12 @@ body.drawer-open .nav-drawer { transform: translateX(0); }
 .pv-theme-row { grid-area: row; height: 5px; border-radius: 999px; background: rgba(255, 255, 255, .55); }
 .pv-theme-row.sm { grid-area: rowsm; width: 62%; background: rgba(255, 255, 255, .3); }
 .pv-theme-go { grid-area: go; margin-top: 3px; text-align: center; font-size: 9px; font-weight: 800; color: #08231b; background: var(--a); border-radius: 999px; padding: 3px 0; }
-/* fond OPAQUE pour badge/pack/fx (couvre l'ancien dégradé .shop-art qui transparaissait) */
-.pv-badge, .pv-avatarPack, .pv-fx { background: linear-gradient(135deg, #16213a, #0d1525); }
+/* fond « nuit » étoilé (comme l'accueil) pour badge/pack/fx → meilleur contraste */
+.pv-badge, .pv-avatarPack, .pv-fx {
+  background:
+    radial-gradient(rgba(255, 255, 255, .42) 1px, transparent 1.6px) 0 0 / 24px 24px,
+    linear-gradient(160deg, #0a0f1c, #0b1426);
+}
 /* — Badge : le pseudo + l'emoji du badge — */
 .pv-badge-pseudo { display: inline-flex; align-items: center; gap: 5px; font-weight: 800; font-size: 15px; color: var(--text); }
 .pv-badge-emo { font-size: 18px; }
