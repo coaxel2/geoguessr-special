@@ -1444,19 +1444,46 @@ body {
   gap: clamp(34px, 6vw, 88px);
 }
 
-/* Page Communauté : UNE seule colonne, sections empilées et resserrées — supprime les
-   gros trous que créait le grid 2 colonnes (cellules de hauteurs inégales + gap énorme).
-   Double classe (.feature-page.community-page) pour battre la redéfinition de .feature-page
-   plus bas dans la feuille, quel que soit l'ordre source. */
+/* Page Communauté : header + défi en pleine largeur (1 colonne au niveau du conteneur),
+   puis un sous-grid à 2 colonnes (.comm-grid). Double classe (.feature-page.community-page)
+   pour battre la redéfinition de .feature-page plus bas dans la feuille. */
 .feature-page.community-page {
   grid-template-columns: minmax(0, 1fr);
-  gap: 16px;
-  max-width: 720px;
+  gap: 18px;
+  max-width: 940px;
   margin-inline: auto;
   padding-top: clamp(18px, 4vh, 44px);
+  padding-bottom: 52px;   /* le dernier exploit n'est plus collé au bas de la page */
 }
 .community-page .feature-panel { padding-top: 0; }
 .community-page .page-heading { padding-top: 0; margin-bottom: 2px; }
+
+/* deux blocs côte à côte : gauche = zones, droite = stats / top / exploits. Colonnes
+   indépendantes (flex) → aucun trou entre sections (contrairement au grid auto-flow où
+   les rangées s'alignaient sur la cellule la plus haute, d'où les gros vides). */
+.comm-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: start;
+}
+.comm-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+/* chaque section = vraie carte (fond + padding) → titres et textes aérés, plus collés */
+.comm-card {
+  padding: 20px 20px 22px;
+  border: 1px solid rgba(255, 255, 255, .08);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, .05), rgba(255, 255, 255, .02));
+}
+.comm-card .shop-eyebrow { margin-top: 0; }
+.comm-card h2 { margin: 0 0 14px; font-size: clamp(19px, 1.9vw, 23px); line-height: 1.1; }
+.comm-card > :last-child { margin-bottom: 0; }      /* pas d'espace mort en bas de carte */
+.comm-card .comm-stats { margin-bottom: 0; }
+
+@media (max-width: 760px) {
+  .comm-grid { grid-template-columns: 1fr; }         /* écran étroit : on empile */
+}
 
 .page-heading {
   padding-top: clamp(8px, 4vh, 42px);
