@@ -66,11 +66,18 @@ function setRoute(tab, replace) {
   const fn = replace ? "replaceState" : "pushState";
   history[fn]({ tab: tab }, "", path);
 }
+// Confirmation « quitter la partie » via une modale du jeu (remplace le confirm() natif).
+function confirmQuit(onYes) {
+  const m = $("quit-modal");
+  if (!m) { if (onYes) onYes(); return; }
+  G._quitYes = onYes || null;
+  m.hidden = false;
+}
 function goTab(tab, opts) {
   opts = opts || {};
   const current = document.querySelector(".screen.show");
   const inRound = current && (current.id === "game" || current.id === "result");
-  if (inRound && !confirm("Quitter la partie en cours ?")) return;
+  if (inRound && !opts.confirmed) { confirmQuit(() => goTab(tab, Object.assign({}, opts, { confirmed: true }))); return; }
   if (inRound) { clearTimer(); onlineReset(); G.online.active = false; document.body.classList.remove("time-critical"); }
   if (tab === "online") {
     readMenuSettings();
@@ -1681,7 +1688,7 @@ function svMove(forward) {
     const d = Math.abs(((l.heading - target + 540) % 360) - 180);
     if (d < bd) { bd = d; best = l; }
   });
-  if (best && bd <= 55) G.pano.setPano(best.pano);   // seuil pour éviter les sauts latéraux
+  if (best && bd <= 72) G.pano.setPano(best.pano);   // tolérance regard↔route (évite les sauts latéraux)
 }
 function fmtTime(s) {
   s = Math.max(0, s | 0);
@@ -3119,7 +3126,13 @@ function wire() {
   // la carte de guess s'agrandit au survol (CSS) → prévenir Google du resize
   ["mouseenter", "mouseleave"].forEach((ev) =>
     $("guess-panel").addEventListener(ev, reflowGuessMap));
-  $("btn-quit").addEventListener("click", () => { if (confirm("Quitter la partie en cours ?")) goHome(); });
+  $("btn-quit").addEventListener("click", () => confirmQuit(goHome));
+  const qm = $("quit-modal");
+  if (qm) {
+    $("quit-cancel").addEventListener("click", () => { qm.hidden = true; G._quitYes = null; });
+    $("quit-confirm").addEventListener("click", () => { qm.hidden = true; const cb = G._quitYes; G._quitYes = null; if (cb) cb(); });
+    qm.addEventListener("click", (e) => { if (e.target === qm) { qm.hidden = true; G._quitYes = null; } });
+  }
 
   $("btn-next").addEventListener("click", nextRound);
   $("btn-replay").addEventListener("click", replay);
@@ -3129,7 +3142,7 @@ function wire() {
   // Raccourcis clavier : Échap ferme une modale ; Entrée = deviner / manche suivante.
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
-      const modals = ["name-modal", "auth-modal", "profile-modal", "avatar-modal", "zone-modal", "lb-modal"];
+      const modals = ["quit-modal", "name-modal", "auth-modal", "profile-modal", "avatar-modal", "zone-modal", "lb-modal"];
       for (const id of modals) { const m = $(id); if (m && !m.hidden) { m.hidden = true; e.preventDefault(); return; } }
       return;
     }

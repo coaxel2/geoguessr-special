@@ -1021,6 +1021,13 @@ body.time-critical::after {
 .gs-hint { font-size: 11.5px; color: var(--muted); margin: 0; line-height: 1.4; }
 .gs-hint b { color: var(--text); }
 
+/* Modale « Quitter la partie ? » (remplace le confirm() natif du navigateur) */
+.quit-card { text-align: center; max-width: 380px; }
+.quit-emoji { font-size: 44px; line-height: 1; margin-bottom: 8px; }
+.quit-text { color: var(--muted); margin: 6px 0 20px; }
+.quit-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.quit-actions .btn { width: 100%; }
+
 /* Guess panel (bottom-right, expandable) */
 .guess-panel {
   position: absolute; right: 16px; bottom: 16px; z-index: 20;
