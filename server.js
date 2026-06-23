@@ -380,7 +380,7 @@ app.use(cookieParser());
 
 app.use((req, res, next) => {
   // pas de cache sur le HTML (les visiteurs ont toujours la dernière version)
-  if (req.path === "/" || req.path === "/multi" || req.path === "/classement" || req.path === "/boutique" || req.path === "/communaute" || req.path.endsWith(".html")) res.set("Cache-Control", "no-cache");
+  if (req.path === "/" || req.path === "/multi" || req.path === "/classement" || req.path === "/boutique" || req.path === "/communaute" || req.path === "/profil" || req.path.endsWith(".html")) res.set("Cache-Control", "no-cache");
   res.set("Content-Security-Policy", "upgrade-insecure-requests");
   next();
 });
@@ -1131,7 +1131,7 @@ app.get("/healthz", (req, res) => res.json({ ok: true, db: !!db }));
 
 app.use(express.static(DIR, { extensions: ["html"] }));
 app.get("/", (req, res) => res.sendFile(path.join(DIR, "index.html")));
-app.get(["/multi", "/classement", "/boutique", "/communaute"], (req, res) => res.sendFile(path.join(DIR, "index.html")));
+app.get(["/multi", "/classement", "/boutique", "/communaute", "/profil"], (req, res) => res.sendFile(path.join(DIR, "index.html")));
 
 const server = app.listen(PORT, () => console.log("[geoloc] HTTP + multi sur :" + PORT));
 initDb().catch((e) => console.error("[db] init error:", e.message));
