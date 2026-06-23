@@ -410,6 +410,7 @@ async function initDb() {
     );
   `);
   await db.query(`CREATE INDEX IF NOT EXISTS idx_scores_zone_score ON scores (zone, score DESC);`);
+  await db.query(`ALTER TABLE scores ADD COLUMN IF NOT EXISTS duration_s INTEGER NOT NULL DEFAULT 0;`);   // chrono de la partie
   // ---- comptes joueurs + sessions (auth persistante) ----
   await db.query(`
     CREATE TABLE IF NOT EXISTS users (
@@ -922,13 +923,15 @@ app.post("/api/scores", async (req, res) => {
   const zoneLabel = String(b.zoneLabel || "").trim().slice(0, 80);
   const rounds = Number(b.rounds);
   const score = Number(b.score);
+  let duration = Number(b.duration);
+  if (!Number.isFinite(duration) || duration < 0 || duration > 86400) duration = 0;   // chrono en s (borné 24 h)
   if (!pseudo || !zone) return res.status(400).json({ ok: false, error: "pseudo-et-zone-requis" });
   if (!Number.isInteger(rounds) || rounds < 1 || rounds > 50) return res.status(400).json({ ok: false, error: "rounds-invalide" });
   if (!Number.isInteger(score) || score < 0 || score > 300000) return res.status(400).json({ ok: false, error: "score-invalide" });
   try {
     await db.query(
-      `INSERT INTO scores (pseudo, zone, zone_label, rounds, score) VALUES ($1, $2, $3, $4, $5)`,
-      [pseudo, zone, zoneLabel, rounds, score]
+      `INSERT INTO scores (pseudo, zone, zone_label, rounds, score, duration_s) VALUES ($1, $2, $3, $4, $5, $6)`,
+      [pseudo, zone, zoneLabel, rounds, score, Math.round(duration)]
     );
     const { rows } = await db.query(
       `SELECT count(*)::int + 1 AS rank FROM scores WHERE zone = $1 AND score > $2`,
@@ -950,8 +953,8 @@ app.get("/api/scores", async (req, res) => {
   if (!Number.isInteger(limit) || limit < 1 || limit > 50) limit = 10;
   try {
     const { rows } = await db.query(
-      `SELECT pseudo, zone_label, rounds, score, created_at FROM (
-         SELECT DISTINCT ON (pseudo) pseudo, zone_label, rounds, score, created_at
+      `SELECT pseudo, zone_label, rounds, score, duration_s, created_at FROM (
+         SELECT DISTINCT ON (pseudo) pseudo, zone_label, rounds, score, duration_s, created_at
            FROM scores
           WHERE ($1 = '' OR zone = $1)
           ORDER BY pseudo, score DESC, created_at ASC

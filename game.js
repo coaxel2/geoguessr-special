@@ -1491,6 +1491,7 @@ async function startSolo() {
 function beginRoundsLocal() {
   G.current = 0; G.scores = []; G.submitted = false;
   G.rewarded = false; G.streak = 0;
+  G.gameStart = Date.now();              // chrono de la partie (pour le classement)
   playerList().forEach((p) => { p.scores = []; p.guess = null; p.done = false; });
   G.online.revealed = false;
   $("hud-opp").classList.toggle("hidden", !G.online.active);
@@ -1967,11 +1968,13 @@ async function recordSoloScore() {
   list.innerHTML = '<p class="lb-empty">Chargement du classement…</p>';
   if (rankEl) rankEl.textContent = "";
   const zone = leaderboardZoneKey(), label = zoneLabel();
+  const duration = G.gameStart ? Math.round((Date.now() - G.gameStart) / 1000) : 0;
+  G.lastDuration = duration;
   try {
     const r = await fetch("/api/scores", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pseudo: G.playerName || "Anonyme", zone, zoneLabel: label, rounds: G.rounds, score: sum(G.scores) }),
+      body: JSON.stringify({ pseudo: G.playerName || "Anonyme", zone, zoneLabel: label, rounds: G.rounds, score: sum(G.scores), duration: duration }),
     });
     if (r.status === 503) { block.classList.add("hidden"); return; }   // classement désactivé côté serveur
     if (r.ok && rankEl) {
@@ -1997,6 +2000,7 @@ function renderLeaderboard(list, scores) {
     '<div class="lb-row">' +
       '<span class="lb-rank">' + (medals[i] || (i + 1) + "ᵉ") + "</span>" +
       '<span class="lb-name"></span>' +
+      '<span class="lb-time">' + (s.duration_s > 0 ? "⏱ " + fmtTime(s.duration_s) : "") + "</span>" +
       '<span class="lb-pts">' + Number(s.score).toLocaleString("fr-FR") + " pts</span>" +
     "</div>"
   ).join("");

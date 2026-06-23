@@ -1125,10 +1125,15 @@ body.time-critical::after {
 /* ===========================================================
    FINAL
    =========================================================== */
-.final-card { padding-top: 30px; }
-.final-emoji { font-size: 56px; margin-bottom: 6px; }
-#final-title { font-size: 24px; margin-bottom: 22px; }
-.final-scores { display: flex; flex-direction: column; gap: 8px; margin-bottom: 22px; max-height: 44vh; overflow-y: auto; }
+/* Écran de fin AGRANDI (quasi plein écran) : résultat en haut, top 10 de la zone qui prend le reste */
+.final-card {
+  width: min(96vw, 820px); height: min(94vh, 920px);
+  padding: 26px 26px 22px;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.final-emoji { font-size: 52px; margin-bottom: 4px; flex: 0 0 auto; }
+#final-title { font-size: clamp(24px, 3vw, 30px); margin-bottom: 16px; flex: 0 0 auto; }
+.final-scores { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; max-height: 32vh; overflow-y: auto; flex: 0 0 auto; }
 .final-score {
   display: grid; grid-template-columns: auto auto 1fr auto; gap: 12px; align-items: center;
   background: rgba(0,0,0,.22); border: 1px solid var(--stroke); border-radius: 13px; padding: 10px 14px;
@@ -1151,13 +1156,14 @@ body.time-critical::after {
 .final-card .btn { width: 100%; margin-top: 10px; }
 
 /* ---- classement persistant (leaderboard PostgreSQL) ---- */
-.lb-block { margin: 4px 0 22px; text-align: left; }
-.lb-title { font-size: 15px; font-weight: 700; color: var(--text); margin: 0 0 4px; }
-.lb-myrank { font-size: 13px; color: var(--gold); font-weight: 600; margin: 0 0 10px; min-height: 16px; }
-.lb-list { display: flex; flex-direction: column; gap: 6px; max-height: 38vh; overflow-y: auto; }
-.lb-row { display: grid; grid-template-columns: 38px 1fr auto; align-items: center; gap: 10px; padding: 9px 12px; border: 1px solid var(--stroke); border-radius: 12px; background: rgba(255, 255, 255, .03); }
+.lb-block { margin: 0 0 12px; text-align: left; flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.lb-title { font-size: 17px; font-weight: 800; color: var(--text); margin: 0 0 4px; flex: 0 0 auto; }
+.lb-myrank { font-size: 13px; color: var(--gold); font-weight: 600; margin: 0 0 10px; min-height: 16px; flex: 0 0 auto; }
+.lb-list { display: flex; flex-direction: column; gap: 6px; flex: 1 1 auto; min-height: 0; max-height: none; overflow-y: auto; }
+.lb-row { display: grid; grid-template-columns: 40px 1fr auto auto; align-items: center; gap: 10px; padding: 11px 14px; border: 1px solid var(--stroke); border-radius: 12px; background: rgba(255, 255, 255, .03); }
 .lb-rank { font-size: 15px; font-weight: 700; text-align: center; color: var(--muted); }
 .lb-name { font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lb-time { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 12.5px; white-space: nowrap; }
 .lb-pts { font-weight: 800; color: var(--accent); font-variant-numeric: tabular-nums; }
 .lb-empty { color: var(--muted); font-size: 13px; text-align: center; padding: 14px 0; }
 
@@ -2652,12 +2658,11 @@ body.drawer-open .nav-drawer { transform: translateX(0); }
   }
 
   .lb-row {
-    grid-template-columns: 32px minmax(0, 1fr);
+    grid-template-columns: 32px minmax(0, 1fr) auto; row-gap: 2px;
   }
-
-  .lb-pts {
-    grid-column: 2;
-  }
+  .lb-name { grid-column: 2; grid-row: 1; }
+  .lb-time { grid-column: 2; grid-row: 2; font-size: 11px; }
+  .lb-pts { grid-column: 3; grid-row: 1; align-self: center; }
 }
 
 /* Très petit écran : le profil n'affiche que son icône (pseudo masqué) pour que
