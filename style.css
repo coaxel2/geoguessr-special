@@ -1445,8 +1445,10 @@ body {
 }
 
 /* Page Communauté : UNE seule colonne, sections empilées et resserrées — supprime les
-   gros trous que créait le grid 2 colonnes (cellules de hauteurs inégales + gap énorme). */
-.community-page {
+   gros trous que créait le grid 2 colonnes (cellules de hauteurs inégales + gap énorme).
+   Double classe (.feature-page.community-page) pour battre la redéfinition de .feature-page
+   plus bas dans la feuille, quel que soit l'ordre source. */
+.feature-page.community-page {
   grid-template-columns: minmax(0, 1fr);
   gap: 16px;
   max-width: 720px;
