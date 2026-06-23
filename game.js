@@ -1299,6 +1299,8 @@ function setTimeSeg(id, seconds) {
 function readMenuSettings() {
   G.zoneFilter = $("zone-filter").value;
   G.countryFilter = $("country-filter").value;
+  const ms = $("mode-seg") && $("mode-seg").querySelector("button.on");
+  G.moveMode = ms ? ms.dataset.m : (G.moveMode || "free");
 }
 function readOnlineSettings() {
   G.rounds = selectedRounds("online-rounds-seg");
@@ -1441,6 +1443,10 @@ async function preloadRemainingLocations(startIndex, sendOnline) {
 // (Re)crée le panorama à chaque manche : setPano() sur un panorama existant
 // ne rafraîchit pas toujours le rendu WebGL, recréer garantit l'image correcte.
 function makePano(loc, pov) {
+  // Mode de jeu : pro = déplacement désactivé ; hardcore = + zoom désactivé.
+  const mm = G.moveMode || "free";
+  const noMove = (mm === "pro" || mm === "hardcore");
+  const noZoom = (mm === "hardcore");
   G.pano = new google.maps.StreetViewPanorama($("pano"), {
     pano: loc.panoId,
     pov: pov,
@@ -1450,8 +1456,14 @@ function makePano(loc, pov) {
     motionTracking: false,
     motionTrackingControl: false,
     enableCloseButton: false,
-    linksControl: true, panControl: true, zoomControl: true,
+    linksControl: !noMove,    // flèches de déplacement
+    clickToGo: !noMove,       // clic pour avancer
+    panControl: true,
+    zoomControl: !noZoom,
+    scrollwheel: !noZoom,
+    disableDoubleClickZoom: noZoom,
   });
+  document.body.classList.toggle("mode-pro", noMove);   // masque le ⟲/réglages liés au déplacement si besoin
   buildCompass();
   G.pano.addListener("pov_changed", () => { try { updateCompass(G.pano.getPov().heading); } catch (e) {} });
   try { updateCompass((pov && pov.heading) || 0); } catch (e) {}
@@ -1732,6 +1744,7 @@ function svTurn(delta) {
 }
 function svMove(forward) {
   if (!G.pano) return;
+  if (G.moveMode === "pro" || G.moveMode === "hardcore") return;   // mode pro : déplacement désactivé
   const links = G.pano.getLinks() || [];
   if (!links.length) return;
   const h = G.pano.getPov().heading, target = forward ? h : (h + 180) % 360;
@@ -2572,7 +2585,7 @@ function backToOnlineChoice() {
   $("btn-start-room").disabled = true;
   $("room-settings").textContent = "";
 }
-function goHome() { goTab("menu"); }
+function goHome() { goTab("menu", { confirmed: true }); }   // déjà confirmé → ne rouvre pas la modale
 
 /* ===========================================================
    Wiring UI
@@ -2989,6 +3002,7 @@ function wire() {
     const sv = parseFloat(localStorage.getItem("geoq-vol"));
     G.sfxVol = isNaN(sv) ? 0.7 : Math.max(0, Math.min(1, sv));
     G.kbLayout = localStorage.getItem("geoq-kb") === "qwerty" ? "qwerty" : "azerty";
+    G.moveMode = localStorage.getItem("geoq-mode") || "free";
   } catch (e) {}
   $("player-name").addEventListener("change", savePlayerName);
   $("player-name").addEventListener("blur", savePlayerName);
@@ -3146,6 +3160,25 @@ function wire() {
       if (e.key === "Escape" && document.body.classList.contains("drawer-open")) closeDrawer();
     });
   })();
+
+  // sélecteur de mode (Libre / Pro / Hardcore) — déplacement & zoom dans le Street View
+  const modeSeg = $("mode-seg");
+  if (modeSeg) {
+    const hints = {
+      free: "Déplacement, rotation et zoom autorisés.",
+      pro: "Déplacement désactivé — tu restes sur place (rotation + zoom OK).",
+      hardcore: "Ni déplacement ni zoom — juste regarder autour. Pour les pros.",
+    };
+    const syncMode = () => {
+      const m = G.moveMode || "free";
+      modeSeg.querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.m === m));
+      if ($("mode-hint")) $("mode-hint").textContent = hints[m] || hints.free;
+    };
+    modeSeg.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => {
+      G.moveMode = b.dataset.m; try { localStorage.setItem("geoq-mode", G.moveMode); } catch (e) {} syncMode();
+    }));
+    syncMode();
+  }
 
   $("btn-solo").addEventListener("click", startSolo);
   if ($("btn-leaderboard")) $("btn-leaderboard").addEventListener("click", () => goTab("leaderboard"));
