@@ -473,7 +473,7 @@ async function submitCommunityZone(ev) {
     const r = await fetch("/api/community/zones", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "same-origin", body: JSON.stringify({ name }) });
     const j = await r.json().catch(() => ({}));
     if (!r.ok || !j.ok) { setCzMsg(j.error || "Échec de la création de la zone.", true); }
-    else if (j.zone.center && nativeNear(j.zone.center[0], j.zone.center[1])) {
+    else if (zoneDupesNative(j.zone)) {
       // ce lieu est déjà une VILLE NATIVE du jeu → on annule la création (le serveur ne
       // connaît pas les villes natives, donc le contrôle se fait ici) pour éviter un doublon.
       fetch("/api/community/zones/" + j.zone.id, { method: "DELETE", credentials: "same-origin" }).catch(() => {});
@@ -1106,6 +1106,7 @@ function injectCommunityZone(z) {
 }
 // Renvoie la clé d'une VILLE NATIVE du jeu (CITY_ZONES hors community:*) située à < ~4 km
 // du point — sert à détecter qu'une zone communautaire duplique une ville déjà jouable.
+function czNorm(s) { return (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]/g, ""); }
 function nativeNear(lat, lng, km) {
   km = km || 4;
   if (typeof CITY_ZONES === "undefined" || lat == null) return null;
@@ -1116,6 +1117,24 @@ function nativeNear(lat, lng, km) {
   }
   return null;
 }
+// même VILLE NATIVE par NOM (slug de la clé) : rattrape les grandes villes dont le centre
+// du contour communautaire est loin du centre natif (ex. Las Vegas ≈ 13 km).
+function nativeNameMatch(name) {
+  const n = czNorm(name); if (!n || typeof CITY_ZONES === "undefined") return null;
+  for (const k in CITY_ZONES) {
+    if (k.indexOf("community:") === 0) continue;
+    const slug = k.indexOf(":") >= 0 ? k.substring(k.lastIndexOf(":") + 1) : k.replace(/^city-/, "");
+    if (czNorm(slug) === n) return k;
+  }
+  return null;
+}
+// une zone communautaire DOUBLE une ville native si : même endroit (<4 km) OU même nom
+function zoneDupesNative(z) {
+  if (!z) return null;
+  if (z.center && nativeNear(z.center[0], z.center[1])) return true;
+  if (z.name && nativeNameMatch(z.name)) return true;
+  return false;
+}
 function loadCommunityZones(force) {
   if (force) loadCommunityZones._p = null;
   if (loadCommunityZones._p) return loadCommunityZones._p;
@@ -1125,8 +1144,8 @@ function loadCommunityZones(force) {
     (typeof loadCityPacks === "function" ? loadCityPacks().catch(() => null) : Promise.resolve()),
   ]).then(([j]) => {
     const all = (j && j.zones) || [];
-    // masque les zones qui dupliquent une ville déjà présente nativement (même lieu) → plus de doublons
-    COMMUNITY_ZONES = all.filter((z) => !(z.center && nativeNear(z.center[0], z.center[1])));
+    // masque les zones qui dupliquent une ville déjà présente nativement (même lieu OU nom) → plus de doublons
+    COMMUNITY_ZONES = all.filter((z) => !zoneDupesNative(z));
     COMMUNITY_ZONES.forEach(injectCommunityZone);
     return COMMUNITY_ZONES;
   }).catch(() => { COMMUNITY_ZONES = []; return COMMUNITY_ZONES; });
