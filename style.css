@@ -249,7 +249,7 @@ body[data-fx="aurora"] .home-bg::after {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  max-width: 190px;
+  max-width: 168px;
   height: 44px;
   padding: 0 16px;
   border: 1px solid var(--stroke-strong);
@@ -1553,9 +1553,10 @@ body {
   gap: 18px;
   width: min(1180px, calc(100vw - 40px));
   min-height: 68px;
-  /* padding-right large : réserve la place de la monnaie + du profil (pilules globales
-     posées par-dessus, en haut à droite) pour que les onglets ne passent pas dessous. */
-  padding: 10px 300px 10px 14px;
+  /* padding-right large : réserve la place de la barre .topbar-right (cloche + profil +
+     monnaie, pilules globales posées par-dessus en haut à droite) pour que les onglets
+     ne passent jamais dessous. ⚠️ doit couvrir cloche(42)+gap(10)+compte+gap(10)+monnaie. */
+  padding: 10px 360px 10px 14px;
   border: 1px solid rgba(255, 255, 255, .10);
   border-radius: 20px;
   /* Fond solide : la barre est fixe, le contenu (boutique/communauté) scrolle dessous —
