@@ -473,6 +473,12 @@ async function submitCommunityZone(ev) {
     const r = await fetch("/api/community/zones", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "same-origin", body: JSON.stringify({ name }) });
     const j = await r.json().catch(() => ({}));
     if (!r.ok || !j.ok) { setCzMsg(j.error || "Échec de la création de la zone.", true); }
+    else if (j.zone.center && nativeNear(j.zone.center[0], j.zone.center[1])) {
+      // ce lieu est déjà une VILLE NATIVE du jeu → on annule la création (le serveur ne
+      // connaît pas les villes natives, donc le contrôle se fait ici) pour éviter un doublon.
+      fetch("/api/community/zones/" + j.zone.id, { method: "DELETE", credentials: "same-origin" }).catch(() => {});
+      setCzMsg("Cette ville est déjà dans le jeu — choisis-la directement dans son pays.", true);
+    }
     else {
       injectCommunityZone(j.zone);
       COMMUNITY_ZONES = [j.zone].concat(COMMUNITY_ZONES.filter((z) => z.id !== j.zone.id));
@@ -1098,13 +1104,32 @@ function injectCommunityZone(z) {
     CITY_ZONES[key] = [z.center[0], z.center[1], Math.max(4000, (z.radius_km || 25) * 1000)];
   }
 }
+// Renvoie la clé d'une VILLE NATIVE du jeu (CITY_ZONES hors community:*) située à < ~4 km
+// du point — sert à détecter qu'une zone communautaire duplique une ville déjà jouable.
+function nativeNear(lat, lng, km) {
+  km = km || 4;
+  if (typeof CITY_ZONES === "undefined" || lat == null) return null;
+  for (const k in CITY_ZONES) {
+    if (k.indexOf("community:") === 0) continue;     // ne compare qu'aux villes natives
+    const v = CITY_ZONES[k];
+    if (v && distM({ lat: lat, lng: lng }, { lat: v[0], lng: v[1] }) < km * 1000) return k;
+  }
+  return null;
+}
 function loadCommunityZones(force) {
   if (force) loadCommunityZones._p = null;
   if (loadCommunityZones._p) return loadCommunityZones._p;
-  loadCommunityZones._p = fetch("/api/community/zones")
-    .then((r) => r.json())
-    .then((j) => { COMMUNITY_ZONES = (j && j.zones) || []; COMMUNITY_ZONES.forEach(injectCommunityZone); return COMMUNITY_ZONES; })
-    .catch(() => { COMMUNITY_ZONES = []; return COMMUNITY_ZONES; });
+  // on attend les villes natives (city packs) pour pouvoir filtrer les doublons par position
+  loadCommunityZones._p = Promise.all([
+    fetch("/api/community/zones").then((r) => r.json()).catch(() => ({})),
+    (typeof loadCityPacks === "function" ? loadCityPacks().catch(() => null) : Promise.resolve()),
+  ]).then(([j]) => {
+    const all = (j && j.zones) || [];
+    // masque les zones qui dupliquent une ville déjà présente nativement (même lieu) → plus de doublons
+    COMMUNITY_ZONES = all.filter((z) => !(z.center && nativeNear(z.center[0], z.center[1])));
+    COMMUNITY_ZONES.forEach(injectCommunityZone);
+    return COMMUNITY_ZONES;
+  }).catch(() => { COMMUNITY_ZONES = []; return COMMUNITY_ZONES; });
   return loadCommunityZones._p;
 }
 
