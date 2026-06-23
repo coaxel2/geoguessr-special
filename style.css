@@ -194,11 +194,20 @@ body[data-fx="aurora"] .home-bg::after {
 /* Monnaie + profil : deux pilules globales, alignées en haut à droite SUR LE MÊME
    axe que la barre (.site-header top:22px / min-height:68px ⇒ centre ≈ 56px).
    Regroupées (profil puis monnaie). Masquées en jeu via JS (style.display). */
-.wallet-pill {
+/* Barre d'actions haut-droite : conteneur flex unique qui aligne cloche + compte +
+   monnaie. Un seul point d'ancrage (right calé sur la grille 1180px) → les pilules
+   s'espacent toutes seules quelle que soit la largeur du pseudo (fini le chevauchement
+   de la cloche sur l'onglet Communauté). */
+.topbar-right {
   position: fixed;
   top: 34px;
   right: max(20px, calc((100vw - 1180px) / 2 + 20px));
-  z-index: 36;
+  z-index: 37;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.wallet-pill {
   display: inline-flex;
   align-items: center;
   gap: 9px;
@@ -237,10 +246,6 @@ body[data-fx="aurora"] .home-bg::after {
    Contient une icône SVG fixe (.account-ico) + le libellé (#account-name) géré par JS.
    Masqué en jeu via JS (#account-btn display:none), comme .wallet-pill. */
 .account-btn {
-  position: fixed;
-  top: 34px;
-  right: max(150px, calc((100vw - 1180px) / 2 + 150px));
-  z-index: 36;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -497,7 +502,7 @@ body[data-fx="aurora"] .home-bg::after {
 .auth-remember input { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
 
 /* ===== Cloche de notifications (parties ouvertes des amis) ===== */
-.notif-wrap { position: fixed; top: 34px; right: max(280px, calc((100vw - 1180px) / 2 + 280px)); z-index: 37; }
+.notif-wrap { position: relative; display: flex; }
 .notif-wrap[hidden] { display: none; }
 .notif-bell {
   position: relative; width: 42px; height: 42px; border-radius: 50%;
@@ -527,9 +532,8 @@ body[data-fx="aurora"] .home-bg::after {
 .notif-item-sub { font-size: 11.5px; color: var(--muted); }
 .notif-join { padding: 6px 13px; border-radius: 999px; border: 0; background: var(--accent); color: #04110b; font-weight: 800; font-size: 12.5px; cursor: pointer; white-space: nowrap; }
 @media (max-width: 900px) {
-  .notif-wrap { right: 112px; top: calc(13px + env(safe-area-inset-top)); }
   .notif-bell { width: 38px; height: 38px; }
-  .notif-panel { right: -46px; width: min(84vw, 290px); }
+  .notif-panel { right: 0; width: min(84vw, 290px); }
 }
 
 /* ===== Page Profil ===== */
@@ -2643,11 +2647,12 @@ body.drawer-open .nav-drawer { transform: translateX(0); }
   /* onglets inline masqués → désormais accessibles via le menu burger */
   .site-tabs { display: none; }
   .nav-burger { display: flex; }
-  /* monnaie : à gauche du burger ; profil : déplacé dans le tiroir */
-  .wallet-pill {
-    position: fixed; top: calc(13px + env(safe-area-inset-top));
-    right: 66px; height: 38px; padding: 0 12px; z-index: 42;
+  /* barre d'actions (cloche + monnaie) calée à gauche du burger ; profil → tiroir */
+  .topbar-right {
+    top: calc(13px + env(safe-area-inset-top));
+    right: 64px; gap: 8px; z-index: 42;
   }
+  .wallet-pill { height: 38px; padding: 0 12px; }
   .account-btn { display: none; }
   /* le contenu démarre sous la barre fixe (1 rangée ≈ 60px) */
   .app-shell { width: min(calc(100vw - 24px), 680px); padding-top: 74px; }
@@ -2727,7 +2732,8 @@ body.drawer-open .nav-drawer { transform: translateX(0); }
 
 @media (max-width: 520px) {
   .nav-burger { right: 11px; }
-  .wallet-pill { right: 62px; height: 36px; padding: 0 11px; gap: 7px; font-size: 13.5px; }
+  .topbar-right { right: 62px; }
+  .wallet-pill { height: 36px; padding: 0 11px; gap: 7px; font-size: 13.5px; }
   .wallet-icon { width: 22px; height: 22px; }
 
   .app-shell { width: calc(100vw - 18px); padding-bottom: 28px; }
