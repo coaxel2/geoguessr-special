@@ -493,6 +493,8 @@ body[data-fx="aurora"] .home-bg::after {
   box-shadow: inset 0 0 0 1px rgba(46,230,166,.4);
 }
 .mode-hint { margin: 9px 0 0; font-size: 12px; color: var(--muted); line-height: 1.4; }
+.auth-remember { display: flex; align-items: center; gap: 8px; margin: 10px 0 12px; font-size: 13.5px; color: var(--muted); cursor: pointer; user-select: none; }
+.auth-remember input { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
 
 /* ===== Page Profil ===== */
 .profile-page { display: block; max-width: 780px; margin-inline: auto; padding-top: clamp(18px, 4vh, 44px); padding-bottom: 54px; }
@@ -1433,7 +1435,8 @@ body {
 #online.screen,
 #leaderboard.screen,
 #shop.screen,
-#community.screen {
+#community.screen,
+#profile.screen {
   align-items: stretch;
   justify-content: flex-start;
   overflow-y: auto;

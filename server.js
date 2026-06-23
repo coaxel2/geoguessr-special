@@ -499,8 +499,10 @@ function readToken(req) {
   const h = req.headers.authorization || "";
   return h.startsWith("Bearer ") ? h.slice(7) : null;
 }
-function setSessionCookie(res, token) {
-  res.cookie("gtok", token, { httpOnly: true, sameSite: "lax", secure: IS_PROD, path: "/", maxAge: SESSION_TTL_MS });
+function setSessionCookie(res, token, remember) {
+  const opts = { httpOnly: true, sameSite: "lax", secure: IS_PROD, path: "/" };
+  if (remember !== false) opts.maxAge = SESSION_TTL_MS;   // « rester connecté » → cookie persistant ; sinon cookie de session
+  res.cookie("gtok", token, opts);
 }
 function clearSessionCookie(res) {
   res.clearCookie("gtok", { httpOnly: true, sameSite: "lax", secure: IS_PROD, path: "/" });
@@ -600,7 +602,7 @@ app.post("/api/register", async (req, res) => {
     );
     const user = rows[0];
     const token = await newSession(user.id);
-    setSessionCookie(res, token);
+    setSessionCookie(res, token, (req.body && req.body.remember));
     res.json({ ok: true, user: publicUser(user) });
   } catch (e) {
     if (e.code === "23505") return res.status(409).json({ ok: false, error: "pseudo-pris" });
@@ -632,7 +634,7 @@ app.post("/api/login", async (req, res) => {
       Object.assign(user, upd[0]);
     }
     const token = await newSession(user.id);
-    setSessionCookie(res, token);
+    setSessionCookie(res, token, (req.body && req.body.remember));
     res.json({ ok: true, user: publicUser(user) });
   } catch (e) {
     console.error("[login]", e.message);

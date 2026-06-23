@@ -242,7 +242,7 @@ function hydrateFromServer(u) {
     saveOwnedItems(u.owned || {});
     saveEquippedItems(u.equipped || {});
     G.playerName = u.pseudo;
-    try { localStorage.setItem("geoq-name", u.pseudo); } catch (e) {}
+    try { localStorage.setItem("geoq-name", u.pseudo); localStorage.setItem("geoq-auth", u.pseudo); } catch (e) {}
     if (Array.isArray(u.favorites)) { try { localStorage.setItem("geoq-fav", JSON.stringify(u.favorites)); } catch (e) {} }
     if (typeof u.av === "number") { G.avatarChoice = u.av; try { localStorage.setItem("geoq-av", String(u.av)); } catch (e) {} }
     if (typeof updateWallet === "function") updateWallet();
@@ -3087,6 +3087,7 @@ function submitAuth(mode) {
   const body = {
     pseudo: pseudo,
     password: password,
+    remember: $("auth-remember") ? $("auth-remember").checked : true,
     guest: { coins: getCoins(), owned: ownedItems(), equipped: equippedItems() },
   };
   fetch(url, {
@@ -3119,6 +3120,7 @@ function logout() {
     .catch(() => {})
     .finally(() => {
       AUTH.user = null;
+      try { localStorage.removeItem("geoq-auth"); } catch (e) {}
       const inp = $("player-name");
       if (inp) inp.readOnly = false;
       renderAuthUI();
@@ -3173,10 +3175,14 @@ function wire() {
   // Comptes (optionnel) : on branche l'UI puis on demande la session courante.
   // Si pas de DB / pas connecté, /api/me renvoie {user:null} -> reste en invité.
   wireAuth();
+  // affichage optimiste : si on était connecté (flag local), montre le pseudo tout de suite
+  // → plus de flash « Se connecter » au reload pendant la requête /api/me.
+  try { const la = localStorage.getItem("geoq-auth"); if (la && $("account-name")) { $("account-name").textContent = la; $("account-btn").classList.add("logged"); } } catch (e) {}
   fetch("/api/me", { credentials: "same-origin" })
     .then((r) => r.json())
     .then((d) => {
       if (d && d.user) { AUTH.user = d.user; hydrateFromServer(d.user); }
+      else { try { localStorage.removeItem("geoq-auth"); } catch (e) {} }
       renderAuthUI();
       // chargement direct sur /profil : l'auth n'était pas prête au routage initial → on y va maintenant
       if (location.pathname === "/profil") { if (isLogged()) goTab("profile", { replace: true }); else goTab("menu", { replace: true }); }
