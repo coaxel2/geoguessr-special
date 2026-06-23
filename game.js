@@ -3178,6 +3178,8 @@ function wire() {
     .then((d) => {
       if (d && d.user) { AUTH.user = d.user; hydrateFromServer(d.user); }
       renderAuthUI();
+      // chargement direct sur /profil : l'auth n'était pas prête au routage initial → on y va maintenant
+      if (location.pathname === "/profil") { if (isLogged()) goTab("profile", { replace: true }); else goTab("menu", { replace: true }); }
     })
     .catch(() => { renderAuthUI(); });
 
