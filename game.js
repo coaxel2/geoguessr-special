@@ -31,6 +31,14 @@ function showScreen(id) {
   if (wallet) wallet.style.display = isHub ? "" : "none";
   const accountBtn = document.getElementById("account-btn");
   if (accountBtn) accountBtn.style.display = isHub ? "" : "none";
+  // le menu burger (mobile) n'a pas de sens en partie : on le masque + on referme le tiroir
+  const burger = document.getElementById("nav-burger");
+  if (burger) burger.style.display = isHub ? "" : "none";
+  if (!isHub) {
+    document.body.classList.remove("drawer-open");
+    const drw = document.getElementById("nav-drawer"), scr = document.getElementById("nav-scrim");
+    if (drw) drw.hidden = true; if (scr) scr.hidden = true;
+  }
   if (id === "leaderboard") loadLeaderboardPage();
   if (id === "community") renderCommunity();
   if (id === "shop") renderShop();   // labels Acheter/Équiper/Équipé à jour à chaque ouverture
