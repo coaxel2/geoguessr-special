@@ -250,7 +250,16 @@ const SHOP_ITEMS = {
   bannerAurora: { price: 1250, type: "banner", slot: "banner", label: "Fond Aurore" },
   bannerSunset: { price: 1050, type: "banner", slot: "banner", label: "Fond Coucher de soleil" },
   bannerAtlas: { price: 1600, type: "banner", slot: "banner", label: "Fond Atlas nocturne" },
-  bannerLegendary: { price: 0, type: "banner", slot: "banner", label: "Fond Légende céleste" },
+  passBannerSummit: { price: 0, type: "banner", slot: "banner", label: "Fond Sommets de saison", passOnly: true },
+  passBannerAurora: { price: 0, type: "banner", slot: "banner", label: "Fond Aurore de saison", passOnly: true },
+  passBannerSunset: { price: 0, type: "banner", slot: "banner", label: "Fond Couchant de saison", passOnly: true },
+  passBannerAtlas: { price: 0, type: "banner", slot: "banner", label: "Fond Atlas de saison", passOnly: true },
+  passBannerLegendary: { price: 0, type: "banner", slot: "banner", label: "Fond Légende céleste", passOnly: true },
+  passBadgeCeleste: { price: 0, type: "badge", slot: "badge", label: "Badge Céleste", passOnly: true },
+  passBadgeNord: { price: 0, type: "badge", slot: "badge", label: "Badge Nord", passOnly: true },
+  passBadgeSolar: { price: 0, type: "badge", slot: "badge", label: "Badge Solaire", passOnly: true },
+  passBadgeAtlas: { price: 0, type: "badge", slot: "badge", label: "Badge Atlas", passOnly: true },
+  passBadgeSouverain: { price: 0, type: "badge", slot: "badge", label: "Badge Souverain", passOnly: true },
 };
 
 /* ---------- comptes (login / inscription) ----------
@@ -335,9 +344,14 @@ function ownedItems() {
   owned.bannerDefault = true;
   owned.themeDefault = true;
   owned.fxNone = true;
+  if (owned.bannerLegendary) owned.passBannerLegendary = true; // migration de la première version du passe
   return owned;
 }
-function equippedItems() { return Object.assign({ avatarPack: "avatars", banner: "bannerDefault", theme: "themeDefault", fx: "fxNone" }, readJSON(EQUIPPED_KEY, {})); }
+function equippedItems() {
+  const equipped = Object.assign({ avatarPack: "avatars", banner: "bannerDefault", theme: "themeDefault", fx: "fxNone" }, readJSON(EQUIPPED_KEY, {}));
+  if (equipped.banner === "bannerLegendary") equipped.banner = "passBannerLegendary";
+  return equipped;
+}
 function saveOwnedItems(owned) { writeJSON(OWNED_KEY, owned); pushState(); }
 function saveEquippedItems(equipped) { writeJSON(EQUIPPED_KEY, equipped); pushState(); }
 function passState() { return { xp: getPassXP(), claims: passClaims() }; }
@@ -353,8 +367,8 @@ function setPassXP(xp) { try { localStorage.setItem(PASS_XP_KEY, String(Math.max
 function passLevel() { return Math.min(PASS_MAX_LEVEL, Math.floor(getPassXP() / PASS_XP_PER_LEVEL) + 1); }
 function passProgress() { const xp = getPassXP(); return { level: passLevel(), current: xp >= PASS_MAX_LEVEL * PASS_XP_PER_LEVEL ? PASS_XP_PER_LEVEL : xp % PASS_XP_PER_LEVEL }; }
 function passReward(level) {
-  const milestones = { 10: ["bannerSummit", "Fond Sommets"], 20: ["badgeStar", "Badge Étoile"], 30: ["bannerAurora", "Fond Aurore"], 40: ["avatarsBot", "Pack Robots"], 50: ["badgeFlame", "Badge Flamme"], 60: ["bannerSunset", "Fond Coucher de soleil"], 70: ["avatarsPixel", "Pack Pixel"], 80: ["bannerAtlas", "Fond Atlas nocturne"], 90: ["badgeCrown", "Badge Couronne"] };
-  if (level === 100) return { coins: 10000, item: "bannerLegendary", label: "Fond Légende céleste", ultimate: true };
+  const milestones = { 10: ["passBannerSummit", "Fond Sommets de saison"], 20: ["passBadgeCeleste", "Badge Céleste"], 30: ["passBannerAurora", "Fond Aurore de saison"], 40: ["passBadgeNord", "Badge Nord"], 50: ["passBadgeSolar", "Badge Solaire"], 60: ["passBannerSunset", "Fond Couchant de saison"], 70: ["passBadgeAtlas", "Badge Atlas"], 80: ["passBannerAtlas", "Fond Atlas de saison"], 90: ["passBadgeSouverain", "Badge Souverain"] };
+  if (level === 100) return { coins: 10000, item: "passBannerLegendary", label: "Fond Légende céleste", ultimate: true };
   if (milestones[level]) return { coins: 250 + level * 30, item: milestones[level][0], label: milestones[level][1], milestone: true };
   return { coins: 50 + level * 12, label: (50 + level * 12).toLocaleString("fr-FR") + " pièces" };
 }
@@ -367,16 +381,18 @@ function claimPassReward(level) {
 }
 // Badges : id d'item équipé (badge/badgeCompass/…) → nom court (data-badge) → emoji.
 // Sert à afficher le badge à côté du pseudo PARTOUT (profil, lobby, classement, en jeu…).
-const BADGE_NAME = { badge: "globe", badgeCompass: "compass", badgeFlame: "flame", badgeStar: "star", badgeCrown: "crown" };
+const BADGE_NAME = { badge: "globe", badgeCompass: "compass", badgeFlame: "flame", badgeStar: "star", badgeCrown: "crown", passBadgeCeleste: "star", passBadgeNord: "compass", passBadgeSolar: "flame", passBadgeAtlas: "globe", passBadgeSouverain: "crown" };
 const BADGE_EMOJI = { globe: "🌍", compass: "🧭", flame: "🔥", star: "⭐", crown: "👑" };
 function badgeEmoji(badgeId) { return BADGE_EMOJI[BADGE_NAME[badgeId]] || ""; }
 function myBadgeEmoji() { return badgeEmoji(equippedItems().badge); }
+const BANNER_SKIN = { passBannerSummit: "bannerSummit", passBannerAurora: "bannerAurora", passBannerSunset: "bannerSunset", passBannerAtlas: "bannerAtlas", passBannerLegendary: "bannerLegendary" };
+function bannerSkin(id) { return BANNER_SKIN[id] || id || "bannerDefault"; }
 function applyCosmetics() {
   const equipped = equippedItems();
   document.body.dataset.theme = equipped.theme && equipped.theme !== "themeDefault" ? equipped.theme : "";
   document.body.dataset.badge = BADGE_NAME[equipped.badge] || "";
   document.body.dataset.fx = equipped.fx === "fxAurora" ? "aurora" : "";
-  const hero = $("prof-hero"); if (hero) hero.dataset.banner = equipped.banner || "bannerDefault";
+  const hero = $("prof-hero"); if (hero) hero.dataset.banner = bannerSkin(equipped.banner);
   // reflète le badge à côté du pseudo du profil IMMÉDIATEMENT (sinon il fallait recharger la page)
   const pp = $("prof-pseudo");
   if (pp) { const ps = (AUTH.user && AUTH.user.pseudo) || G.playerName || "Joueur", b = myBadgeEmoji(); pp.textContent = ps + (b ? " " + b : ""); }
@@ -396,6 +412,7 @@ function buyOrEquip(itemId) {
   const owned = ownedItems();
   const equipped = equippedItems();
   if (!owned[itemId]) {
+    if (item.passOnly) { setShopFeedback(item.label + " est une récompense exclusive du passe de combat."); return; }
     const coins = getCoins();
     if (coins < item.price) {
       setShopFeedback("Pas assez de pièces pour " + item.label + ".");
@@ -483,7 +500,7 @@ function itemStage(itemId, big) {
       bannerAtlas: "repeating-linear-gradient(20deg,transparent 0 11px,rgba(170,230,255,.3) 12px 13px,transparent 14px 25px), linear-gradient(135deg,#0e2d47,#111a38 62%,#070a16)",
       bannerLegendary: "radial-gradient(70% 140% at 10% 0%,#ffd057,transparent 58%), radial-gradient(75% 140% at 90% 100%,#6f52ff,transparent 64%), #101530",
     };
-    wrap.style.background = art[itemId] || art.bannerDefault;
+    wrap.style.background = art[bannerSkin(itemId)] || art.bannerDefault;
   }
   return wrap;
 }
@@ -3158,6 +3175,7 @@ function profScoreRow(s, i) {
 let _pubPseudo = null;
 function openPublicProfile(pseudo) {
   const m = $("pubprofile-modal"); if (!m || !pseudo) return;
+  m.dataset.banner = "bannerDefault";
   _pubPseudo = pseudo;
   $("pub-pseudo").textContent = pseudo;
   $("pub-av").innerHTML = ""; $("pub-rank").textContent = "🎟 Passe de combat";
@@ -3173,6 +3191,7 @@ function openPublicProfile(pseudo) {
     .then((d) => {
       if (!d || !d.ok) { $("pub-top3").innerHTML = '<p class="comm-empty">Profil introuvable.</p>'; return; }
       const p = d.profile;
+      m.dataset.banner = bannerSkin((p.equipped || {}).banner);
       const pubBadge = badgeEmoji((p.equipped || {}).badge);
       $("pub-pseudo").textContent = p.pseudo + (pubBadge ? " " + pubBadge : "");
       const style = (AV_STYLES[(p.equipped || {}).avatarPack]) || "avataaars";
