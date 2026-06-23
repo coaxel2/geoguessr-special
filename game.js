@@ -20,13 +20,29 @@ const CONFIG = {
 const $ = (id) => document.getElementById(id);
 const sum = (a) => a.reduce((x, y) => x + (y || 0), 0);
 const rand = (min, max) => min + Math.random() * (max - min);
+const HUB_IDS = ["menu", "online", "leaderboard", "shop", "community", "profile"];
+function activeScreenId() {
+  const s = document.querySelector(".screen.show");
+  return s ? s.id : null;
+}
+// Visibilité de la cloche : seulement hors-jeu (hub) ET connecté. Recalculée à
+// chaque changement d'écran ET après l'hydratation auth (le boot rend l'écran
+// avant que /api/me ait répondu, donc isLogged() est encore false à ce moment-là).
+function refreshNotifBell() {
+  const notif = document.getElementById("notif-wrap");
+  if (!notif) return;
+  const show = HUB_IDS.includes(activeScreenId()) && isLogged();
+  const wasHidden = notif.hidden;
+  notif.hidden = !show;
+  if (show && wasHidden && typeof pollFriendGames === "function") pollFriendGames();
+}
 function showScreen(id) {
   document.querySelectorAll(".screen").forEach((s) => s.classList.remove("show"));
   $(id).classList.add("show");
   syncTabs(id);
   // La monnaie n'a de sens que sur les écrans « vitrine » ; on la masque en partie
   // (game / result / final) pour ne pas encombrer le Street View ni ses contrôles.
-  const isHub = (id === "menu" || id === "online" || id === "leaderboard" || id === "shop" || id === "community" || id === "profile");
+  const isHub = HUB_IDS.includes(id);
   const wallet = document.getElementById("wallet-pill");
   if (wallet) wallet.style.display = isHub ? "" : "none";
   const accountBtn = document.getElementById("account-btn");
@@ -34,8 +50,7 @@ function showScreen(id) {
   // le menu burger (mobile) n'a pas de sens en partie : on le masque + on referme le tiroir
   const burger = document.getElementById("nav-burger");
   if (burger) burger.style.display = isHub ? "" : "none";
-  const notif = document.getElementById("notif-wrap");
-  if (notif) notif.hidden = !(isHub && isLogged());   // cloche : seulement hors-jeu et connecté
+  refreshNotifBell();
   if (!isHub) {
     document.body.classList.remove("drawer-open");
     const drw = document.getElementById("nav-drawer"), scr = document.getElementById("nav-scrim");
@@ -252,6 +267,7 @@ function hydrateFromServer(u) {
     if (typeof renderShop === "function") renderShop();
     const inp = document.getElementById("player-name");
     if (inp) { inp.value = u.pseudo; inp.readOnly = true; }
+    refreshNotifBell();   // l'auth vient d'être connue : révèle la cloche si on est sur un hub
   } catch (e) {
     console.error("[auth] hydrate", e);
   } finally {
@@ -3199,6 +3215,8 @@ function logout() {
       const inp = $("player-name");
       if (inp) inp.readOnly = false;
       renderAuthUI();
+      const np = $("notif-panel"); if (np) np.hidden = true;
+      refreshNotifBell();   // plus connecté → la cloche disparaît
     });
 }
 function wireAuth() {
