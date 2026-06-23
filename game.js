@@ -2978,6 +2978,7 @@ function openPublicProfile(pseudo) {
   $("pub-best").textContent = "Record —"; $("pub-games").textContent = "";
   $("pub-top3").innerHTML = '<p class="comm-empty">Chargement…</p>';
   $("pub-friend").hidden = true;
+  { const fd = $("pub-friend-decline"); if (fd) fd.hidden = true; }
   m.hidden = false;
   fetch("/api/profile/" + encodeURIComponent(pseudo), { credentials: "same-origin" })
     .then((r) => (r.ok ? r.json() : null))
@@ -2995,12 +2996,16 @@ function openPublicProfile(pseudo) {
       const top = Array.isArray(p.top) ? p.top : [];
       if (!top.length) box.innerHTML = '<p class="comm-empty">Aucune partie enregistrée.</p>';
       else top.forEach((s, i) => box.appendChild(profScoreRow(s, i)));
-      const fb = $("pub-friend");
+      const fb = $("pub-friend"), fd = $("pub-friend-decline");
+      if (fd) fd.hidden = true;
       if (isLogged() && !p.isMe) {
         fb.hidden = false;
-        fb.textContent = p.isFriend ? "✓ Ami — retirer" : "+ Ajouter en ami";
-        fb.dataset.friend = p.isFriend ? "1" : "0";
-      } else fb.hidden = true;
+        // 4 états : ami / demande reçue (accepter + refuser) / demande envoyée / rien
+        if (p.isFriend) { fb.textContent = "✓ Amis — retirer"; fb.dataset.action = "remove"; fb.disabled = false; }
+        else if (p.requestReceived) { fb.textContent = "✓ Accepter la demande"; fb.dataset.action = "accept"; fb.disabled = false; if (fd) fd.hidden = false; }
+        else if (p.requestSent) { fb.textContent = "⏳ Demande envoyée — annuler"; fb.dataset.action = "cancel"; fb.disabled = false; }
+        else { fb.textContent = "+ Ajouter en ami"; fb.dataset.action = "add"; fb.disabled = false; }
+      } else { fb.hidden = true; if (fd) fd.hidden = true; }
     })
     .catch(() => { $("pub-top3").innerHTML = '<p class="comm-empty">Erreur réseau.</p>'; });
 }
@@ -3015,7 +3020,7 @@ function renderFriends() {
     .then((d) => {
       const friends = (d && d.friends) || [];
       box.innerHTML = "";
-      if (!friends.length) { box.innerHTML = '<p class="comm-empty">Aucun ami — clique sur un pseudo (classement, communauté…) pour l\'ajouter.</p>'; return; }
+      if (!friends.length) { box.innerHTML = '<p class="comm-empty">Aucun ami pour l\'instant — cherche un pseudo ci-dessous ou clique sur un joueur (classement, communauté…) pour lui envoyer une demande.</p>'; return; }
       friends.forEach((f) => {
         const row = document.createElement("div"); row.className = "prof-friend-row";
         const img = document.createElement("img"); img.className = "prof-friend-av"; img.src = avatarURLFor(f.av || 0, "avataaars"); img.alt = "";
@@ -3052,11 +3057,18 @@ function searchFriends(q) {
           const nm = commSpan("prof-friend-name", p.pseudo);
           nm.addEventListener("click", () => openPublicProfile(p.pseudo));
           const btn = document.createElement("button"); btn.type = "button"; btn.className = "friend-add-btn";
-          btn.textContent = p.isFriend ? "✓ Ami" : "+ Ajouter"; btn.disabled = p.isFriend;
-          btn.addEventListener("click", () => {
-            fetch("/api/friends/" + encodeURIComponent(p.pseudo), { method: "POST", credentials: "same-origin" })
-              .then(() => { btn.textContent = "✓ Ami"; btn.disabled = true; renderFriends(); });
-          });
+          // états : déjà ami / demande envoyée (en attente) / l'autre m'a demandé / rien
+          if (p.isFriend) { btn.textContent = "✓ Ami"; btn.disabled = true; }
+          else if (p.requested) { btn.textContent = "⏳ Envoyée"; btn.disabled = true; }
+          else {
+            btn.textContent = p.incoming ? "✓ Accepter" : "+ Ajouter";
+            btn.addEventListener("click", () => {
+              btn.disabled = true;
+              fetch("/api/friends/" + encodeURIComponent(p.pseudo), { method: "POST", credentials: "same-origin" })
+                .then((r) => (r.ok ? r.json() : null))
+                .then((d) => { btn.textContent = (d && d.status === "friends") ? "✓ Ami" : "⏳ Envoyée"; renderFriends(); pollFriendGames(); });
+            });
+          }
           row.appendChild(img); row.appendChild(nm); row.appendChild(btn); box.appendChild(row);
         });
       })
@@ -3075,31 +3087,66 @@ function closeOpenGame() {
   fetch("/api/games/close", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ code: G.online.code }) }).catch(() => {});
 }
-let _notifGames = [];
-function renderNotifBell(games) {
-  _notifGames = games || [];
-  const badge = $("notif-badge"), list = $("notif-list");
-  if (badge) { if (_notifGames.length) { badge.textContent = _notifGames.length; badge.hidden = false; } else badge.hidden = true; }
-  if (!list) return;
-  if (!_notifGames.length) { list.innerHTML = '<p class="comm-empty">Aucune partie ouverte pour l\'instant.</p>'; return; }
-  list.innerHTML = "";
-  _notifGames.forEach((g) => {
-    const row = document.createElement("div"); row.className = "notif-item";
-    const img = document.createElement("img"); img.className = "notif-item-av"; img.src = avatarURLFor(g.av || 0, "avataaars"); img.alt = "";
-    const txt = document.createElement("div"); txt.className = "notif-item-txt";
-    txt.appendChild(commSpan("notif-item-host", g.host));
-    txt.appendChild(commSpan("notif-item-sub", (g.label || "Partie") + " · " + (g.rounds || 5) + " manches"));
-    const btn = document.createElement("button"); btn.type = "button"; btn.className = "notif-join"; btn.textContent = "Rejoindre";
-    btn.addEventListener("click", () => { $("notif-panel").hidden = true; requestName(() => joinRoom(g.code)); });
-    row.appendChild(img); row.appendChild(txt); row.appendChild(btn); list.appendChild(row);
-  });
+let _notifReqs = [], _notifGames = [];
+// Petit lien avatar+pseudo cliquable vers le profil public (referme le panneau).
+function notifProfileLink(el, pseudo) {
+  el.style.cursor = "pointer";
+  el.addEventListener("click", () => { const p = $("notif-panel"); if (p) p.hidden = true; openPublicProfile(pseudo); });
 }
-function pollFriendGames() {
-  if (!isLogged()) { renderNotifBell([]); return; }
-  fetch("/api/friends/games", { credentials: "same-origin" })
-    .then((r) => (r.ok ? r.json() : null))
-    .then((d) => renderNotifBell((d && d.games) || []))
+function renderNotifBell(reqs, games) {
+  _notifReqs = reqs || []; _notifGames = games || [];
+  const badge = $("notif-badge"), list = $("notif-list");
+  const total = _notifReqs.length + _notifGames.length;
+  if (badge) { if (total) { badge.textContent = total > 9 ? "9+" : total; badge.hidden = false; } else badge.hidden = true; }
+  if (!list) return;
+  list.innerHTML = "";
+  if (!total) { list.innerHTML = '<p class="comm-empty">Rien de neuf. Les demandes d\'ami et les parties ouvertes de tes amis apparaîtront ici.</p>'; return; }
+  // --- Demandes d'ami reçues (accepter / refuser) ---
+  if (_notifReqs.length) {
+    const h = document.createElement("div"); h.className = "notif-sec"; h.textContent = "Demandes d'ami"; list.appendChild(h);
+    _notifReqs.forEach((r) => {
+      const row = document.createElement("div"); row.className = "notif-item";
+      const img = document.createElement("img"); img.className = "notif-item-av"; img.src = avatarURLFor(r.av || 0, "avataaars"); img.alt = ""; notifProfileLink(img, r.pseudo);
+      const txt = document.createElement("div"); txt.className = "notif-item-txt";
+      const nm = commSpan("notif-item-host", r.pseudo); notifProfileLink(nm, r.pseudo); txt.appendChild(nm);
+      txt.appendChild(commSpan("notif-item-sub", "veut t'ajouter en ami"));
+      const acts = document.createElement("div"); acts.className = "notif-acts";
+      const yes = document.createElement("button"); yes.type = "button"; yes.className = "notif-yes"; yes.textContent = "✓"; yes.title = "Accepter";
+      const no = document.createElement("button"); no.type = "button"; no.className = "notif-no"; no.textContent = "✕"; no.title = "Refuser";
+      yes.addEventListener("click", () => respondFriendReq(r.pseudo, "accept"));
+      no.addEventListener("click", () => respondFriendReq(r.pseudo, "decline"));
+      acts.appendChild(yes); acts.appendChild(no);
+      row.appendChild(img); row.appendChild(txt); row.appendChild(acts); list.appendChild(row);
+    });
+  }
+  // --- Parties multi ouvertes des amis (rejoindre) ---
+  if (_notifGames.length) {
+    const h = document.createElement("div"); h.className = "notif-sec"; h.textContent = "Parties de tes amis"; list.appendChild(h);
+    _notifGames.forEach((g) => {
+      const row = document.createElement("div"); row.className = "notif-item";
+      const img = document.createElement("img"); img.className = "notif-item-av"; img.src = avatarURLFor(g.av || 0, "avataaars"); img.alt = ""; notifProfileLink(img, g.host);
+      const txt = document.createElement("div"); txt.className = "notif-item-txt";
+      const nm = commSpan("notif-item-host", g.host); notifProfileLink(nm, g.host); txt.appendChild(nm);
+      txt.appendChild(commSpan("notif-item-sub", (g.label || "Partie") + " · " + (g.rounds || 5) + " manches"));
+      const btn = document.createElement("button"); btn.type = "button"; btn.className = "notif-join"; btn.textContent = "Rejoindre";
+      btn.addEventListener("click", () => { $("notif-panel").hidden = true; requestName(() => joinRoom(g.code)); });
+      row.appendChild(img); row.appendChild(txt); row.appendChild(btn); list.appendChild(row);
+    });
+  }
+}
+// Répond à une demande d'ami (accept|decline) puis rafraîchit cloche + liste d'amis.
+function respondFriendReq(pseudo, action) {
+  fetch("/api/friends/" + encodeURIComponent(pseudo) + "/" + action, { method: "POST", credentials: "same-origin" })
+    .then(() => { pollFriendGames(); if (activeScreenId() === "profile") renderFriends(); })
     .catch(() => {});
+}
+// Rafraîchit la cloche : demandes d'ami reçues + parties ouvertes des amis (en parallèle).
+function pollFriendGames() {
+  if (!isLogged()) { renderNotifBell([], []); return; }
+  Promise.all([
+    fetch("/api/friends/requests", { credentials: "same-origin" }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    fetch("/api/friends/games", { credentials: "same-origin" }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+  ]).then(([rq, gm]) => renderNotifBell((rq && rq.requests) || [], (gm && gm.games) || []));
 }
 function renderProfileCollections() {
   const wrap = $("profile-collections");
@@ -3503,9 +3550,21 @@ function wire() {
     pubM.addEventListener("click", (e) => { if (e.target === pubM) pubM.hidden = true; });
     $("pub-friend").addEventListener("click", () => {
       if (!_pubPseudo) return;
-      const isFriend = $("pub-friend").dataset.friend === "1";
-      fetch("/api/friends/" + encodeURIComponent(_pubPseudo), { method: isFriend ? "DELETE" : "POST", credentials: "same-origin" })
-        .then(() => openPublicProfile(_pubPseudo));   // rafraîchit l'état du bouton
+      const action = $("pub-friend").dataset.action || "add";
+      // add → envoie une demande ; accept → accepte ; remove/cancel → supprime (les deux sens)
+      let url = "/api/friends/" + encodeURIComponent(_pubPseudo), method = "POST";
+      if (action === "accept") url += "/accept";
+      else if (action === "remove" || action === "cancel") method = "DELETE";
+      $("pub-friend").disabled = true;
+      fetch(url, { method, credentials: "same-origin" })
+        .then(() => { openPublicProfile(_pubPseudo); pollFriendGames(); if (activeScreenId() === "profile") renderFriends(); });
+    });
+    const pfd = $("pub-friend-decline");
+    if (pfd) pfd.addEventListener("click", () => {
+      if (!_pubPseudo) return;
+      pfd.disabled = true;
+      fetch("/api/friends/" + encodeURIComponent(_pubPseudo) + "/decline", { method: "POST", credentials: "same-origin" })
+        .then(() => { pfd.disabled = false; openPublicProfile(_pubPseudo); pollFriendGames(); });
     });
   }
 

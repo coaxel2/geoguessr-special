@@ -419,6 +419,9 @@ async function initDb() {
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     PRIMARY KEY (user_id, friend_id)
   );`);
+  // statut de la relation : 'pending' (demande en attente, user_id a demandé friend_id) ou 'accepted'
+  // (amitié = 2 lignes symétriques 'accepted'). Les lignes existantes deviennent 'accepted'.
+  await db.query(`ALTER TABLE friends ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'accepted';`);
   // ---- comptes joueurs + sessions (auth persistante) ----
   await db.query(`
     CREATE TABLE IF NOT EXISTS users (
@@ -705,50 +708,123 @@ app.get("/api/profile/:pseudo", async (req, res) => {
     const usr = u.rows[0];
     const st = await db.query(`SELECT count(*)::int AS games, COALESCE(max(score), 0)::int AS best FROM scores WHERE pseudo = $1`, [usr.pseudo]);
     const top = await db.query(`SELECT zone_label, score, duration_s FROM scores WHERE pseudo = $1 ORDER BY score DESC, created_at ASC LIMIT 3`, [usr.pseudo]);
-    let isFriend = false, isMe = false;
+    let isFriend = false, isMe = false, requestSent = false, requestReceived = false;
     if (req.user) {
       isMe = req.user.id === usr.id;
-      const f = await db.query(`SELECT 1 FROM friends WHERE user_id = $1 AND friend_id = $2`, [req.user.id, usr.id]);
-      isFriend = f.rows.length > 0;
+      if (!isMe) { const fs = await friendState(req.user.id, usr.id); isFriend = fs.isFriend; requestSent = fs.requestSent; requestReceived = fs.requestReceived; }
     }
-    res.json({ ok: true, profile: { pseudo: usr.pseudo, av: usr.avatar_idx || 0, equipped: usr.equipped || {}, games: st.rows[0].games, best: st.rows[0].best, top: top.rows, isFriend, isMe } });
+    res.json({ ok: true, profile: { pseudo: usr.pseudo, av: usr.avatar_idx || 0, equipped: usr.equipped || {}, games: st.rows[0].games, best: st.rows[0].best, top: top.rows, isFriend, isMe, requestSent, requestReceived } });
   } catch (e) {
     console.error("[profile]", e.message);
     res.status(500).json({ ok: false, error: "db-error" });
   }
 });
 
-// Amis (suivi simple) : POST ajoute, DELETE retire, GET liste.
+// ===== Amis avec DEMANDES (pending) puis acceptation/refus =====
+// État de la relation entre `meId` et `otherId` (dans les deux sens).
+async function friendState(meId, otherId) {
+  const r = await db.query(
+    `SELECT user_id, status FROM friends
+      WHERE (user_id = $1 AND friend_id = $2) OR (user_id = $2 AND friend_id = $1)`,
+    [meId, otherId]
+  );
+  let isFriend = false, requestSent = false, requestReceived = false;
+  for (const row of r.rows) {
+    if (row.status === "accepted") isFriend = true;
+    else if (row.user_id === meId) requestSent = true;     // j'ai demandé l'autre
+    else requestReceived = true;                            // l'autre m'a demandé
+  }
+  return { isFriend, requestSent, requestReceived };
+}
+// Établit l'amitié réciproque (2 lignes 'accepted').
+async function acceptFriendship(meId, otherId) {
+  await db.query(`UPDATE friends SET status='accepted' WHERE user_id=$1 AND friend_id=$2`, [otherId, meId]);
+  await db.query(
+    `INSERT INTO friends (user_id, friend_id, status) VALUES ($1,$2,'accepted')
+       ON CONFLICT (user_id, friend_id) DO UPDATE SET status='accepted'`,
+    [meId, otherId]
+  );
+}
+
+// POST /api/friends/:pseudo — ENVOYER une demande d'ami (ou accepter direct si l'autre m'avait déjà demandé).
 app.post("/api/friends/:pseudo", requireAuth, async (req, res) => {
+  if (!requireDb(res)) return;
   const key = pseudoKey(req.params.pseudo);
   try {
     const u = await db.query(`SELECT id FROM users WHERE pseudo_key = $1`, [key]);
     if (!u.rows.length) return res.status(404).json({ ok: false, error: "joueur introuvable" });
-    if (u.rows[0].id === req.user.id) return res.status(400).json({ ok: false, error: "impossible-soi-meme" });
-    await db.query(`INSERT INTO friends (user_id, friend_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, [req.user.id, u.rows[0].id]);
-    res.json({ ok: true });
+    const otherId = u.rows[0].id;
+    if (otherId === req.user.id) return res.status(400).json({ ok: false, error: "impossible-soi-meme" });
+    const st = await friendState(req.user.id, otherId);
+    if (st.isFriend) return res.json({ ok: true, status: "friends" });
+    if (st.requestReceived) { await acceptFriendship(req.user.id, otherId); return res.json({ ok: true, status: "friends" }); }
+    await db.query(
+      `INSERT INTO friends (user_id, friend_id, status) VALUES ($1,$2,'pending') ON CONFLICT (user_id, friend_id) DO NOTHING`,
+      [req.user.id, otherId]
+    );
+    res.json({ ok: true, status: "requested" });
   } catch (e) { console.error("[friends+]", e.message); res.status(500).json({ ok: false, error: "db-error" }); }
 });
-app.delete("/api/friends/:pseudo", requireAuth, async (req, res) => {
+// POST /api/friends/:pseudo/accept — ACCEPTER une demande reçue
+app.post("/api/friends/:pseudo/accept", requireAuth, async (req, res) => {
+  if (!requireDb(res)) return;
   const key = pseudoKey(req.params.pseudo);
   try {
     const u = await db.query(`SELECT id FROM users WHERE pseudo_key = $1`, [key]);
     if (!u.rows.length) return res.status(404).json({ ok: false, error: "joueur introuvable" });
-    await db.query(`DELETE FROM friends WHERE user_id = $1 AND friend_id = $2`, [req.user.id, u.rows[0].id]);
+    const otherId = u.rows[0].id;
+    const pend = await db.query(`SELECT 1 FROM friends WHERE user_id=$1 AND friend_id=$2 AND status='pending'`, [otherId, req.user.id]);
+    if (!pend.rows.length) return res.status(404).json({ ok: false, error: "aucune-demande" });
+    await acceptFriendship(req.user.id, otherId);
+    res.json({ ok: true });
+  } catch (e) { console.error("[friend-accept]", e.message); res.status(500).json({ ok: false, error: "db-error" }); }
+});
+// POST /api/friends/:pseudo/decline — REFUSER une demande reçue
+app.post("/api/friends/:pseudo/decline", requireAuth, async (req, res) => {
+  if (!requireDb(res)) return;
+  const key = pseudoKey(req.params.pseudo);
+  try {
+    const u = await db.query(`SELECT id FROM users WHERE pseudo_key = $1`, [key]);
+    if (!u.rows.length) return res.status(404).json({ ok: false, error: "joueur introuvable" });
+    await db.query(`DELETE FROM friends WHERE user_id=$1 AND friend_id=$2 AND status='pending'`, [u.rows[0].id, req.user.id]);
+    res.json({ ok: true });
+  } catch (e) { console.error("[friend-decline]", e.message); res.status(500).json({ ok: false, error: "db-error" }); }
+});
+// DELETE /api/friends/:pseudo — retirer un ami OU annuler une demande envoyée (supprime les deux sens)
+app.delete("/api/friends/:pseudo", requireAuth, async (req, res) => {
+  if (!requireDb(res)) return;
+  const key = pseudoKey(req.params.pseudo);
+  try {
+    const u = await db.query(`SELECT id FROM users WHERE pseudo_key = $1`, [key]);
+    if (!u.rows.length) return res.status(404).json({ ok: false, error: "joueur introuvable" });
+    await db.query(`DELETE FROM friends WHERE (user_id=$1 AND friend_id=$2) OR (user_id=$2 AND friend_id=$1)`, [req.user.id, u.rows[0].id]);
     res.json({ ok: true });
   } catch (e) { console.error("[friends-]", e.message); res.status(500).json({ ok: false, error: "db-error" }); }
 });
+// GET /api/friends — amis ACCEPTÉS
 app.get("/api/friends", requireAuth, async (req, res) => {
   try {
     const { rows } = await db.query(
       `SELECT u.pseudo, u.avatar_idx,
               (SELECT COALESCE(max(score), 0)::int FROM scores s WHERE s.pseudo = u.pseudo) AS best
          FROM friends f JOIN users u ON u.id = f.friend_id
-        WHERE f.user_id = $1 ORDER BY f.created_at DESC LIMIT 50`,
+        WHERE f.user_id = $1 AND f.status='accepted' ORDER BY f.created_at DESC LIMIT 50`,
       [req.user.id]
     );
     res.json({ ok: true, friends: rows.map((r) => ({ pseudo: r.pseudo, av: r.avatar_idx || 0, best: r.best })) });
   } catch (e) { console.error("[friends]", e.message); res.status(500).json({ ok: false, error: "db-error" }); }
+});
+// GET /api/friends/requests — demandes d'ami REÇUES en attente (pour la cloche)
+app.get("/api/friends/requests", requireAuth, async (req, res) => {
+  try {
+    const { rows } = await db.query(
+      `SELECT u.pseudo, u.avatar_idx
+         FROM friends f JOIN users u ON u.id = f.user_id
+        WHERE f.friend_id = $1 AND f.status='pending' ORDER BY f.created_at DESC LIMIT 30`,
+      [req.user.id]
+    );
+    res.json({ ok: true, requests: rows.map((r) => ({ pseudo: r.pseudo, av: r.avatar_idx || 0 })) });
+  } catch (e) { console.error("[freq]", e.message); res.status(500).json({ ok: false, error: "db-error" }); }
 });
 
 // GET /api/players/search?q= — recherche de joueurs par pseudo (pour ajouter en ami)
@@ -758,13 +834,15 @@ app.get("/api/players/search", requireAuth, async (req, res) => {
   try {
     const { rows } = await db.query(
       `SELECT u.pseudo, u.avatar_idx,
-              EXISTS(SELECT 1 FROM friends f WHERE f.user_id = $2 AND f.friend_id = u.id) AS is_friend
+              EXISTS(SELECT 1 FROM friends f WHERE f.user_id = $2 AND f.friend_id = u.id AND f.status='accepted') AS is_friend,
+              EXISTS(SELECT 1 FROM friends f WHERE f.user_id = $2 AND f.friend_id = u.id AND f.status='pending')  AS requested,
+              EXISTS(SELECT 1 FROM friends f WHERE f.user_id = u.id AND f.friend_id = $2 AND f.status='pending')  AS incoming
          FROM users u
         WHERE u.pseudo_key LIKE $1 AND u.id <> $2
         ORDER BY (u.pseudo_key = $3) DESC, u.pseudo ASC LIMIT 12`,
       ["%" + q + "%", req.user.id, q]
     );
-    res.json({ ok: true, players: rows.map((r) => ({ pseudo: r.pseudo, av: r.avatar_idx || 0, isFriend: r.is_friend })) });
+    res.json({ ok: true, players: rows.map((r) => ({ pseudo: r.pseudo, av: r.avatar_idx || 0, isFriend: r.is_friend, requested: r.requested, incoming: r.incoming })) });
   } catch (e) { console.error("[search]", e.message); res.status(500).json({ ok: false, error: "db-error" }); }
 });
 
@@ -792,7 +870,7 @@ app.post("/api/games/close", requireAuth, (req, res) => {
 app.get("/api/friends/games", requireAuth, async (req, res) => {
   pruneOpenGames();
   try {
-    const fr = await db.query(`SELECT friend_id FROM friends WHERE user_id = $1`, [req.user.id]);
+    const fr = await db.query(`SELECT friend_id FROM friends WHERE user_id = $1 AND status='accepted'`, [req.user.id]);
     const ids = new Set(fr.rows.map((r) => r.friend_id));
     const games = [];
     for (const g of openGames.values()) if (ids.has(g.hostId)) games.push({ code: g.code, host: g.hostPseudo, label: g.label, rounds: g.rounds, av: g.av });
