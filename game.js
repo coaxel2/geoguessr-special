@@ -393,6 +393,81 @@ function renderShop() {
       else btn.textContent = item.price ? "Acheter" : "Équiper";
     });
   });
+  if (!renderShop._filled) { fillShopVignettes(); renderShop._filled = true; }   // vignettes fidèles (1×)
+}
+// ===== Aperçu fidèle des items de la boutique (vignette + modale de prévisualisation) =====
+// Couleurs réelles de chaque thème (accent / accent-2) — synchronisées avec le CSS body[data-theme].
+const THEME_COLORS = {
+  themeDefault: { a: "#2ee6a6", b: "#2bb3c9" }, emerald: { a: "#2ee6a6", b: "#2bb3c9" },
+  magma: { a: "#ff7a4d", b: "#ffd35c" }, cyber: { a: "#4dffd2", b: "#b06bff" },
+  sakura: { a: "#ff9ec4", b: "#c0aede" }, mono: { a: "#c7d2e4", b: "#8aa0c0" },
+  aurora: { a: "#8af7d1", b: "#8aa8ff" }, sunset: { a: "#ffcf6b", b: "#ee5a9b" },
+  boreal: { a: "#69f0c4", b: "#9fb7ff" },
+};
+function myPseudo() { return (AUTH.user && AUTH.user.pseudo) || G.playerName || "AX730"; }
+// Construit le visuel d'aperçu CONCRET d'un item (DOM, réutilisé en grand dans la modale et
+// en petit dans la vignette). `big` = version détaillée (modale).
+function itemStage(itemId, big) {
+  const item = SHOP_ITEMS[itemId];
+  const wrap = document.createElement("div");
+  wrap.className = "pv-stage-inner pv-" + (item ? item.type : "x") + (big ? " big" : "");
+  if (!item) return wrap;
+  if (item.type === "theme") {
+    const c = THEME_COLORS[itemId] || THEME_COLORS.themeDefault;
+    wrap.style.setProperty("--a", c.a); wrap.style.setProperty("--b", c.b);
+    const card = document.createElement("div"); card.className = "pv-theme-card";
+    card.innerHTML = '<span class="pv-theme-orb"></span>' +
+      '<span class="pv-theme-bars"><i></i><i></i><i></i></span>' +
+      '<span class="pv-theme-btn">Jouer</span>';
+    wrap.appendChild(card);
+  } else if (item.type === "badge") {
+    const ps = document.createElement("span"); ps.className = "pv-badge-pseudo";
+    ps.textContent = myPseudo() + " ";
+    const em = document.createElement("span"); em.className = "pv-badge-emo"; em.textContent = badgeEmoji(itemId);
+    ps.appendChild(em); wrap.appendChild(ps);
+  } else if (item.type === "avatarPack") {
+    const style = (typeof AV_STYLES !== "undefined" && AV_STYLES[itemId]) || "avataaars";
+    const n = big ? 5 : 1;
+    for (let i = 0; i < n; i++) {
+      const im = document.createElement("img"); im.className = "pv-av"; im.alt = ""; im.draggable = false;
+      im.src = avatarURLFor(big ? i : (G.avatarChoice || 0), style);
+      wrap.appendChild(im);
+    }
+  } else if (item.type === "fx") {
+    const fx = document.createElement("span");
+    fx.className = "pv-fx-orb" + (itemId === "fxAurora" ? " on" : "");
+    wrap.appendChild(fx);
+  }
+  return wrap;
+}
+// Remplit les vignettes .shop-art des cartes par leur aperçu fidèle (avatar réel, emoji de badge…).
+function fillShopVignettes() {
+  document.querySelectorAll("[data-shop-card]").forEach((card) => {
+    const id = card.dataset.shopCard, art = card.querySelector(".shop-art");
+    if (!art || !SHOP_ITEMS[id]) return;
+    art.innerHTML = "";
+    art.appendChild(itemStage(id, false));
+  });
+}
+let _pvItem = null;
+function openShopPreview(itemId) {
+  const item = SHOP_ITEMS[itemId], m = $("shop-preview");
+  if (!item || !m) return;
+  _pvItem = itemId;
+  $("pv-name").textContent = item.label;
+  const owned = !!ownedItems()[itemId], equipped = equippedItems()[item.slot] === itemId;
+  const TYPE = { theme: "Thème d'ambiance", badge: "Badge de profil", avatarPack: "Pack d'avatars", fx: "Effet visuel" };
+  $("pv-sub").textContent = (TYPE[item.type] || "") + (equipped ? " · équipé" : owned ? " · possédé" : item.price ? " · " + item.price + " pièces" : " · gratuit");
+  const stage = $("pv-stage"); stage.innerHTML = ""; stage.appendChild(itemStage(itemId, true));
+  const act = $("pv-action");
+  act.textContent = equipped ? "✓ Équipé" : owned ? "Équiper" : item.price ? "Acheter — " + item.price : "Équiper";
+  act.disabled = equipped;
+  m.hidden = false;
+}
+function pvAction() {
+  if (!_pvItem) return;
+  buyOrEquip(_pvItem);          // achète si besoin puis équipe (+ applyCosmetics + renderShop)
+  openShopPreview(_pvItem);     // rafraîchit l'état du bouton (Équipé)
 }
 function rewardForScore(score) {
   if (!score || score <= 0) return 0;
@@ -3483,9 +3558,16 @@ function wire() {
   const shop = $("shop");
   if (shop) shop.addEventListener("click", (e) => {
     const b = e.target.closest("[data-shop-item]");
-    if (!b) return;
-    buyOrEquip(b.dataset.shopItem);
+    if (b) { buyOrEquip(b.dataset.shopItem); return; }   // bouton Acheter/Équiper : action directe
+    const card = e.target.closest("[data-shop-card]");
+    if (card) openShopPreview(card.dataset.shopCard);     // clic ailleurs sur la carte → prévisualisation
   });
+  const pvM = $("shop-preview");
+  if (pvM) {
+    $("pv-close").addEventListener("click", () => { pvM.hidden = true; });
+    pvM.addEventListener("click", (e) => { if (e.target === pvM) pvM.hidden = true; });
+    $("pv-action").addEventListener("click", pvAction);
+  }
   const weekly = $("btn-weekly-challenge");
   if (weekly) weekly.addEventListener("click", () => requestName(startWeeklyChallenge));
   const publicRoom = $("btn-public-room");

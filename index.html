@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://api.dicebear.com" />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-  <link rel="stylesheet" href="style.css?v=109" />
+  <link rel="stylesheet" href="style.css?v=110" />
 </head>
 <body>
   <!-- Barre d'actions en haut à droite : cloche, compte, monnaie regroupés dans un
@@ -343,6 +343,8 @@
               <button class="btn btn-mini" id="btn-copy">Copier le lien</button>
               <p class="status status-chip" id="online-status">Création de la salle…</p>
               <p class="status mini" id="room-settings"></p>
+              <!-- joueurs du salon : juste sous « En attente… » + réglages -->
+              <div class="room-players" id="room-players"></div>
             </div>
 
             <div class="wait-room">
@@ -416,7 +418,6 @@
                   </select>
                 </div>
               </div>
-              <div class="room-players" id="room-players"></div>
             </div>
 
             <button class="btn btn-primary hidden" id="btn-start-room" disabled>Lancer la partie</button>
@@ -1043,6 +1044,17 @@
     </div>
   </div>
 
+  <!-- ====================== PRÉVISUALISATION BOUTIQUE (modale) ====================== -->
+  <div class="modal-overlay" id="shop-preview" hidden>
+    <div class="modal-card pv-card">
+      <button class="modal-close" id="pv-close" aria-label="Fermer">✕</button>
+      <h2 class="pv-name" id="pv-name">Item</h2>
+      <p class="pv-sub" id="pv-sub"></p>
+      <div class="pv-stage" id="pv-stage"></div>
+      <button class="btn btn-primary" id="pv-action" type="button">Équiper</button>
+    </div>
+  </div>
+
   <!-- ====================== CLASSEMENT (modale) ====================== -->
   <div class="modal-overlay" id="lb-modal" hidden>
     <div class="modal-card">
@@ -1055,6 +1067,6 @@
 
   <!-- Leaflet : cartes de guess / résultat (tuiles raster, pas de WebGL) -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script src="game.js?v=109"></script>
+  <script src="game.js?v=110"></script>
 </body>
 </html>
