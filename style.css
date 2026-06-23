@@ -967,6 +967,7 @@ body[data-fx="aurora"] .home-bg::after {
 #online #room-settings { margin: 0; }
 #online #online-status { align-self: flex-start; }
 #online #btn-start-room { grid-column: 1 / -1; align-self: stretch; }
+#online #btn-leave-room { grid-column: 1 / -1; align-self: stretch; }
 /* Réglages du salon : une seule colonne, chaque segment occupe toute la largeur
    (en 2 colonnes les boutons « 10 min » étaient trop serrés et se coupaient). */
 .room-options {
@@ -2148,7 +2149,9 @@ body {
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12), inset 0 0 26px rgba(46, 230, 166, .22);
 }
 /* avatars « classiques » — rose des vents */
-.shop-art.compass {
+/* ⚠️ NE PAS nommer cette classe « compass » : collision avec la boussole HUD .compass
+   (position:absolute, top:14px…) qui faisait flotter cet aperçu en haut de la page. */
+.shop-art.compass-art {
   background:
     conic-gradient(from 45deg at 50% 50%, #2ee6a6, #19b7e6, #ffd35c, #2ee6a6),
     radial-gradient(closest-side at 50% 50%, transparent 0 38%, rgba(10, 18, 34, .55) 40%);

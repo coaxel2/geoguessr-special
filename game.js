@@ -2860,7 +2860,7 @@ const PROFILE_ART = {
   cyber: "cyber", sakura: "sakura", mono: "mono", themeDefault: "emerald",
   badge: "badge", badgeCompass: "badge-compass", badgeFlame: "badge-flame",
   badgeStar: "badge-star", badgeCrown: "badge-crown",
-  avatars: "compass", avatarsBot: "pack-bot", avatarsPixel: "pack-pixel",
+  avatars: "compass-art", avatarsBot: "pack-bot", avatarsPixel: "pack-pixel",
   fxNone: "", fxAurora: "fx-aurora",
 };
 const PROFILE_CATS = [
@@ -3535,6 +3535,9 @@ function wire() {
   $("name-modal-ok").addEventListener("click", confirmName);
   $("name-modal-input").addEventListener("keydown", (e) => { if (e.key === "Enter") confirmName(); });
   $("btn-start-room").addEventListener("click", hostStartGame);
+  // « Quitter la salle » (invité ET hôte) : ferme la connexion (onlineReset retire l'annonce
+  // si on est l'hôte + libère le WS → le serveur retire le joueur) et revient au choix créer/rejoindre.
+  $("btn-leave-room").addEventListener("click", () => { onlineReset(); backToOnlineChoice(); });
   // croix d'exclusion : délégation sur la liste des joueurs du salon
   $("room-players").addEventListener("click", (e) => {
     const b = e.target.closest("button[data-kick]"); if (!b) return;
