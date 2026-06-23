@@ -34,6 +34,8 @@ function showScreen(id) {
   // le menu burger (mobile) n'a pas de sens en partie : on le masque + on referme le tiroir
   const burger = document.getElementById("nav-burger");
   if (burger) burger.style.display = isHub ? "" : "none";
+  const notif = document.getElementById("notif-wrap");
+  if (notif) notif.hidden = !(isHub && isLogged());   // cloche : seulement hors-jeu et connecté
   if (!isHub) {
     document.body.classList.remove("drawer-open");
     const drw = document.getElementById("nav-drawer"), scr = document.getElementById("nav-scrim");
@@ -2162,11 +2164,12 @@ function genCode() {
   return s;
 }
 function onlineReset() {
+  if (G.online && G.online.isHost && G.online.code) closeOpenGame();   // retire la partie des notifs amis
   try { if (G.online.peer) G.online.peer.destroy(); } catch (e) {}
   try { if (G.online.ws) G.online.ws.close(); } catch (e) {}
   clearInterval(G.online.ka);
   G.online = { active: false, peer: null, ws: null, isHost: false, code: null, started: false,
-               myId: null, hostConn: null, conns: {}, players: {}, order: [],
+               myId: null, hostConn: null, conns: {}, players: {}, order: [], open: true,
                revealed: false, iWantReplay: false, ka: null };
 }
 /* ---- réseau N joueurs : topologie en étoile, l'hôte relaie tout ---- */
@@ -2314,6 +2317,7 @@ function createRoom() {
     mlog("salle prête, code", code);
     $("room-code").textContent = code;
     $("btn-copy").disabled = false;
+    announceOpenGame();   // partie ouverte (défaut) → notifie tes amis
     $("online-status").textContent = "En attente de joueurs…";
 
     } else if (m.type === "peer-joined" && m.player && m.player.id) {
@@ -2439,6 +2443,7 @@ async function hostStartGame() {
   if (!G.online.active || !G.online.isHost || G.online.started) return;
   if (activePlayerCount() < 2) { $("online-status").textContent = "Il faut au moins un autre joueur pour lancer."; return; }
   readRoomSettings();
+  closeOpenGame();           // la partie démarre → plus joignable, retire des notifs
   G.online.started = true;
   $("btn-start-room").disabled = true;
   $("btn-start-room").classList.add("hidden");
@@ -3042,6 +3047,44 @@ function searchFriends(q) {
       .catch(() => { box.innerHTML = '<p class="comm-empty">Recherche indisponible.</p>'; });
   }, 280);
 }
+
+// ===== Cloche : parties multi OUVERTES des amis =====
+function announceOpenGame() {
+  if (!isLogged() || !G.online || !G.online.code || !G.online.isHost || !G.online.open) return;
+  fetch("/api/games/open", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code: G.online.code, label: zoneLabel(), rounds: G.rounds }) }).catch(() => {});
+}
+function closeOpenGame() {
+  if (!isLogged() || !G.online || !G.online.code) return;
+  fetch("/api/games/close", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code: G.online.code }) }).catch(() => {});
+}
+let _notifGames = [];
+function renderNotifBell(games) {
+  _notifGames = games || [];
+  const badge = $("notif-badge"), list = $("notif-list");
+  if (badge) { if (_notifGames.length) { badge.textContent = _notifGames.length; badge.hidden = false; } else badge.hidden = true; }
+  if (!list) return;
+  if (!_notifGames.length) { list.innerHTML = '<p class="comm-empty">Aucune partie ouverte pour l\'instant.</p>'; return; }
+  list.innerHTML = "";
+  _notifGames.forEach((g) => {
+    const row = document.createElement("div"); row.className = "notif-item";
+    const img = document.createElement("img"); img.className = "notif-item-av"; img.src = avatarURLFor(g.av || 0, "avataaars"); img.alt = "";
+    const txt = document.createElement("div"); txt.className = "notif-item-txt";
+    txt.appendChild(commSpan("notif-item-host", g.host));
+    txt.appendChild(commSpan("notif-item-sub", (g.label || "Partie") + " · " + (g.rounds || 5) + " manches"));
+    const btn = document.createElement("button"); btn.type = "button"; btn.className = "notif-join"; btn.textContent = "Rejoindre";
+    btn.addEventListener("click", () => { $("notif-panel").hidden = true; requestName(() => joinRoom(g.code)); });
+    row.appendChild(img); row.appendChild(txt); row.appendChild(btn); list.appendChild(row);
+  });
+}
+function pollFriendGames() {
+  if (!isLogged()) { renderNotifBell([]); return; }
+  fetch("/api/friends/games", { credentials: "same-origin" })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((d) => renderNotifBell((d && d.games) || []))
+    .catch(() => {});
+}
 function renderProfileCollections() {
   const wrap = $("profile-collections");
   if (!wrap) return;
@@ -3447,6 +3490,21 @@ function wire() {
         .then(() => openPublicProfile(_pubPseudo));   // rafraîchit l'état du bouton
     });
   }
+
+  // cloche de notifications (parties ouvertes des amis)
+  const bell = $("notif-bell"), npanel = $("notif-panel");
+  if (bell && npanel) {
+    bell.addEventListener("click", (e) => { e.stopPropagation(); npanel.hidden = !npanel.hidden; if (!npanel.hidden) pollFriendGames(); });
+    document.addEventListener("click", (e) => { if (!npanel.hidden && $("notif-wrap") && !$("notif-wrap").contains(e.target)) npanel.hidden = true; });
+  }
+  // toggle « partie ouverte / fermée » du salon (hôte) → annonce ou retire des notifs amis
+  const openSeg = $("room-open-seg");
+  if (openSeg) openSeg.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => {
+    openSeg.querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b));
+    G.online.open = b.dataset.open === "1";
+    if (G.online.active && G.online.isHost && G.online.code) { if (G.online.open) announceOpenGame(); else closeOpenGame(); }
+  }));
+  setInterval(pollFriendGames, 25000);   // rafraîchit les parties d'amis
 
   $("btn-next").addEventListener("click", nextRound);
   $("btn-replay").addEventListener("click", replay);

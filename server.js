@@ -768,6 +768,38 @@ app.get("/api/players/search", requireAuth, async (req, res) => {
   } catch (e) { console.error("[search]", e.message); res.status(500).json({ ok: false, error: "db-error" }); }
 });
 
+// ===== Parties multi « ouvertes » (en mémoire) : code -> {hostId, hostPseudo, label, rounds, av, ts}
+// Sert à notifier les amis qu'une partie ouverte est dispo (cloche).
+const openGames = new Map();
+function pruneOpenGames() { const now = Date.now(); for (const [c, g] of openGames) if (now - g.ts > 30 * 60 * 1000) openGames.delete(c); }
+app.post("/api/games/open", requireAuth, (req, res) => {
+  const code = String((req.body && req.body.code) || "").trim().toUpperCase().slice(0, 8);
+  if (!/^[A-Z0-9]{3,8}$/.test(code)) return res.status(400).json({ ok: false, error: "code-invalide" });
+  openGames.set(code, {
+    code, hostId: req.user.id, hostPseudo: req.user.pseudo,
+    label: String((req.body && req.body.label) || "").slice(0, 60),
+    rounds: Number((req.body && req.body.rounds)) || 5,
+    av: (req.user.avatar_idx || 0), ts: Date.now(),
+  });
+  res.json({ ok: true });
+});
+app.post("/api/games/close", requireAuth, (req, res) => {
+  const code = String((req.body && req.body.code) || "").trim().toUpperCase();
+  const g = openGames.get(code);
+  if (g && g.hostId === req.user.id) openGames.delete(code);
+  res.json({ ok: true });
+});
+app.get("/api/friends/games", requireAuth, async (req, res) => {
+  pruneOpenGames();
+  try {
+    const fr = await db.query(`SELECT friend_id FROM friends WHERE user_id = $1`, [req.user.id]);
+    const ids = new Set(fr.rows.map((r) => r.friend_id));
+    const games = [];
+    for (const g of openGames.values()) if (ids.has(g.hostId)) games.push({ code: g.code, host: g.hostPseudo, label: g.label, rounds: g.rounds, av: g.av });
+    res.json({ ok: true, games });
+  } catch (e) { console.error("[fgames]", e.message); res.status(500).json({ ok: false, error: "db-error" }); }
+});
+
 // ====================================================================
 // Zones communautaires : un joueur tape un nom de ville/région, on géocode
 // via Nominatim (OSM), on récupère le contour, et la zone devient jouable
