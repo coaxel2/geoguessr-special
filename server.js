@@ -411,8 +411,6 @@ async function initDb() {
   `);
   await db.query(`CREATE INDEX IF NOT EXISTS idx_scores_zone_score ON scores (zone, score DESC);`);
   await db.query(`ALTER TABLE scores ADD COLUMN IF NOT EXISTS duration_s INTEGER NOT NULL DEFAULT 0;`);   // chrono de la partie
-  await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS favorites JSONB NOT NULL DEFAULT '[]'::jsonb;`);   // zones favorites (page profil)
-  await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_idx INTEGER NOT NULL DEFAULT 0;`);          // avatar choisi (profil public)
   await db.query(`CREATE TABLE IF NOT EXISTS friends (
     user_id    INTEGER     NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     friend_id  INTEGER     NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -432,10 +430,14 @@ async function initDb() {
       coins         INTEGER      NOT NULL DEFAULT 0,
       owned         JSONB        NOT NULL DEFAULT '{}'::jsonb,
       equipped      JSONB        NOT NULL DEFAULT '{}'::jsonb,
+      progress      JSONB        NOT NULL DEFAULT '{"xp":0,"claims":[]}'::jsonb,
       created_at    TIMESTAMPTZ  NOT NULL DEFAULT now(),
       last_seen     TIMESTAMPTZ  NOT NULL DEFAULT now()
     );
   `);
+  await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS favorites JSONB NOT NULL DEFAULT '[]'::jsonb;`);
+  await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_idx INTEGER NOT NULL DEFAULT 0;`);
+  await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS progress JSONB NOT NULL DEFAULT '{"xp":0,"claims":[]}'::jsonb;`);
   await db.query(`CREATE INDEX IF NOT EXISTS idx_users_pseudo_key ON users (pseudo_key);`);
   await db.query(`
     CREATE TABLE IF NOT EXISTS sessions (
@@ -495,7 +497,7 @@ function pseudoKey(s) { return String(s || "").trim().toLowerCase().normalize("N
 // Pseudo affiché nettoyé (max 18 car.) ; "Joueur" est réservé → rejeté.
 function cleanPseudo(s) { const v = String(s || "").trim().replace(/\s+/g, " ").slice(0, 18); return /^joueur$/i.test(v) ? "" : v; }
 // Vue publique d'un compte (jamais le hash ni l'id interne).
-function publicUser(u) { return { pseudo: u.pseudo, coins: u.coins, owned: u.owned, equipped: u.equipped, favorites: u.favorites || [], av: u.avatar_idx || 0 }; }
+function publicUser(u) { return { pseudo: u.pseudo, coins: u.coins, owned: u.owned, equipped: u.equipped, favorites: u.favorites || [], av: u.avatar_idx || 0, progress: u.progress || { xp: 0, claims: [] } }; }
 
 function readToken(req) {
   if (req.cookies && req.cookies.gtok) return req.cookies.gtok;
@@ -565,7 +567,14 @@ function mergeGuest(u, g) {
   }
   let equipped = u.equipped;
   if (g && g.equipped && typeof g.equipped === "object" && Object.keys(g.equipped).length) { equipped = g.equipped; changed = true; }
-  return { coins, owned, equipped, changed };
+  const gp = g && g.progress && typeof g.progress === "object" ? g.progress : {};
+  const accountProgress = u.progress && typeof u.progress === "object" ? u.progress : { xp: 0, claims: [] };
+  const progress = {
+    xp: Math.max(Number.isInteger(accountProgress.xp) ? accountProgress.xp : 0, Number.isInteger(gp.xp) ? Math.max(0, Math.min(gp.xp, 100000)) : 0),
+    claims: Array.from(new Set([].concat(Array.isArray(accountProgress.claims) ? accountProgress.claims : [], Array.isArray(gp.claims) ? gp.claims : [])).filter((n) => Number.isInteger(n) && n >= 1 && n <= 100)),
+  };
+  if (progress.xp !== accountProgress.xp || progress.claims.length !== (Array.isArray(accountProgress.claims) ? accountProgress.claims.length : 0)) changed = true;
+  return { coins, owned, equipped, progress, changed };
 }
 
 // Vérifie le secret admin (timing-safe) + rate-limit par IP.
@@ -599,9 +608,9 @@ app.post("/api/register", async (req, res) => {
   try {
     const hash = await bcrypt.hash(password, BCRYPT_ROUNDS);
     const { rows } = await db.query(
-      `INSERT INTO users (pseudo_key, pseudo, password_hash, coins, owned, equipped)
-       VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb) RETURNING *`,
-      [key, pseudo, hash, coins, JSON.stringify(owned), JSON.stringify(equipped)]
+      `INSERT INTO users (pseudo_key, pseudo, password_hash, coins, owned, equipped, progress)
+       VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7::jsonb) RETURNING *`,
+      [key, pseudo, hash, coins, JSON.stringify(owned), JSON.stringify(equipped), JSON.stringify(g.progress && typeof g.progress === "object" ? g.progress : { xp: 0, claims: [] })]
     );
     const user = rows[0];
     const token = await newSession(user.id);
@@ -631,8 +640,8 @@ app.post("/api/login", async (req, res) => {
     const m = mergeGuest(user, b.guest || {});
     if (m.changed) {
       const { rows: upd } = await db.query(
-        `UPDATE users SET coins = $1, owned = $2::jsonb, equipped = $3::jsonb WHERE id = $4 RETURNING *`,
-        [m.coins, JSON.stringify(m.owned), JSON.stringify(m.equipped), user.id]
+        `UPDATE users SET coins = $1, owned = $2::jsonb, equipped = $3::jsonb, progress = $4::jsonb WHERE id = $5 RETURNING *`,
+        [m.coins, JSON.stringify(m.owned), JSON.stringify(m.equipped), JSON.stringify(m.progress), user.id]
       );
       Object.assign(user, upd[0]);
     }
@@ -664,14 +673,15 @@ app.put("/api/me/state", requireAuth, async (req, res) => {
   if (!Number.isInteger(b.coins) || b.coins < 0) return res.status(400).json({ ok: false, error: "coins-invalide" });
   if (!b.owned || typeof b.owned !== "object" || Array.isArray(b.owned)) return res.status(400).json({ ok: false, error: "owned-invalide" });
   if (!b.equipped || typeof b.equipped !== "object" || Array.isArray(b.equipped)) return res.status(400).json({ ok: false, error: "equipped-invalide" });
+  if (!b.progress || typeof b.progress !== "object" || Array.isArray(b.progress) || !Number.isInteger(b.progress.xp) || b.progress.xp < 0 || b.progress.xp > 100000 || !Array.isArray(b.progress.claims) || b.progress.claims.some((n) => !Number.isInteger(n) || n < 1 || n > 100)) return res.status(400).json({ ok: false, error: "progress-invalide" });
   const coins = Math.min(b.coins, 100000000);
   const fav = Array.isArray(b.favorites) ? b.favorites.filter((x) => x && typeof x === "object").slice(0, 3) : null;
   const av = (Number.isInteger(b.av) && b.av >= 0 && b.av < 100) ? b.av : null;
   try {
     const { rows } = await db.query(
-      `UPDATE users SET coins = $1, owned = $2::jsonb, equipped = $3::jsonb,
-              favorites = COALESCE($5::jsonb, favorites), avatar_idx = COALESCE($6, avatar_idx) WHERE id = $4 RETURNING *`,
-      [coins, JSON.stringify(b.owned), JSON.stringify(b.equipped), req.user.id, fav ? JSON.stringify(fav) : null, av]
+      `UPDATE users SET coins = $1, owned = $2::jsonb, equipped = $3::jsonb, progress = $4::jsonb,
+              favorites = COALESCE($6::jsonb, favorites), avatar_idx = COALESCE($7, avatar_idx) WHERE id = $5 RETURNING *`,
+      [coins, JSON.stringify(b.owned), JSON.stringify(b.equipped), JSON.stringify({ xp: b.progress.xp, claims: Array.from(new Set(b.progress.claims)) }), req.user.id, fav ? JSON.stringify(fav) : null, av]
     );
     res.json({ ok: true, user: publicUser(rows[0]) });
   } catch (e) {

@@ -9,7 +9,7 @@ Fait par **Axel Courty**.
 - 🎯 **Mode solo** : 3, 5 ou 10 manches, score selon la distance (jusqu'à 5000 pts/manche).
 - 🌐 **Multijoueur en ligne** : l'hôte crée une partie (code à 4 caractères ou lien à partager), les invités rejoignent. Mêmes lieux pour tous, scores comparés manche par manche.
 - 🧑‍🎨 **Avatars** choisis dans une galerie et synchronisés en multi.
-- 🗺️ Street View réel via l'**API Google Maps** ; cartes de guess en **Leaflet** (tuiles sombres CartoDB, sans clé).
+- 🗺️ Street View et carte de choix via l'**API Google Maps** : routes, commerces et points d'intérêt Google sont visibles pendant la manche. Leaflet reste utilisé pour les mini-cartes de zones et la carte de résultat.
 - 🏆 **Classement persistant** : chaque partie solo terminée est enregistrée dans une base **PostgreSQL** ; meilleurs scores par zone et top global consultables depuis l'accueil.
 - 🎨 Interface sombre soignée (glassmorphism).
 
@@ -18,7 +18,8 @@ Fait par **Axel Courty**.
 | Brique | Techno |
 |---|---|
 | Street View | Google Maps JavaScript API (`StreetViewPanorama`, `StreetViewService`) |
-| Cartes de guess / résultat | Leaflet + tuiles CartoDB (raster, sans clé ni WebGL) |
+| Carte de choix | Google Maps JavaScript API (fond routier, commerces et POI) |
+| Mini-cartes de zones / résultat | Leaflet + tuiles CartoDB (raster, sans clé ni WebGL) |
 | Distances | formule de Haversine (maison) |
 | Serveur app + multijoueur | Node/Express + relay WebSocket `/rooms` |
 | Base de données | **PostgreSQL** (table `scores`) — classement des parties solo |

@@ -221,6 +221,10 @@ function settingsText() {
 const COINS_KEY = "geoq-coins";
 const OWNED_KEY = "geoq-owned";
 const EQUIPPED_KEY = "geoq-equipped";
+const PASS_XP_KEY = "geoq-pass-xp";
+const PASS_CLAIMS_KEY = "geoq-pass-claims";
+const PASS_MAX_LEVEL = 100;
+const PASS_XP_PER_LEVEL = 1000;
 const SHOP_ITEMS = {
   boreal: { price: 1500, type: "theme", slot: "theme", label: "Nuit boréale" },
   aurora: { price: 1200, type: "theme", slot: "theme", label: "Thème Aurora" },
@@ -241,6 +245,12 @@ const SHOP_ITEMS = {
   avatarsPixel:{ price: 750, type: "avatarPack", slot: "avatarPack", label: "Pack Pixel" },
   fxNone:   { price: 0,    type: "fx", slot: "fx", label: "Aucun effet" },
   fxAurora: { price: 1200, type: "fx", slot: "fx", label: "Halo aurore" },
+  bannerDefault: { price: 0, type: "banner", slot: "banner", label: "Fond Horizon" },
+  bannerSummit: { price: 850, type: "banner", slot: "banner", label: "Fond Sommets" },
+  bannerAurora: { price: 1250, type: "banner", slot: "banner", label: "Fond Aurore" },
+  bannerSunset: { price: 1050, type: "banner", slot: "banner", label: "Fond Coucher de soleil" },
+  bannerAtlas: { price: 1600, type: "banner", slot: "banner", label: "Fond Atlas nocturne" },
+  bannerLegendary: { price: 0, type: "banner", slot: "banner", label: "Fond Légende céleste" },
 };
 
 /* ---------- comptes (login / inscription) ----------
@@ -258,6 +268,7 @@ function hydrateFromServer(u) {
     setCoins(u.coins || 0);
     saveOwnedItems(u.owned || {});
     saveEquippedItems(u.equipped || {});
+    savePassState(u.progress || {});
     G.playerName = u.pseudo;
     try { localStorage.setItem("geoq-name", u.pseudo); localStorage.setItem("geoq-auth", u.pseudo); } catch (e) {}
     if (Array.isArray(u.favorites)) { try { localStorage.setItem("geoq-fav", JSON.stringify(u.favorites)); } catch (e) {} }
@@ -283,7 +294,7 @@ function pushState() {
       method: "PUT",
       credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ coins: getCoins(), owned: ownedItems(), equipped: equippedItems(), favorites: getFavorites(), av: G.avatarChoice }),
+      body: JSON.stringify({ coins: getCoins(), owned: ownedItems(), equipped: equippedItems(), favorites: getFavorites(), av: G.avatarChoice, progress: passState() }),
     }).catch(() => {});
   }, 450);
 }
@@ -321,13 +332,39 @@ function updateWallet() {
 function ownedItems() {
   const owned = readJSON(OWNED_KEY, {});
   owned.avatars = true;
+  owned.bannerDefault = true;
+  owned.themeDefault = true;
+  owned.fxNone = true;
   return owned;
 }
-function equippedItems() {
-  return readJSON(EQUIPPED_KEY, { avatarPack: "avatars" });
-}
+function equippedItems() { return Object.assign({ avatarPack: "avatars", banner: "bannerDefault", theme: "themeDefault", fx: "fxNone" }, readJSON(EQUIPPED_KEY, {})); }
 function saveOwnedItems(owned) { writeJSON(OWNED_KEY, owned); pushState(); }
 function saveEquippedItems(equipped) { writeJSON(EQUIPPED_KEY, equipped); pushState(); }
+function passState() { return { xp: getPassXP(), claims: passClaims() }; }
+function getPassXP() { try { const n = parseInt(localStorage.getItem(PASS_XP_KEY), 10); return Number.isFinite(n) && n > 0 ? Math.min(n, PASS_MAX_LEVEL * PASS_XP_PER_LEVEL) : 0; } catch (e) { return 0; } }
+function passClaims() { const claims = readJSON(PASS_CLAIMS_KEY, []); return Array.isArray(claims) ? claims.filter((n) => Number.isInteger(n) && n >= 1 && n <= PASS_MAX_LEVEL) : []; }
+function savePassState(progress) {
+  const xp = Number.isInteger(progress && progress.xp) ? Math.max(0, Math.min(progress.xp, PASS_MAX_LEVEL * PASS_XP_PER_LEVEL)) : 0;
+  const claims = Array.isArray(progress && progress.claims) ? progress.claims.filter((n) => Number.isInteger(n) && n >= 1 && n <= PASS_MAX_LEVEL) : [];
+  try { localStorage.setItem(PASS_XP_KEY, String(xp)); } catch (e) {}
+  writeJSON(PASS_CLAIMS_KEY, [...new Set(claims)]); pushState();
+}
+function setPassXP(xp) { try { localStorage.setItem(PASS_XP_KEY, String(Math.max(0, Math.min(Math.floor(xp || 0), PASS_MAX_LEVEL * PASS_XP_PER_LEVEL)))); } catch (e) {} pushState(); }
+function passLevel() { return Math.min(PASS_MAX_LEVEL, Math.floor(getPassXP() / PASS_XP_PER_LEVEL) + 1); }
+function passProgress() { const xp = getPassXP(); return { level: passLevel(), current: xp >= PASS_MAX_LEVEL * PASS_XP_PER_LEVEL ? PASS_XP_PER_LEVEL : xp % PASS_XP_PER_LEVEL }; }
+function passReward(level) {
+  const milestones = { 10: ["bannerSummit", "Fond Sommets"], 20: ["badgeStar", "Badge Étoile"], 30: ["bannerAurora", "Fond Aurore"], 40: ["avatarsBot", "Pack Robots"], 50: ["badgeFlame", "Badge Flamme"], 60: ["bannerSunset", "Fond Coucher de soleil"], 70: ["avatarsPixel", "Pack Pixel"], 80: ["bannerAtlas", "Fond Atlas nocturne"], 90: ["badgeCrown", "Badge Couronne"] };
+  if (level === 100) return { coins: 10000, item: "bannerLegendary", label: "Fond Légende céleste", ultimate: true };
+  if (milestones[level]) return { coins: 250 + level * 30, item: milestones[level][0], label: milestones[level][1], milestone: true };
+  return { coins: 50 + level * 12, label: (50 + level * 12).toLocaleString("fr-FR") + " pièces" };
+}
+function awardGameXP(score) { if (G.progressRewarded) return 0; G.progressRewarded = true; const earned = Math.max(80, Math.round(Math.max(0, score || 0) / 11)); setPassXP(getPassXP() + earned); return earned; }
+function claimPassReward(level) {
+  const reward = passReward(level), claims = passClaims(); if (level > passLevel() || claims.includes(level)) return;
+  claims.push(level); writeJSON(PASS_CLAIMS_KEY, claims); if (reward.coins) addCoins(reward.coins);
+  if (reward.item) { const owned = ownedItems(); owned[reward.item] = true; saveOwnedItems(owned); }
+  pushState(); renderBattlePass(); renderProfileCollections();
+}
 // Badges : id d'item équipé (badge/badgeCompass/…) → nom court (data-badge) → emoji.
 // Sert à afficher le badge à côté du pseudo PARTOUT (profil, lobby, classement, en jeu…).
 const BADGE_NAME = { badge: "globe", badgeCompass: "compass", badgeFlame: "flame", badgeStar: "star", badgeCrown: "crown" };
@@ -339,6 +376,7 @@ function applyCosmetics() {
   document.body.dataset.theme = equipped.theme && equipped.theme !== "themeDefault" ? equipped.theme : "";
   document.body.dataset.badge = BADGE_NAME[equipped.badge] || "";
   document.body.dataset.fx = equipped.fx === "fxAurora" ? "aurora" : "";
+  const hero = $("prof-hero"); if (hero) hero.dataset.banner = equipped.banner || "bannerDefault";
   // reflète le badge à côté du pseudo du profil IMMÉDIATEMENT (sinon il fallait recharger la page)
   const pp = $("prof-pseudo");
   if (pp) { const ps = (AUTH.user && AUTH.user.pseudo) || G.playerName || "Joueur", b = myBadgeEmoji(); pp.textContent = ps + (b ? " " + b : ""); }
@@ -436,6 +474,16 @@ function itemStage(itemId, big) {
     const fx = document.createElement("span");
     fx.className = "pv-fx-orb" + (itemId === "fxAurora" ? " on" : "");
     wrap.appendChild(fx);
+  } else if (item.type === "banner") {
+    const art = {
+      bannerDefault: "radial-gradient(80% 120% at 15% 0%, #536eff, transparent 60%), linear-gradient(135deg,#172442,#0b1020)",
+      bannerSummit: "linear-gradient(160deg,transparent 48%,#08101e 49%), linear-gradient(135deg,#80c9f4,#8062c9 55%,#101934)",
+      bannerAurora: "radial-gradient(80% 140% at 15% 0%,#53ffbe,transparent 58%), radial-gradient(70% 110% at 75% 5%,#9261ff,transparent 60%), #081d31",
+      bannerSunset: "radial-gradient(80% 130% at 20% 0%,#ffda79,transparent 58%), linear-gradient(135deg,#f27665,#5d3169 64%,#16122c)",
+      bannerAtlas: "repeating-linear-gradient(20deg,transparent 0 11px,rgba(170,230,255,.3) 12px 13px,transparent 14px 25px), linear-gradient(135deg,#0e2d47,#111a38 62%,#070a16)",
+      bannerLegendary: "radial-gradient(70% 140% at 10% 0%,#ffd057,transparent 58%), radial-gradient(75% 140% at 90% 100%,#6f52ff,transparent 64%), #101530",
+    };
+    wrap.style.background = art[itemId] || art.bannerDefault;
   }
   return wrap;
 }
@@ -455,7 +503,7 @@ function openShopPreview(itemId) {
   _pvItem = itemId;
   $("pv-name").textContent = item.label;
   const owned = !!ownedItems()[itemId], equipped = equippedItems()[item.slot] === itemId;
-  const TYPE = { theme: "Thème d'ambiance", badge: "Badge de profil", avatarPack: "Pack d'avatars", fx: "Effet visuel" };
+  const TYPE = { theme: "Thème d'ambiance", badge: "Badge de profil", avatarPack: "Pack d'avatars", fx: "Effet visuel", banner: "Bannière de profil" };
   $("pv-sub").textContent = (TYPE[item.type] || "") + (equipped ? " · équipé" : owned ? " · possédé" : item.price ? " · " + item.price + " pièces" : " · gratuit");
   const stage = $("pv-stage"); stage.innerHTML = ""; stage.appendChild(itemStage(itemId, true));
   const act = $("pv-action");
@@ -791,6 +839,7 @@ const G = {
   guess: null,
   submitted: false,
   rewarded: false,
+  progressRewarded: false,
   lastDist: null,
   playerName: "",
   avatarChoice: 0,
@@ -1689,7 +1738,7 @@ async function startSolo() {
 
 function beginRoundsLocal() {
   G.current = 0; G.scores = []; G.submitted = false;
-  G.rewarded = false; G.streak = 0;
+  G.rewarded = false; G.progressRewarded = false; G.streak = 0;
   G.gameStart = Date.now();              // chrono de la partie (pour le classement)
   playerList().forEach((p) => { p.scores = []; p.guess = null; p.done = false; });
   G.online.revealed = false;
@@ -2148,11 +2197,12 @@ function showFinal() {
   }
   if (!G.online.active) recordSoloScore();
   const earned = awardGameCoins(myTotal);
+  const xpEarned = awardGameXP(myTotal);
   const coinEl = $("final-coins");
   if (coinEl) {
     coinEl.textContent = earned > 0
-      ? "+" + earned.toLocaleString("fr-FR") + " pièces gagnées avec ton score"
-      : "Aucune pièce gagnée cette fois.";
+      ? "+" + earned.toLocaleString("fr-FR") + " pièces · +" + xpEarned.toLocaleString("fr-FR") + " XP de passe"
+      : "+" + xpEarned.toLocaleString("fr-FR") + " XP de passe";
     coinEl.classList.remove("hidden");
   }
   updateReplayUI();
@@ -2691,6 +2741,7 @@ function resetOnlineGameState() {
   G.guess = null;
   G.submitted = false;
   G.rewarded = false;
+  G.progressRewarded = false;
   G.lastDist = null;
   resetLocations();
   playerList().forEach((p) => { p.scores = []; p.guess = null; p.done = false; });
@@ -2967,13 +3018,41 @@ const PROFILE_ART = {
   badgeStar: "badge-star", badgeCrown: "badge-crown",
   avatars: "compass-art", avatarsBot: "pack-bot", avatarsPixel: "pack-pixel",
   fxNone: "", fxAurora: "fx-aurora",
+  bannerDefault: "banner-default", bannerSummit: "banner-summit", bannerAurora: "banner-aurora",
+  bannerSunset: "banner-sunset", bannerAtlas: "banner-atlas", bannerLegendary: "banner-legendary",
 };
 const PROFILE_CATS = [
   ["theme", "Thèmes"],
   ["badge", "Badges"],
   ["avatarPack", "Avatars"],
   ["fx", "Effets"],
+  ["banner", "Bannières de profil"],
 ];
+function renderProfilePass() {
+  const progress = passProgress(), rank = $("prof-rank"), fill = $("prof-xp-fill"), label = $("prof-xp-label"), small = $("profile-pass-progress"), passFill = $("profile-pass-fill");
+  if (rank) rank.textContent = "🎟 Passe de combat · Palier " + progress.level + " / " + PASS_MAX_LEVEL;
+  const percent = progress.level >= PASS_MAX_LEVEL ? 100 : progress.current / PASS_XP_PER_LEVEL * 100;
+  if (fill) fill.style.width = percent + "%"; if (passFill) passFill.style.width = percent + "%";
+  const text = progress.level >= PASS_MAX_LEVEL ? "Passe terminée · récompense ultime récupérable" : progress.current.toLocaleString("fr-FR") + " / " + PASS_XP_PER_LEVEL.toLocaleString("fr-FR") + " XP";
+  if (label) label.textContent = text; if (small) small.textContent = text;
+}
+function renderBattlePass() {
+  const list = $("battle-pass-list"); if (!list) return;
+  const progress = passProgress(), claims = passClaims(), head = $("battle-pass-summary"), fill = $("battle-pass-fill");
+  if (head) head.textContent = "Palier " + progress.level + " / " + PASS_MAX_LEVEL + " · " + (progress.level >= PASS_MAX_LEVEL ? "Passe complétée" : progress.current.toLocaleString("fr-FR") + " / " + PASS_XP_PER_LEVEL.toLocaleString("fr-FR") + " XP");
+  if (fill) fill.style.width = (progress.level >= PASS_MAX_LEVEL ? 100 : progress.current / PASS_XP_PER_LEVEL * 100) + "%";
+  list.innerHTML = "";
+  for (let level = 1; level <= PASS_MAX_LEVEL; level++) {
+    const reward = passReward(level), claimed = claims.includes(level), unlocked = level <= progress.level;
+    const row = document.createElement("article");
+    row.className = "pass-tier" + (unlocked ? " unlocked" : "") + (claimed ? " claimed" : "") + (reward.milestone ? " milestone" : "") + (reward.ultimate ? " ultimate" : "");
+    const text = reward.item ? reward.label + " + " + reward.coins.toLocaleString("fr-FR") + " pièces" : reward.label;
+    row.innerHTML = '<span class="pass-level">' + level + '</span><span class="pass-reward"><strong>' + (reward.ultimate ? "✦ RÉCOMPENSE ULTIME" : reward.milestone ? "★ Récompense majeure" : "Récompense") + "</strong><small>" + text + '</small></span><button type="button" class="btn btn-mini pass-claim" data-pass-level="' + level + '"' + ((!unlocked || claimed) ? " disabled" : "") + ">" + (claimed ? "Récupérée" : unlocked ? "Récupérer" : "Verrouillée") + "</button>";
+    list.appendChild(row);
+  }
+}
+function openBattlePass() { if (!isLogged()) { openAuthModal(); return; } renderBattlePass(); $("battle-pass-modal").hidden = false; }
+function closeBattlePass() { const m = $("battle-pass-modal"); if (m) m.hidden = true; }
 function openProfile() {
   if (!isLogged()) { openAuthModal(); return; }
   goTab("profile");                    // page dédiée (plus de pop-up)
@@ -2997,6 +3076,7 @@ function renderProfilePage() {
   if ($("prof-pseudo")) $("prof-pseudo").textContent = pseudo + (myBadgeEmoji() ? " " + myBadgeEmoji() : "");
   if ($("prof-av")) $("prof-av").innerHTML = '<img src="' + avatarURL(G.avatarChoice) + '" alt="" draggable="false" />';
   if ($("profile-coins")) $("profile-coins").innerHTML = '<span aria-hidden="true">🪙</span> ' + getCoins().toLocaleString("fr-FR");
+  renderProfilePass();
   renderProfileCollections();
   renderFavorites();
   if (typeof renderFriends === "function") renderFriends();
@@ -3008,14 +3088,6 @@ function renderProfilePage() {
       const best = d.best || 0, games = d.games || 0;
       if ($("prof-best")) $("prof-best").textContent = best > 0 ? "Record " + best.toLocaleString("fr-FR") : "Record —";
       if ($("prof-games")) $("prof-games").textContent = games + (games > 1 ? " parties" : " partie");
-      const rk = rankFor(best);
-      if ($("prof-rank")) $("prof-rank").textContent = rk.icon + " " + rk.name;
-      const fill = $("prof-xp-fill"), lab = $("prof-xp-label");
-      if (rk.next) {
-        const pct = Math.max(0, Math.min(100, (best - rk.cur) / (rk.next - rk.cur) * 100));
-        if (fill) fill.style.width = pct + "%";
-        if (lab) lab.textContent = (rk.next - best).toLocaleString("fr-FR") + " pts avant le rang suivant";
-      } else { if (fill) fill.style.width = "100%"; if (lab) lab.textContent = "Rang maximal atteint 🏆"; }
       if (!box) return;
       box.innerHTML = "";
       const top = Array.isArray(d.top) ? d.top : [];
@@ -3363,7 +3435,7 @@ function submitAuth(mode) {
     pseudo: pseudo,
     password: password,
     remember: $("auth-remember") ? $("auth-remember").checked : true,
-    guest: { coins: getCoins(), owned: ownedItems(), equipped: equippedItems() },
+    guest: { coins: getCoins(), owned: ownedItems(), equipped: equippedItems(), progress: passState() },
   };
   fetch(url, {
     method: "POST",
@@ -3434,6 +3506,13 @@ function wireProfile() {
     buyOrEquip(cell.dataset.item); // item possédé → équipe + applyCosmetics live
     renderProfileCollections();    // rafraîchit l'état « équipé »
   });
+  const pass = $("profile-pass-open"); if (pass) pass.addEventListener("click", openBattlePass);
+  const passModal = $("battle-pass-modal");
+  if (passModal) {
+    const close = $("battle-pass-close"); if (close) close.addEventListener("click", closeBattlePass);
+    passModal.addEventListener("click", (e) => { if (e.target === passModal) closeBattlePass(); });
+    const list = $("battle-pass-list"); if (list) list.addEventListener("click", (e) => { const b = e.target.closest("[data-pass-level]"); if (b && !b.disabled) claimPassReward(parseInt(b.dataset.passLevel, 10)); });
+  }
 }
 
 function wire() {
@@ -3750,7 +3829,7 @@ function wire() {
   // Raccourcis clavier : Échap ferme une modale ; Entrée = deviner / manche suivante.
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
-      const modals = ["quit-modal", "name-modal", "auth-modal", "pubprofile-modal", "avatar-modal", "zone-modal", "lb-modal"];
+      const modals = ["quit-modal", "name-modal", "auth-modal", "pubprofile-modal", "battle-pass-modal", "avatar-modal", "zone-modal", "lb-modal"];
       for (const id of modals) { const m = $(id); if (m && !m.hidden) { m.hidden = true; e.preventDefault(); return; } }
       return;
     }

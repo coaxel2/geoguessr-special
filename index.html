@@ -674,6 +674,11 @@
                 <button type="button" class="btn btn-mini" data-shop-item="fxNone">Équiper</button>
               </div>
             </article>
+            <article class="shop-card" data-shop-card="bannerSummit"><span class="shop-art banner-summit"></span><h3>Fond Sommets</h3><p>Une bannière alpine pour habiller ton profil.</p><div class="shop-card-foot"><span class="shop-price">850 🪙</span><button type="button" class="btn btn-mini" data-shop-item="bannerSummit">Acheter</button></div></article>
+            <article class="shop-card" data-shop-card="bannerAurora"><span class="shop-art banner-aurora"></span><h3>Fond Aurore</h3><p>Des voiles lumineux au-dessus de ton identité.</p><div class="shop-card-foot"><span class="shop-price">1 250 🪙</span><button type="button" class="btn btn-mini" data-shop-item="bannerAurora">Acheter</button></div></article>
+            <article class="shop-card" data-shop-card="bannerSunset"><span class="shop-art banner-sunset"></span><h3>Fond Coucher de soleil</h3><p>Une ligne d'horizon chaude pour ton profil.</p><div class="shop-card-foot"><span class="shop-price">1 050 🪙</span><button type="button" class="btn btn-mini" data-shop-item="bannerSunset">Acheter</button></div></article>
+            <article class="shop-card" data-shop-card="bannerAtlas"><span class="shop-art banner-atlas"></span><h3>Fond Atlas nocturne</h3><p>Cartographie, constellations et reliefs profonds.</p><div class="shop-card-foot"><span class="shop-price">1 600 🪙</span><button type="button" class="btn btn-mini" data-shop-item="bannerAtlas">Acheter</button></div></article>
+            <article class="shop-card" data-shop-card="bannerDefault"><span class="shop-art banner-default"></span><h3>Fond Horizon</h3><p>Le fond de profil original, sobre et lisible.</p><div class="shop-card-foot"><span class="shop-price">Gratuit</span><button type="button" class="btn btn-mini" data-shop-item="bannerDefault">Équiper</button></div></article>
           </div>
           <p class="shop-feedback" id="shop-feedback"></p>
         </section>
@@ -805,6 +810,7 @@
               <span class="prof-pill" id="profile-coins">🪙 0</span>
               <span class="prof-pill" id="profile-unlocked">0/0 débloqués</span>
             </div>
+            <button type="button" class="profile-pass" id="profile-pass-open"><span><strong>Passe de combat</strong><small id="profile-pass-progress">0 / 1 000 XP</small></span><span class="profile-pass-bar"><i id="profile-pass-fill"></i></span><b>Voir ›</b></button>
             <div class="prof-xp" aria-hidden="true"><div class="prof-xp-fill" id="prof-xp-fill"></div></div>
             <p class="prof-xp-label" id="prof-xp-label"></p>
           </div>
@@ -1055,6 +1061,14 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="battle-pass-modal" hidden>
+    <div class="modal-card modal-card-lg battle-pass-card">
+      <button class="modal-close" id="battle-pass-close" aria-label="Fermer">✕</button>
+      <header class="battle-pass-head"><p class="shop-eyebrow">Saison explorateurs</p><h2>🎟 Passe de combat</h2><p id="battle-pass-summary">Palier 1 / 100 · 0 / 1 000 XP</p><span class="battle-pass-bar"><i id="battle-pass-fill"></i></span></header>
+      <div class="battle-pass-list" id="battle-pass-list"></div>
+    </div>
+  </div>
+
   <!-- ====================== CLASSEMENT (modale) ====================== -->
   <div class="modal-overlay" id="lb-modal" hidden>
     <div class="modal-card">
@@ -1067,6 +1081,6 @@
 
   <!-- Leaflet : cartes de guess / résultat (tuiles raster, pas de WebGL) -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script src="game.js?v=114"></script>
+  <script src="game.js?v=115"></script>
 </body>
 </html>
