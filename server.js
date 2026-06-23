@@ -713,7 +713,7 @@ app.get("/api/profile/:pseudo", async (req, res) => {
   if (!requireDb(res)) return;
   const key = pseudoKey(req.params.pseudo);
   try {
-    const u = await db.query(`SELECT id, pseudo, equipped, avatar_idx FROM users WHERE pseudo_key = $1`, [key]);
+    const u = await db.query(`SELECT id, pseudo, equipped, avatar_idx, progress FROM users WHERE pseudo_key = $1`, [key]);
     if (!u.rows.length) return res.status(404).json({ ok: false, error: "joueur introuvable" });
     const usr = u.rows[0];
     const st = await db.query(`SELECT count(*)::int AS games, COALESCE(max(score), 0)::int AS best FROM scores WHERE pseudo = $1`, [usr.pseudo]);
@@ -723,7 +723,8 @@ app.get("/api/profile/:pseudo", async (req, res) => {
       isMe = req.user.id === usr.id;
       if (!isMe) { const fs = await friendState(req.user.id, usr.id); isFriend = fs.isFriend; requestSent = fs.requestSent; requestReceived = fs.requestReceived; }
     }
-    res.json({ ok: true, profile: { pseudo: usr.pseudo, av: usr.avatar_idx || 0, equipped: usr.equipped || {}, games: st.rows[0].games, best: st.rows[0].best, top: top.rows, isFriend, isMe, requestSent, requestReceived } });
+    const passXp = usr.progress && Number.isInteger(usr.progress.xp) ? Math.max(0, Math.min(usr.progress.xp, 100000)) : 0;
+    res.json({ ok: true, profile: { pseudo: usr.pseudo, av: usr.avatar_idx || 0, equipped: usr.equipped || {}, passXp, games: st.rows[0].games, best: st.rows[0].best, top: top.rows, isFriend, isMe, requestSent, requestReceived } });
   } catch (e) {
     console.error("[profile]", e.message);
     res.status(500).json({ ok: false, error: "db-error" });

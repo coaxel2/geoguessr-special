@@ -3029,12 +3029,12 @@ const PROFILE_CATS = [
   ["banner", "Bannières de profil"],
 ];
 function renderProfilePass() {
-  const progress = passProgress(), rank = $("prof-rank"), fill = $("prof-xp-fill"), label = $("prof-xp-label"), small = $("profile-pass-progress"), passFill = $("profile-pass-fill");
+  const progress = passProgress(), rank = $("prof-rank"), small = $("profile-pass-progress"), passFill = $("profile-pass-fill");
   if (rank) rank.textContent = "🎟 Passe de combat · Palier " + progress.level + " / " + PASS_MAX_LEVEL;
   const percent = progress.level >= PASS_MAX_LEVEL ? 100 : progress.current / PASS_XP_PER_LEVEL * 100;
-  if (fill) fill.style.width = percent + "%"; if (passFill) passFill.style.width = percent + "%";
+  if (passFill) passFill.style.width = percent + "%";
   const text = progress.level >= PASS_MAX_LEVEL ? "Passe terminée · récompense ultime récupérable" : progress.current.toLocaleString("fr-FR") + " / " + PASS_XP_PER_LEVEL.toLocaleString("fr-FR") + " XP";
-  if (label) label.textContent = text; if (small) small.textContent = text;
+  if (small) small.textContent = text;
 }
 function renderBattlePass() {
   const list = $("battle-pass-list"); if (!list) return;
@@ -3160,7 +3160,9 @@ function openPublicProfile(pseudo) {
   const m = $("pubprofile-modal"); if (!m || !pseudo) return;
   _pubPseudo = pseudo;
   $("pub-pseudo").textContent = pseudo;
-  $("pub-av").innerHTML = ""; $("pub-rank").textContent = "…";
+  $("pub-av").innerHTML = ""; $("pub-rank").textContent = "🎟 Passe de combat";
+  if ($("pub-pass-label")) $("pub-pass-label").textContent = "Passe de combat · chargement…";
+  if ($("pub-pass-fill")) $("pub-pass-fill").style.width = "0%";
   $("pub-best").textContent = "Record —"; $("pub-games").textContent = "";
   $("pub-top3").innerHTML = '<p class="comm-empty">Chargement…</p>';
   $("pub-friend").hidden = true;
@@ -3175,8 +3177,13 @@ function openPublicProfile(pseudo) {
       $("pub-pseudo").textContent = p.pseudo + (pubBadge ? " " + pubBadge : "");
       const style = (AV_STYLES[(p.equipped || {}).avatarPack]) || "avataaars";
       $("pub-av").innerHTML = '<img src="' + avatarURLFor(p.av || 0, style) + '" alt="" draggable="false" />';
-      const rk = rankFor(p.best || 0);
-      $("pub-rank").textContent = rk.icon + " " + rk.name;
+      const xp = Number.isInteger(p.passXp) ? Math.max(0, Math.min(p.passXp, PASS_MAX_LEVEL * PASS_XP_PER_LEVEL)) : 0;
+      const level = Math.min(PASS_MAX_LEVEL, Math.floor(xp / PASS_XP_PER_LEVEL) + 1);
+      const current = xp >= PASS_MAX_LEVEL * PASS_XP_PER_LEVEL ? PASS_XP_PER_LEVEL : xp % PASS_XP_PER_LEVEL;
+      const percent = level >= PASS_MAX_LEVEL ? 100 : current / PASS_XP_PER_LEVEL * 100;
+      $("pub-rank").textContent = "🎟 Passe de combat · Palier " + level + " / " + PASS_MAX_LEVEL;
+      if ($("pub-pass-label")) $("pub-pass-label").textContent = level >= PASS_MAX_LEVEL ? "Passe de combat terminée" : current.toLocaleString("fr-FR") + " / " + PASS_XP_PER_LEVEL.toLocaleString("fr-FR") + " XP vers le palier " + (level + 1);
+      if ($("pub-pass-fill")) $("pub-pass-fill").style.width = percent + "%";
       $("pub-best").textContent = p.best > 0 ? "Record " + p.best.toLocaleString("fr-FR") : "Record —";
       $("pub-games").textContent = (p.games || 0) + ((p.games || 0) > 1 ? " parties" : " partie");
       const box = $("pub-top3"); box.innerHTML = "";
