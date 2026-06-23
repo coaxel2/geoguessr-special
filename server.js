@@ -751,6 +751,23 @@ app.get("/api/friends", requireAuth, async (req, res) => {
   } catch (e) { console.error("[friends]", e.message); res.status(500).json({ ok: false, error: "db-error" }); }
 });
 
+// GET /api/players/search?q= — recherche de joueurs par pseudo (pour ajouter en ami)
+app.get("/api/players/search", requireAuth, async (req, res) => {
+  const q = pseudoKey(req.query.q || "");
+  if (q.length < 2) return res.json({ ok: true, players: [] });
+  try {
+    const { rows } = await db.query(
+      `SELECT u.pseudo, u.avatar_idx,
+              EXISTS(SELECT 1 FROM friends f WHERE f.user_id = $2 AND f.friend_id = u.id) AS is_friend
+         FROM users u
+        WHERE u.pseudo_key LIKE $1 AND u.id <> $2
+        ORDER BY (u.pseudo_key = $3) DESC, u.pseudo ASC LIMIT 12`,
+      ["%" + q + "%", req.user.id, q]
+    );
+    res.json({ ok: true, players: rows.map((r) => ({ pseudo: r.pseudo, av: r.avatar_idx || 0, isFriend: r.is_friend })) });
+  } catch (e) { console.error("[search]", e.message); res.status(500).json({ ok: false, error: "db-error" }); }
+});
+
 // ====================================================================
 // Zones communautaires : un joueur tape un nom de ville/région, on géocode
 // via Nominatim (OSM), on récupère le contour, et la zone devient jouable

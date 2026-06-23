@@ -3010,6 +3010,38 @@ function renderFriends() {
     })
     .catch(() => { box.innerHTML = '<p class="comm-empty">Amis indisponibles.</p>'; });
 }
+// Recherche de joueurs à ajouter en ami (barre dans la page profil)
+let _friendSearchT = null;
+function searchFriends(q) {
+  const box = $("friend-results"); if (!box) return;
+  clearTimeout(_friendSearchT);
+  q = (q || "").trim();
+  if (q.length < 2) { box.innerHTML = ""; return; }
+  _friendSearchT = setTimeout(() => {
+    fetch("/api/players/search?q=" + encodeURIComponent(q), { credentials: "same-origin" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        const players = (d && d.players) || [];
+        box.innerHTML = "";
+        if (!players.length) { box.innerHTML = '<p class="comm-empty">Aucun joueur à ce pseudo.</p>'; return; }
+        players.forEach((p) => {
+          const row = document.createElement("div"); row.className = "friend-result-row";
+          const img = document.createElement("img"); img.className = "prof-friend-av"; img.src = avatarURLFor(p.av || 0, "avataaars"); img.alt = "";
+          img.addEventListener("click", () => openPublicProfile(p.pseudo));
+          const nm = commSpan("prof-friend-name", p.pseudo);
+          nm.addEventListener("click", () => openPublicProfile(p.pseudo));
+          const btn = document.createElement("button"); btn.type = "button"; btn.className = "friend-add-btn";
+          btn.textContent = p.isFriend ? "✓ Ami" : "+ Ajouter"; btn.disabled = p.isFriend;
+          btn.addEventListener("click", () => {
+            fetch("/api/friends/" + encodeURIComponent(p.pseudo), { method: "POST", credentials: "same-origin" })
+              .then(() => { btn.textContent = "✓ Ami"; btn.disabled = true; renderFriends(); });
+          });
+          row.appendChild(img); row.appendChild(nm); row.appendChild(btn); box.appendChild(row);
+        });
+      })
+      .catch(() => { box.innerHTML = '<p class="comm-empty">Recherche indisponible.</p>'; });
+  }, 280);
+}
 function renderProfileCollections() {
   const wrap = $("profile-collections");
   if (!wrap) return;
@@ -3149,6 +3181,8 @@ function wireAuth() {
 function wireProfile() {
   const out = $("prof-logout");
   if (out) out.addEventListener("click", () => { logout(); goTab("menu"); });
+  const fs = $("friend-search");
+  if (fs) fs.addEventListener("input", () => searchFriends(fs.value));
   const coll = $("profile-collections");
   if (coll) coll.addEventListener("click", (e) => {
     const cell = e.target.closest(".profile-item"); if (!cell) return;
