@@ -2857,7 +2857,7 @@ function rankFor(best) {
   return { name: r[1], icon: r[2], cur: r[0], next: next ? next[0] : null };
 }
 function renderProfilePage() {
-  if (!isLogged()) { showScreen("menu"); openAuthModal(); return; }
+  if (!isLogged()) { showScreen("menu"); return; }   // pas de modale auto (évite l'ouverture parasite au boot)
   const pseudo = (AUTH.user && AUTH.user.pseudo) || G.playerName || "Joueur";
   if ($("prof-pseudo")) $("prof-pseudo").textContent = pseudo;
   if ($("prof-av")) $("prof-av").innerHTML = '<img src="' + avatarURL(G.avatarChoice) + '" alt="" draggable="false" />';
