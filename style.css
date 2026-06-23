@@ -2821,12 +2821,26 @@ body.drawer-open .nav-drawer { transform: translateX(0); }
 .shop-art { overflow: hidden; }
 .shop-card { cursor: pointer; }   /* toute la carte ouvre la prévisualisation */
 .pv-stage-inner { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; border-radius: inherit; }
-/* — Thème : dégradé des couleurs réelles + un « orbe » accent + une pastille bouton — */
-.pv-theme { background: linear-gradient(135deg, var(--a), var(--b)); }
-.pv-theme-card { display: inline-flex; align-items: center; gap: 9px; padding: 0 10px; }
-.pv-theme-orb { width: 26px; height: 26px; border-radius: 50%; background: radial-gradient(circle at 34% 30%, rgba(255,255,255,.7), transparent 60%), var(--a); box-shadow: 0 0 14px var(--a); border: 2px solid rgba(255,255,255,.6); }
-.pv-theme-bars { display: none; }
-.pv-theme-btn { font-size: 11px; font-weight: 800; color: #08231b; background: rgba(255,255,255,.85); padding: 4px 11px; border-radius: 999px; white-space: nowrap; }
+/* — Thème : MINIATURE de l'interface avec ce thème (fond teinté + petite « fenêtre ») — */
+.pv-theme {
+  padding: 8px;
+  background:
+    radial-gradient(90% 80% at 78% 20%, color-mix(in srgb, var(--a) 34%, transparent), transparent 62%),
+    radial-gradient(85% 80% at 12% 96%, color-mix(in srgb, var(--b) 28%, transparent), transparent 60%),
+    linear-gradient(160deg, #0a1122, #0b1326);
+}
+.pv-theme-win {
+  width: min(86%, 210px); padding: 7px 9px; border-radius: 9px;
+  background: rgba(13, 20, 38, .74);
+  border: 1px solid color-mix(in srgb, var(--a) 38%, rgba(255, 255, 255, .12));
+  box-shadow: 0 6px 16px rgba(0, 0, 0, .32);
+  display: grid; grid-template-columns: auto 1fr; gap: 4px 7px; align-items: center;
+  grid-template-areas: "dot row" "dot rowsm" "go go";
+}
+.pv-theme-dot { grid-area: dot; width: 18px; height: 18px; border-radius: 50%; background: var(--a); box-shadow: 0 0 8px var(--a); }
+.pv-theme-row { grid-area: row; height: 5px; border-radius: 999px; background: rgba(255, 255, 255, .55); }
+.pv-theme-row.sm { grid-area: rowsm; width: 62%; background: rgba(255, 255, 255, .3); }
+.pv-theme-go { grid-area: go; margin-top: 3px; text-align: center; font-size: 9px; font-weight: 800; color: #08231b; background: var(--a); border-radius: 999px; padding: 3px 0; }
 /* fond OPAQUE pour badge/pack/fx (couvre l'ancien dégradé .shop-art qui transparaissait) */
 .pv-badge, .pv-avatarPack, .pv-fx { background: linear-gradient(135deg, #16213a, #0d1525); }
 /* — Badge : le pseudo + l'emoji du badge — */
@@ -2844,8 +2858,10 @@ body.drawer-open .nav-drawer { transform: translateX(0); }
 .pv-sub { color: var(--muted); font-size: 13px; margin: 0 0 16px; }
 .pv-stage { height: 184px; border-radius: 16px; overflow: hidden; margin-bottom: 18px; border: 1px solid var(--stroke); background: rgba(0,0,0,.22); }
 .pv-stage-inner.big { gap: 14px; flex-wrap: wrap; padding: 10px; }
-.pv-stage-inner.big .pv-theme-orb { width: 60px; height: 60px; }
-.pv-stage-inner.big .pv-theme-btn { font-size: 14px; padding: 9px 20px; }
+.pv-stage-inner.big .pv-theme-win { width: min(72%, 250px); padding: 12px 15px; gap: 6px 11px; border-radius: 12px; }
+.pv-stage-inner.big .pv-theme-dot { width: 30px; height: 30px; }
+.pv-stage-inner.big .pv-theme-row { height: 7px; }
+.pv-stage-inner.big .pv-theme-go { font-size: 12px; padding: 6px 0; margin-top: 6px; }
 .pv-stage-inner.big .pv-badge-pseudo { font-size: 27px; }
 .pv-stage-inner.big .pv-badge-emo { font-size: 32px; }
 .pv-stage-inner.big .pv-av { width: 62px; height: 62px; }

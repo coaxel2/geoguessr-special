@@ -415,11 +415,10 @@ function itemStage(itemId, big) {
   if (item.type === "theme") {
     const c = THEME_COLORS[itemId] || THEME_COLORS.themeDefault;
     wrap.style.setProperty("--a", c.a); wrap.style.setProperty("--b", c.b);
-    const card = document.createElement("div"); card.className = "pv-theme-card";
-    card.innerHTML = '<span class="pv-theme-orb"></span>' +
-      '<span class="pv-theme-bars"><i></i><i></i><i></i></span>' +
-      '<span class="pv-theme-btn">Jouer</span>';
-    wrap.appendChild(card);
+    // mini-rendu de l'interface avec ce thème : fond teinté + petite « fenêtre » (avatar + texte + bouton accent)
+    const win = document.createElement("div"); win.className = "pv-theme-win";
+    win.innerHTML = '<span class="pv-theme-dot"></span><span class="pv-theme-row"></span><span class="pv-theme-row sm"></span><span class="pv-theme-go">Jouer</span>';
+    wrap.appendChild(win);
   } else if (item.type === "badge") {
     const ps = document.createElement("span"); ps.className = "pv-badge-pseudo";
     ps.textContent = myPseudo() + " ";
@@ -3320,11 +3319,11 @@ function renderProfileCollections() {
       cell.dataset.item = id;
       cell.disabled = isEq;
       cell.title = isEq ? item.label + " — équipé" : "Équiper " + item.label;
-      const artCls = PROFILE_ART[id] || "";
       cell.innerHTML =
-        '<span class="profile-art shop-art ' + artCls + '"></span>' +
+        '<span class="profile-art shop-art"></span>' +
         '<span class="profile-item-label">' + item.label + "</span>" +
         '<span class="profile-item-state">' + (isEq ? "Équipé ✓" : "Équiper") + "</span>";
+      cell.querySelector(".profile-art").appendChild(itemStage(id, false));   // même vignette fidèle que la boutique
       grid.appendChild(cell);
     });
     sec.appendChild(grid);
