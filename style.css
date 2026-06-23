@@ -914,9 +914,13 @@ body[data-fx="aurora"] .home-bg::after {
 
 /* HUD */
 .hud {
-  position: absolute; top: 16px; left: 50%; transform: translateX(-50%);
+  position: absolute; top: 16px;
   z-index: 20; display: flex; gap: 10px; align-items: center;
 }
+.hud-left { left: 74px; }              /* à droite du bouton « recentrer » (haut-gauche) */
+.hud-right { right: 16px; }            /* ta tête + ton score + quitter (haut-droite) */
+.hud-me { display: inline-flex; align-items: center; gap: 8px; padding-left: 7px; }
+.hud-me-av { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; border: 1.5px solid var(--accent); background: rgba(255, 255, 255, .06); }
 .hud-pill {
   background: rgba(10,15,31,.66);
   backdrop-filter: blur(12px);
@@ -963,6 +967,59 @@ body.time-critical::after {
   transition: .15s;
 }
 .reset-view:hover { background: rgba(46,230,166,.2); transform: rotate(-45deg); }
+
+/* Boussole N/E/S/O : bande défilante en haut au centre, indique l'orientation du regard */
+.compass {
+  position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+  z-index: 19; width: min(280px, 56vw); height: 30px; overflow: hidden;
+  background: rgba(10, 15, 31, .6);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--stroke); border-radius: 999px;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 16%, #000 84%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 16%, #000 84%, transparent);
+}
+.compass-strip { position: absolute; top: 0; left: 0; height: 100%; will-change: transform; }
+.compass-tick {
+  position: absolute; top: 0; height: 100%; transform: translateX(-50%);
+  display: flex; align-items: center; justify-content: center;
+  color: rgba(255, 255, 255, .55); font-size: 10px; font-weight: 700; letter-spacing: .5px;
+}
+.compass-tick:not(.major)::before { content: ""; width: 1px; height: 7px; background: rgba(255, 255, 255, .32); }
+.compass-tick.major { color: #fff; font-size: 13px; font-weight: 800; }
+.compass-tick.cardinal { color: var(--accent); }
+.compass-needle {
+  position: absolute; top: 4px; bottom: 4px; left: 50%; width: 2px; transform: translateX(-50%);
+  background: var(--accent); border-radius: 2px; box-shadow: 0 0 8px var(--accent);
+}
+
+/* Réglages en jeu (clavier + volume) — bouton engrenage bas-gauche + popover */
+.game-settings { position: absolute; left: 16px; bottom: 18px; z-index: 21; }
+.game-settings-btn {
+  width: 46px; height: 46px; border-radius: 50%;
+  background: rgba(10, 15, 31, .66);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--stroke); color: var(--text);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, .3); cursor: pointer; transition: .15s;
+}
+.game-settings-btn:hover { background: rgba(46, 230, 166, .2); }
+.game-settings-panel {
+  position: absolute; left: 0; bottom: 56px; width: 252px;
+  background: var(--panel);
+  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+  border: 1px solid var(--stroke); border-radius: 16px; padding: 14px;
+  box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 14px;
+}
+.game-settings-panel[hidden] { display: none; }
+.gs-row { display: flex; flex-direction: column; gap: 8px; }
+.gs-label { font-size: 13px; font-weight: 700; color: var(--text); display: flex; justify-content: space-between; }
+.gs-label b { color: var(--accent); }
+.gs-seg { display: flex; gap: 4px; background: rgba(255, 255, 255, .05); border-radius: 10px; padding: 4px; }
+.gs-seg button { flex: 1; padding: 8px; border-radius: 7px; border: 0; background: transparent; color: var(--muted); font-weight: 800; cursor: pointer; font-size: 13px; }
+.gs-seg button.on { background: var(--accent); color: #04110b; }
+#gs-vol { width: 100%; accent-color: var(--accent); }
+.gs-hint { font-size: 11.5px; color: var(--muted); margin: 0; line-height: 1.4; }
+.gs-hint b { color: var(--text); }
 
 /* Guess panel (bottom-right, expandable) */
 .guess-panel {
@@ -1153,10 +1210,17 @@ body.time-critical::after {
   .guessmap { height: 130px; }
   .guess-panel.expanded { width: calc(100vw - 24px); }
   .guess-panel.expanded .guessmap { height: 50vh; }
-  .hud { top: 12px; left: 12px; right: 12px; transform: none; width: auto; gap: 6px; flex-wrap: wrap; justify-content: flex-start; padding-right: 78px; }
-  .hud-pill { padding: 7px 12px; font-size: 12.5px; }
-  .hud-quit { position: absolute; top: 0; right: 0; }     /* Quitter toujours en haut à droite, jamais chevauché */
-  .reset-view { top: auto; bottom: 30px; left: 12px; width: 42px; height: 42px; font-size: 18px; }  /* recentrage en bas à gauche sur mobile */
+  .hud { gap: 6px; }
+  .hud-left { top: 12px; left: 12px; }
+  .hud-right { top: 12px; right: 12px; }
+  .hud-pill { padding: 7px 11px; font-size: 12.5px; }
+  .hud-me-av { width: 22px; height: 22px; }
+  .compass { top: 52px; width: 58vw; height: 26px; }
+  .hud-progress { display: none; }                        /* trop chargé en haut sur mobile */
+  .reset-view { top: auto; bottom: 76px; left: 12px; width: 42px; height: 42px; font-size: 18px; }  /* au-dessus des réglages */
+  .game-settings { left: 12px; bottom: 18px; }
+  .game-settings-btn { width: 42px; height: 42px; }
+  .game-settings-panel { width: min(74vw, 252px); }
   .logo { font-size: 28px; }
   .room-code { font-size: 40px; letter-spacing: 8px; }
 }

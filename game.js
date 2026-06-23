@@ -589,7 +589,7 @@ function avatarPngURL(choice) {
          encodeURIComponent(seed) + "&backgroundColor=" + AV_BG + "&radius=50&size=96";
 }
 function avatarPinIcon(choice) {
-  return { url: avatarPngURL(choice), scaledSize: new google.maps.Size(46, 46), anchor: new google.maps.Point(23, 23) };
+  return { url: avatarPngURL(choice), scaledSize: new google.maps.Size(36, 36), anchor: new google.maps.Point(18, 18) };
 }
 function setAvatar(elId, choice) {
   const el = $(elId);
@@ -1393,6 +1393,10 @@ function makePano(loc, pov) {
     enableCloseButton: false,
     linksControl: true, panControl: true, zoomControl: true,
   });
+  buildCompass();
+  G.pano.addListener("pov_changed", () => { try { updateCompass(G.pano.getPov().heading); } catch (e) {} });
+  try { updateCompass((pov && pov.heading) || 0); } catch (e) {}
+  const hav = $("hud-me-av"); if (hav) hav.src = avatarURL(G.avatarChoice);   // ta tête dans le HUD
 }
 // Tuiles claires CartoDB Voyager — utilisées UNIQUEMENT pour les mini-cartes du sélecteur de
 // zone (Leaflet). Les cartes en jeu (guess + résultat) sont passées à Google Maps (POI/commerces).
@@ -1621,18 +1625,63 @@ function scoreFor(d){const km=d/1000;const R=zoneRadiusKm();const tau=Math.max(1
 
 /* ---------- chrono + son ---------- */
 let audioCtx = null;
+function sfxVol() { return (typeof G.sfxVol === "number") ? G.sfxVol : 0.7; }   // 0→1
+function kbLayout() { return G.kbLayout === "qwerty" ? "qwerty" : "azerty"; }
 function beep(freq, dur) {
   try {
+    const vol = sfxVol();
+    if (vol <= 0) return;                       // sons coupés
     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     if (audioCtx.state === "suspended") audioCtx.resume();
     const o = audioCtx.createOscillator(), g = audioCtx.createGain();
     o.type = "sine"; o.frequency.value = freq || 880;
-    g.gain.setValueAtTime(0.14, audioCtx.currentTime);
+    g.gain.setValueAtTime(0.14 * vol, audioCtx.currentTime);
     o.connect(g); g.connect(audioCtx.destination);
     o.start();
     g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + (dur || 0.16));
     o.stop(audioCtx.currentTime + (dur || 0.16));
   } catch (e) {}
+}
+
+/* ===== Boussole N/E/S/O : bande défilante selon le heading du Street View ===== */
+const COMPASS_PPD = 2.4;   // pixels par degré
+function buildCompass() {
+  const strip = $("compass-strip");
+  if (!strip || strip.childElementCount) return;
+  const card = { 0: "N", 45: "NE", 90: "E", 135: "SE", 180: "S", 225: "SO", 270: "O", 315: "NO" };
+  for (let deg = -360; deg <= 720; deg += 15) {
+    const norm = ((deg % 360) + 360) % 360, lab = card[norm];
+    const t = document.createElement("div");
+    t.className = "compass-tick" + (lab ? " major" : "") + (norm % 90 === 0 ? " cardinal" : "");
+    t.style.left = ((deg + 360) * COMPASS_PPD) + "px";
+    if (lab) t.textContent = lab;
+    strip.appendChild(t);
+  }
+}
+function updateCompass(heading) {
+  const wrap = $("compass"), strip = $("compass-strip");
+  if (!wrap || !strip) return;
+  strip.style.transform = "translateX(" + (wrap.clientWidth / 2 - ((heading || 0) + 360) * COMPASS_PPD) + "px)";
+}
+
+/* ===== Déplacement clavier dans le Street View (ZQSD / WASD / flèches) ===== */
+function svTurn(delta) {
+  if (!G.pano) return;
+  const p = G.pano.getPov();
+  G.pano.setPov({ heading: ((p.heading + delta) % 360 + 360) % 360, pitch: p.pitch, zoom: p.zoom });
+}
+function svMove(forward) {
+  if (!G.pano) return;
+  const links = G.pano.getLinks() || [];
+  if (!links.length) return;
+  const h = G.pano.getPov().heading, target = forward ? h : (h + 180) % 360;
+  let best = null, bd = 999;
+  links.forEach((l) => {
+    if (!l) return;
+    const d = Math.abs(((l.heading - target + 540) % 360) - 180);
+    if (d < bd) { bd = d; best = l; }
+  });
+  if (best && bd <= 55) G.pano.setPano(best.pano);   // seuil pour éviter les sauts latéraux
 }
 function fmtTime(s) {
   s = Math.max(0, s | 0);
@@ -2874,6 +2923,9 @@ function wire() {
     if (savedName) { G.playerName = cleanName(savedName); $("player-name").value = G.playerName; }
     G.avatarChoice = parseInt(localStorage.getItem("geoq-av"), 10) || 0;
     if (G.avatarChoice < 0 || G.avatarChoice >= AVATARS.length) G.avatarChoice = 0;
+    const sv = parseFloat(localStorage.getItem("geoq-vol"));
+    G.sfxVol = isNaN(sv) ? 0.7 : Math.max(0, Math.min(1, sv));
+    G.kbLayout = localStorage.getItem("geoq-kb") === "qwerty" ? "qwerty" : "azerty";
   } catch (e) {}
   $("player-name").addEventListener("change", savePlayerName);
   $("player-name").addEventListener("blur", savePlayerName);
@@ -3090,6 +3142,45 @@ function wire() {
       const bn = $("btn-next");
       if (bn && !bn.classList.contains("hidden")) { e.preventDefault(); nextRound(); }
     }
+  });
+
+  // Réglages en jeu : engrenage → popover (disposition clavier + volume des effets)
+  (function () {
+    const btn = $("game-settings-btn"), panel = $("game-settings-panel"), box = $("game-settings");
+    if (!btn || !panel || !box) return;
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      panel.hidden = !panel.hidden;
+      btn.setAttribute("aria-expanded", String(!panel.hidden));
+    });
+    document.addEventListener("click", (e) => {
+      if (!panel.hidden && !box.contains(e.target)) { panel.hidden = true; btn.setAttribute("aria-expanded", "false"); }
+    });
+    const seg = $("gs-kb");
+    const syncKb = () => seg.querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.kb === kbLayout()));
+    seg.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => {
+      G.kbLayout = b.dataset.kb; try { localStorage.setItem("geoq-kb", G.kbLayout); } catch (e) {} syncKb();
+    }));
+    syncKb();
+    const vol = $("gs-vol"), val = $("gs-vol-val");
+    vol.value = Math.round(sfxVol() * 100); val.textContent = vol.value + " %";
+    vol.addEventListener("input", () => {
+      G.sfxVol = (parseInt(vol.value, 10) || 0) / 100; val.textContent = vol.value + " %";
+      try { localStorage.setItem("geoq-vol", String(G.sfxVol)); } catch (e) {}
+    });
+    vol.addEventListener("change", () => beep(720, 0.12));   // petit aperçu sonore au relâchement
+  })();
+
+  // Déplacement clavier dans le Street View (ZQSD azerty / WASD qwerty + flèches), en jeu seulement
+  document.addEventListener("keydown", (e) => {
+    if (!$("game") || !$("game").classList.contains("show")) return;
+    const tag = (e.target && e.target.tagName) || "";
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+    const k = (e.key || "").toLowerCase(), az = kbLayout() === "azerty";
+    if (k === "arrowup" || k === (az ? "z" : "w")) { e.preventDefault(); svMove(true); }
+    else if (k === "arrowdown" || k === "s") { e.preventDefault(); svMove(false); }
+    else if (k === "arrowleft" || k === (az ? "q" : "a")) { e.preventDefault(); svTurn(-22); }
+    else if (k === "arrowright" || k === "d") { e.preventDefault(); svTurn(22); }
   });
 
   // Débloque l'audio dès le 1er geste : sinon la politique « autoplay » des navigateurs

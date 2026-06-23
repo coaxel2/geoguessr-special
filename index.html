@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://api.dicebear.com" />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-  <link rel="stylesheet" href="style.css?v=83" />
+  <link rel="stylesheet" href="style.css?v=84" />
 </head>
 <body>
   <div class="wallet-pill" id="wallet-pill" aria-label="Monnaie disponible">
@@ -736,20 +736,54 @@
       <p id="pano-cover-text">Recherche d'un lieu…</p>
     </div>
 
-    <!-- top HUD -->
-    <div class="hud">
+    <!-- boussole N / E / S / O -->
+    <div class="compass" id="compass" aria-hidden="true">
+      <div class="compass-strip" id="compass-strip"></div>
+      <div class="compass-needle"></div>
+    </div>
+
+    <!-- HUD haut-gauche : manche + chrono -->
+    <div class="hud hud-left">
       <div class="hud-pill" id="hud-round">Manche 1/5</div>
       <div class="hud-pill hud-timer hidden" id="hud-timer">⏱ 5:00</div>
-      <div class="hud-pill" id="hud-score">0 pts</div>
       <div class="hud-pill hud-opp hidden" id="hud-opp"><span class="av av-sm" id="hud-opp-av" data-size="20"></span><span id="hud-opp-txt">Adversaire : 0 pts</span></div>
+    </div>
+
+    <!-- HUD haut-droite : ta tête + ton score + quitter -->
+    <div class="hud hud-right">
+      <div class="hud-pill hud-me">
+        <img class="hud-me-av" id="hud-me-av" src="" alt="" draggable="false" />
+        <span id="hud-score">0 pts</span>
+      </div>
       <button class="hud-pill hud-quit" id="btn-quit">Quitter</button>
     </div>
 
     <!-- progression des manches -->
     <div class="hud-progress" id="hud-progress" aria-hidden="true"></div>
 
-    <!-- compass / reset view -->
+    <!-- recentrer la vue -->
     <button class="reset-view" id="btn-reset-view" title="Revenir au point de départ" aria-label="Revenir au point de départ">⟲</button>
+
+    <!-- réglages en jeu : disposition clavier + volume (bas-gauche) -->
+    <div class="game-settings" id="game-settings">
+      <button class="game-settings-btn" id="game-settings-btn" title="Réglages" aria-label="Réglages" aria-expanded="false">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>
+      </button>
+      <div class="game-settings-panel" id="game-settings-panel" hidden>
+        <div class="gs-row">
+          <span class="gs-label">Déplacement clavier</span>
+          <div class="gs-seg" id="gs-kb">
+            <button type="button" data-kb="azerty">ZQSD</button>
+            <button type="button" data-kb="qwerty">WASD</button>
+          </div>
+        </div>
+        <div class="gs-row">
+          <span class="gs-label">Sons <b id="gs-vol-val">70 %</b></span>
+          <input type="range" id="gs-vol" min="0" max="100" value="70" aria-label="Volume des effets sonores" />
+        </div>
+        <p class="gs-hint">Bouge avec <b>Z Q S D</b> (ou <b>W A S D</b>) et les flèches.</p>
+      </div>
+    </div>
 
     <!-- guess panel -->
     <div class="guess-panel" id="guess-panel">
@@ -889,6 +923,6 @@
 
   <!-- Leaflet : cartes de guess / résultat (tuiles raster, pas de WebGL) -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script src="game.js?v=83"></script>
+  <script src="game.js?v=84"></script>
 </body>
 </html>
