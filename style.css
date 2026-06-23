@@ -2295,16 +2295,90 @@ body {
   text-align: center;
 }
 
+/* ===== Menu burger mobile (tiroir latéral) — masqué en desktop, activé < 900px ===== */
+.nav-burger {
+  display: none;
+  position: fixed; top: calc(12px + env(safe-area-inset-top)); right: 12px;
+  width: 44px; height: 44px; z-index: 46;
+  align-items: center; justify-content: center;
+  border: 1px solid rgba(255, 255, 255, .14); border-radius: 13px;
+  background: rgba(20, 28, 48, .94); cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.nav-burger > span { display: block; width: 20px; height: 14px; position: relative; }
+.nav-burger i {
+  position: absolute; left: 0; right: 0; height: 2px; border-radius: 2px;
+  background: #eaf0ff; transition: transform .26s ease, opacity .18s ease, top .26s ease;
+}
+.nav-burger i:nth-child(1) { top: 0; }
+.nav-burger i:nth-child(2) { top: 6px; }
+.nav-burger i:nth-child(3) { top: 12px; }
+body.drawer-open .nav-burger i:nth-child(1) { top: 6px; transform: rotate(45deg); }
+body.drawer-open .nav-burger i:nth-child(2) { opacity: 0; }
+body.drawer-open .nav-burger i:nth-child(3) { top: 6px; transform: rotate(-45deg); }
+
+.nav-scrim {
+  position: fixed; inset: 0; z-index: 44;
+  background: rgba(5, 8, 18, .55); -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
+  opacity: 0; transition: opacity .24s ease;
+}
+body.drawer-open .nav-scrim { opacity: 1; }
+
+.nav-drawer {
+  position: fixed; top: 0; right: 0; bottom: 0; z-index: 45;
+  width: min(82vw, 320px);
+  display: flex; flex-direction: column; gap: 7px;
+  padding: calc(16px + env(safe-area-inset-top)) 16px calc(18px + env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, #111a30, #0b1124);
+  border-left: 1px solid rgba(255, 255, 255, .10);
+  box-shadow: -18px 0 50px rgba(0, 0, 0, .5);
+  transform: translateX(100%); transition: transform .26s cubic-bezier(.22, 1, .36, 1);
+  overflow-y: auto;
+}
+body.drawer-open .nav-drawer { transform: translateX(0); }
+.nav-drawer-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.nav-drawer-brand { font-weight: 800; font-size: 20px; letter-spacing: .2px; }
+.nav-drawer-brand::before { content: "◍"; color: var(--accent); margin-right: 8px; }
+.nav-drawer-close {
+  width: 38px; height: 38px; display: flex; align-items: center; justify-content: center;
+  border: 1px solid rgba(255, 255, 255, .12); border-radius: 11px;
+  background: rgba(255, 255, 255, .04); color: #cdd6ee; cursor: pointer;
+}
+.nav-drawer-close:hover { background: rgba(255, 255, 255, .08); }
+.drawer-tab {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%; text-align: left;
+  padding: 14px 15px; border: 1px solid transparent; border-radius: 14px;
+  background: rgba(255, 255, 255, .04); color: #e7ecfb;
+  font-size: 16px; font-weight: 600; cursor: pointer;
+  transition: background .18s ease, border-color .18s ease;
+}
+.drawer-tab::after { content: "›"; color: #7f8db5; font-size: 22px; line-height: 1; }
+.drawer-tab:hover { background: rgba(255, 255, 255, .07); }
+.drawer-tab.on {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+.drawer-tab.on::after { color: var(--accent); }
+.drawer-account {
+  margin-top: auto; width: 100%;
+  padding: 14px 15px; border-radius: 14px; cursor: pointer;
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: #eaf0ff; font-size: 15.5px; font-weight: 700;
+  text-align: center;
+}
+.drawer-account:hover { background: color-mix(in srgb, var(--accent) 22%, transparent); }
+
 @media (max-width: 900px) {
-  /* Header en colonne (logo en haut, onglets dessous) : monnaie + profil restent
-     groupés en haut à droite, alignés sur la rangée du logo, sans chevaucher. */
   /* ===== Barre de navigation MOBILE =====
-     Fixe en haut, pleine largeur, 2 rangées : (1) logo à gauche + monnaie/profil
-     à droite ; (2) onglets défilables horizontalement. */
+     Fixe en haut, pleine largeur, UNE seule rangée : logo à gauche, puis monnaie +
+     bouton burger à droite. Les onglets passent dans le tiroir (menu burger). */
   .site-header {
     position: fixed; top: 0; left: 0; right: 0;
     width: 100%; transform: none; min-height: 0;
-    flex-direction: column; align-items: stretch; gap: 9px;
+    flex-direction: row; align-items: center; justify-content: flex-start;
+    gap: 10px;
     padding: calc(9px + env(safe-area-inset-top)) 12px 9px;
     border: none; border-bottom: 1px solid rgba(255, 255, 255, .09);
     border-radius: 0;
@@ -2312,33 +2386,21 @@ body {
     box-shadow: 0 6px 22px rgba(0, 0, 0, .35);
     z-index: 40;
   }
-  /* rangée 1 : logo calé à gauche (la monnaie + le profil flottent à droite) */
   .brand-mark {
-    justify-content: flex-start; align-self: flex-start;
-    padding: 0; min-height: 40px;
+    justify-content: flex-start; align-self: center;
+    padding: 0; min-height: 44px; margin-right: auto;
   }
-  /* rangée 2 : onglets, défilement horizontal sans barre visible */
-  .site-tabs {
-    width: 100%; min-width: 0;
-    overflow-x: auto; -webkit-overflow-scrolling: touch;
-    justify-content: flex-start; gap: 4px;
-    scrollbar-width: none; -ms-overflow-style: none;
+  /* onglets inline masqués → désormais accessibles via le menu burger */
+  .site-tabs { display: none; }
+  .nav-burger { display: flex; }
+  /* monnaie : à gauche du burger ; profil : déplacé dans le tiroir */
+  .wallet-pill {
+    position: fixed; top: calc(13px + env(safe-area-inset-top));
+    right: 66px; height: 38px; padding: 0 12px; z-index: 42;
   }
-  .site-tabs::-webkit-scrollbar { display: none; }
-  .site-tabs .tab-link {
-    flex: 0 0 auto;
-    padding: 9px 15px; font-size: 13.5px;
-    white-space: nowrap;
-  }
-  /* monnaie + profil : alignés sur la rangée du logo, à droite, compacts */
-  .wallet-pill, .account-btn {
-    position: fixed; top: calc(11px + env(safe-area-inset-top));
-    height: 36px; padding: 0 11px; z-index: 41;
-  }
-  .wallet-pill { right: 12px; }
-  .account-btn { right: calc(24px + 92px); max-width: 130px; }
-  /* le contenu démarre sous la barre fixe (logo ~40 + onglets ~38 + paddings ≈ 112) */
-  .app-shell { width: min(calc(100vw - 24px), 680px); padding-top: 112px; }
+  .account-btn { display: none; }
+  /* le contenu démarre sous la barre fixe (1 rangée ≈ 60px) */
+  .app-shell { width: min(calc(100vw - 24px), 680px); padding-top: 74px; }
 
   .home-main,
   .online-page,
@@ -2414,9 +2476,9 @@ body {
 }
 
 @media (max-width: 520px) {
-  .wallet-pill { right: 11px; height: 35px; padding: 0 10px; gap: 7px; font-size: 13.5px; }
+  .nav-burger { right: 11px; }
+  .wallet-pill { right: 62px; height: 36px; padding: 0 11px; gap: 7px; font-size: 13.5px; }
   .wallet-icon { width: 22px; height: 22px; }
-  .account-btn { right: calc(22px + 86px); height: 35px; max-width: 116px; padding: 0 10px; font-size: 13px; }
 
   .app-shell { width: calc(100vw - 18px); padding-bottom: 28px; }
   .site-header { padding-left: 11px; padding-right: 11px; }

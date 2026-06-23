@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://api.dicebear.com" />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-  <link rel="stylesheet" href="style.css?v=78" />
+  <link rel="stylesheet" href="style.css?v=79" />
 </head>
 <body>
   <div class="wallet-pill" id="wallet-pill" aria-label="Monnaie disponible">
@@ -35,6 +35,27 @@
     </span>
     <span id="account-name">Se connecter</span>
   </button>
+  <!-- Menu burger mobile : bouton + tiroir global (un seul pour toute l'app) -->
+  <button class="nav-burger" id="nav-burger" type="button" aria-label="Ouvrir le menu" aria-expanded="false" aria-controls="nav-drawer">
+    <span aria-hidden="true"><i></i><i></i><i></i></span>
+  </button>
+  <div class="nav-scrim" id="nav-scrim" hidden></div>
+  <aside class="nav-drawer" id="nav-drawer" hidden aria-label="Menu de navigation">
+    <div class="nav-drawer-head">
+      <span class="nav-drawer-brand">Geoloc</span>
+      <button class="nav-drawer-close" id="nav-drawer-close" type="button" aria-label="Fermer le menu">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+      </button>
+    </div>
+    <nav class="nav-drawer-tabs" aria-label="Navigation principale">
+      <button type="button" class="drawer-tab" data-tab="menu">Solo</button>
+      <button type="button" class="drawer-tab" data-tab="online">Multijoueur</button>
+      <button type="button" class="drawer-tab" data-tab="leaderboard">Classement</button>
+      <button type="button" class="drawer-tab" data-tab="shop">Boutique</button>
+      <button type="button" class="drawer-tab" data-tab="community">Communauté</button>
+    </nav>
+    <button type="button" class="drawer-account" id="drawer-account">Se connecter</button>
+  </aside>
 
   <!-- ====================== MENU ====================== -->
   <section id="menu" class="screen show">
@@ -854,6 +875,6 @@
 
   <!-- Leaflet : cartes de guess / résultat (tuiles raster, pas de WebGL) -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script src="game.js?v=78"></script>
+  <script src="game.js?v=79"></script>
 </body>
 </html>

@@ -1241,9 +1241,11 @@ async function findOneLocation() {
     // villes : spawn très resserré autour du centre-ville (cible proche du centre + recherche
     // de panorama courte) → on reste dans la ville, jamais dans la ville d'à côté.
     const cr = r[2] || 6000;
-    const searchRadius = pool.type === "city" ? Math.max(1200, Math.min(3500, cr * 0.45)) : 70000;
+    // villes : cible QUASI au centre-ville (≤18 % du rayon) + recherche de panorama
+    // courte → on tombe en plein centre, jamais en périphérie ni dans la ville voisine.
+    const searchRadius = pool.type === "city" ? Math.max(700, Math.min(2200, cr * 0.32)) : 70000;
     const target = pool.type === "city"
-      ? randomPointNear(r[0], r[1], cr * 0.35)
+      ? randomPointNear(r[0], r[1], cr * 0.18)
       : { lat: rand(r[0], r[1]), lng: rand(r[2], r[3]) };
     const req = {
       location: target,
@@ -2917,6 +2919,40 @@ function wire() {
 
   document.querySelectorAll(".tab-link").forEach((b) =>
     b.addEventListener("click", () => goTab(b.dataset.tab)));
+
+  // Menu burger mobile : ouverture/fermeture du tiroir latéral. Les onglets du tiroir
+  // relaient vers goTab() ; le bouton compte relaie un clic sur le profil réel (masqué
+  // en mobile) pour réutiliser sa logique de connexion.
+  (function () {
+    const burger = $("nav-burger"), drawer = $("nav-drawer"), scrim = $("nav-scrim");
+    if (!burger || !drawer || !scrim) return;
+    const closeBtn = $("nav-drawer-close"), drawerAcc = $("drawer-account"), accBtn = $("account-btn");
+    const openDrawer = () => {
+      const an = $("account-name");
+      if (drawerAcc && an) drawerAcc.textContent = an.textContent || "Se connecter";
+      const cur = document.querySelector(".site-tabs .tab-link.on");
+      const curTab = cur ? cur.dataset.tab : "menu";
+      drawer.querySelectorAll(".drawer-tab").forEach((b) => b.classList.toggle("on", b.dataset.tab === curTab));
+      drawer.hidden = false; scrim.hidden = false;
+      requestAnimationFrame(() => document.body.classList.add("drawer-open"));
+      burger.setAttribute("aria-expanded", "true");
+    };
+    const closeDrawer = () => {
+      document.body.classList.remove("drawer-open");
+      burger.setAttribute("aria-expanded", "false");
+      setTimeout(() => { drawer.hidden = true; scrim.hidden = true; }, 260);
+    };
+    burger.addEventListener("click", openDrawer);
+    if (closeBtn) closeBtn.addEventListener("click", closeDrawer);
+    scrim.addEventListener("click", closeDrawer);
+    drawer.querySelectorAll(".drawer-tab").forEach((b) =>
+      b.addEventListener("click", () => { closeDrawer(); goTab(b.dataset.tab); }));
+    if (drawerAcc && accBtn) drawerAcc.addEventListener("click", () => { closeDrawer(); accBtn.click(); });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && document.body.classList.contains("drawer-open")) closeDrawer();
+    });
+  })();
+
   $("btn-solo").addEventListener("click", startSolo);
   if ($("btn-leaderboard")) $("btn-leaderboard").addEventListener("click", () => goTab("leaderboard"));
   if ($("btn-refresh-leaderboard")) $("btn-refresh-leaderboard").addEventListener("click", loadLeaderboardPage);
