@@ -581,6 +581,16 @@ function avatarURL(choice) {
   return "https://api.dicebear.com/9.x/" + currentAvStyle() + "/svg?seed=" +
          encodeURIComponent(seed) + "&backgroundColor=" + AV_BG;
 }
+// Version PNG RONDE (radius=50) pour servir d'icône de marqueur « tête du joueur »
+// sur les cartes Google (le SVG se redimensionne mal en icône Marker).
+function avatarPngURL(choice) {
+  const seed = AVATARS[choice] || AVATARS[0];
+  return "https://api.dicebear.com/9.x/" + currentAvStyle() + "/png?seed=" +
+         encodeURIComponent(seed) + "&backgroundColor=" + AV_BG + "&radius=50&size=96";
+}
+function avatarPinIcon(choice) {
+  return { url: avatarPngURL(choice), scaledSize: new google.maps.Size(46, 46), anchor: new google.maps.Point(23, 23) };
+}
 function setAvatar(elId, choice) {
   const el = $(elId);
   if (!el) return;
@@ -1439,8 +1449,7 @@ function placeGuess(lat, lng) {
   const pos = { lat: lat, lng: lng };
   if (!G.marker) {
     G.marker = new google.maps.Marker({
-      position: pos, map: G.gmap, zIndex: 999,
-      icon: { path: google.maps.SymbolPath.CIRCLE, scale: 8, fillColor: accentColor(), fillOpacity: 1, strokeColor: "#fff", strokeWeight: 2 },
+      position: pos, map: G.gmap, zIndex: 999, icon: avatarPinIcon(G.avatarChoice), title: "Ton point",
     });
   } else G.marker.setPosition(pos);
   G.guess = { lat: lat, lng: lng };
@@ -1711,9 +1720,11 @@ function drawResult(loc) {
   const gb = new google.maps.LatLngBounds(); gb.extend(actual);
   const real = pin(loc.lat, loc.lng, "#ffd35c", 9, "Lieu réel"); real.setMap(resMap); resOverlays.push(real);
   let n = 0;
-  const drawFor = (la, ln, color, label) => {
+  const drawFor = (la, ln, color, label, avChoice) => {
     gb.extend({ lat: la, lng: ln }); n++;
-    const m = pin(la, ln, color, 7, label); m.setMap(resMap); resOverlays.push(m);
+    // marqueur = la « tête » du joueur (avatar) au lieu d'un point coloré
+    const m = new google.maps.Marker({ position: { lat: la, lng: ln }, icon: avatarPinIcon(avChoice), title: label, zIndex: 5 });
+    m.setMap(resMap); resOverlays.push(m);
     // ligne pointillée guess → lieu réel (Google : trait masqué + symboles répétés)
     const line = new google.maps.Polyline({
       path: [{ lat: la, lng: ln }, actual], map: resMap, strokeOpacity: 0,
@@ -1724,10 +1735,10 @@ function drawResult(loc) {
   if (G.online.active) {
     playerList().forEach((p) => {
       const g = p.guess;
-      if (g && g.lat != null) drawFor(g.lat, g.lng, playerColor(p.id), p.id === meId() ? "Toi" : p.name);
+      if (g && g.lat != null) drawFor(g.lat, g.lng, playerColor(p.id), p.id === meId() ? "Toi" : p.name, p.av);
     });
   } else if (G.guess) {
-    drawFor(G.guess.lat, G.guess.lng, accentColor(), "Toi");
+    drawFor(G.guess.lat, G.guess.lng, accentColor(), "Toi", G.avatarChoice);
   }
   if (n > 0) {
     resMap.fitBounds(gb, 56);
@@ -1757,6 +1768,8 @@ function revealRound() {
       sub.classList.add("hidden");
     }
   }
+  renderResultHero();
+  $("result-rows").classList.toggle("hidden", !G.online.active);   // solo : le héros suffit
   renderResultRows();
 
   const last = G.current >= G.rounds - 1;
@@ -1769,6 +1782,18 @@ function revealRound() {
     $("btn-next").classList.remove("hidden");
     $("next-wait").classList.add("hidden");
   }
+}
+// Héros du reveal : grande tête du joueur + ses points (comptés) + barre qui se remplit.
+function renderResultHero() {
+  const avEl = $("result-hero-av"), ptsEl = $("result-hero-pts"), fill = $("score-bar-fill"), qual = $("result-hero-quality");
+  const me = G.online.active ? G.online.players[meId()] : null;
+  const myPts = me ? (me.scores[G.current] || 0) : (G.scores[G.current] || 0);
+  const myAv = (me && typeof me.av === "number") ? me.av : G.avatarChoice;
+  if (avEl) avEl.src = avatarURL(myAv);
+  if (qual) qual.textContent = scoreQuality(myPts);
+  // barre : remet à 0, force un reflow, puis largeur cible → déclenche la transition CSS (width)
+  if (fill) { fill.style.width = "0%"; void fill.offsetWidth; fill.style.width = Math.max(0, Math.min(100, myPts / 5000 * 100)) + "%"; }
+  if (ptsEl) animateCount(ptsEl, myPts, 900);
 }
 function renderResultRows() {
   const box = $("result-rows"); if (!box) return;

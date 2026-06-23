@@ -449,6 +449,15 @@ async function initDb() {
     );
   `);
   await db.query(`CREATE INDEX IF NOT EXISTS idx_czones_created ON community_zones (created_at DESC);`);
+  // Déduplication : supprime les doublons existants (garde la plus ANCIENNE zone de chaque
+  // nom normalisé) puis pose un index UNIQUE → impossible d'avoir deux fois la même zone,
+  // au niveau base, en renfort du contrôle applicatif du POST.
+  try {
+    const dd = await db.query(`DELETE FROM community_zones a USING community_zones b
+                               WHERE a.id > b.id AND lower(btrim(a.name)) = lower(btrim(b.name));`);
+    if (dd.rowCount) console.log("[db] zones doublons supprimées :", dd.rowCount);
+    await db.query(`CREATE UNIQUE INDEX IF NOT EXISTS uniq_czone_name ON community_zones (lower(btrim(name)));`);
+  } catch (e) { console.error("[db] dédup community_zones:", e.message); }
   console.log("[db] tables 'scores', 'users', 'sessions', 'community_zones' prêtes");
 }
 
@@ -712,7 +721,7 @@ app.post("/api/community/zones", requireAuth, async (req, res) => {
   if (!rateLimit("czone:" + req.user.id, 6, 10 * 60 * 1000)) return res.status(429).json({ ok: false, error: "Trop de zones créées, réessaie dans quelques minutes." });
   // anti-doublon : refuse une zone dont le nom existe déjà (insensible à la casse)
   try {
-    const dup = await db.query(`SELECT id, pseudo FROM community_zones WHERE lower(name) = lower($1) LIMIT 1`, [name]);
+    const dup = await db.query(`SELECT id, pseudo FROM community_zones WHERE lower(btrim(name)) = lower(btrim($1)) LIMIT 1`, [name]);
     if (dup.rows.length) return res.status(409).json({ ok: false, error: "Cette zone existe déjà (créée par " + dup.rows[0].pseudo + ")." });
   } catch (e) { /* en cas d'erreur DB on laisse passer, l'INSERT tranchera */ }
   let geom;
@@ -735,6 +744,7 @@ app.post("/api/community/zones", requireAuth, async (req, res) => {
     const z = rows[0];
     res.json({ ok: true, zone: { id: z.id, name: z.name, pseudo: z.pseudo, center: [z.center_lat, z.center_lng], bbox: z.bbox, radius_km: z.radius_km, geojson: small } });
   } catch (e) {
+    if (e.code === "23505") return res.status(409).json({ ok: false, error: "Cette zone existe déjà." });
     console.error("[czone-create]", e.message);
     res.status(500).json({ ok: false, error: "Erreur d'enregistrement." });
   }
