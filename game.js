@@ -339,6 +339,9 @@ function applyCosmetics() {
   document.body.dataset.theme = equipped.theme && equipped.theme !== "themeDefault" ? equipped.theme : "";
   document.body.dataset.badge = BADGE_NAME[equipped.badge] || "";
   document.body.dataset.fx = equipped.fx === "fxAurora" ? "aurora" : "";
+  // reflète le badge à côté du pseudo du profil IMMÉDIATEMENT (sinon il fallait recharger la page)
+  const pp = $("prof-pseudo");
+  if (pp) { const ps = (AUTH.user && AUTH.user.pseudo) || G.playerName || "Joueur", b = myBadgeEmoji(); pp.textContent = ps + (b ? " " + b : ""); }
   try {
     if (typeof setAvatar === "function") setAvatar("avatar-current", G.avatarChoice);
     if (typeof buildAvatarGrid === "function" && $("avatar-grid") && $("avatar-grid").childElementCount) buildAvatarGrid();
@@ -1984,9 +1987,10 @@ function renderResultRows() {
     rows = playerList().map((p) => ({
       name: p.id === meId() ? (G.playerName || "Toi") : p.name, av: p.av, me: p.id === meId(),
       color: playerColor(p.id), dist: p.guess ? p.guess.dist : null, pts: (p.scores[round] || 0),
+      badge: p.id === meId() ? equippedItems().badge : p.badge,
     }));
   } else {
-    rows = [{ name: G.playerName || "Toi", av: G.avatarChoice, me: true, color: accentColor(), dist: G.lastDist, pts: (G.scores[round] || 0) }];
+    rows = [{ name: G.playerName || "Toi", av: G.avatarChoice, me: true, color: accentColor(), dist: G.lastDist, pts: (G.scores[round] || 0), badge: equippedItems().badge }];
   }
   rows.sort((a, b) => b.pts - a.pts);
   box.innerHTML = "";
@@ -2000,7 +2004,11 @@ function renderResultRows() {
       '<span class="who"></span>' +
       '<span class="dist">' + fmtDist(r.dist) + "</span>" +
       '<span class="pts"><b class="pts-n">0</b> pts</span>';
-    row.querySelector(".who").textContent = r.name;
+    const whoEl = row.querySelector(".who");
+    whoEl.dataset.pseudo = r.name;
+    whoEl.textContent = r.name;
+    const wb = badgeEmoji(r.badge);
+    if (wb) whoEl.textContent += " " + wb;   // badge à côté du pseudo (résultat multi)
     box.appendChild(row);
     animateCount(row.querySelector(".pts-n"), r.pts, 700);
   });
