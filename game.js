@@ -328,10 +328,15 @@ function equippedItems() {
 }
 function saveOwnedItems(owned) { writeJSON(OWNED_KEY, owned); pushState(); }
 function saveEquippedItems(equipped) { writeJSON(EQUIPPED_KEY, equipped); pushState(); }
+// Badges : id d'item équipé (badge/badgeCompass/…) → nom court (data-badge) → emoji.
+// Sert à afficher le badge à côté du pseudo PARTOUT (profil, lobby, classement, en jeu…).
+const BADGE_NAME = { badge: "globe", badgeCompass: "compass", badgeFlame: "flame", badgeStar: "star", badgeCrown: "crown" };
+const BADGE_EMOJI = { globe: "🌍", compass: "🧭", flame: "🔥", star: "⭐", crown: "👑" };
+function badgeEmoji(badgeId) { return BADGE_EMOJI[BADGE_NAME[badgeId]] || ""; }
+function myBadgeEmoji() { return badgeEmoji(equippedItems().badge); }
 function applyCosmetics() {
   const equipped = equippedItems();
   document.body.dataset.theme = equipped.theme && equipped.theme !== "themeDefault" ? equipped.theme : "";
-  const BADGE_NAME = { badge: "globe", badgeCompass: "compass", badgeFlame: "flame", badgeStar: "star", badgeCrown: "crown" };
   document.body.dataset.badge = BADGE_NAME[equipped.badge] || "";
   document.body.dataset.fx = equipped.fx === "fxAurora" ? "aurora" : "";
   try {
@@ -475,6 +480,16 @@ function commSpan(cls, text) {
   s.textContent = text == null ? "" : String(text);
   return s;
 }
+// span pseudo cliquable (communauté) : garde le vrai pseudo dans data-pseudo (pour openPublicProfile)
+// et ajoute l'emoji du badge équipé au texte affiché.
+function commNameSpan(cls, pseudo, badgeId) {
+  const ps = pseudo || "Anonyme";
+  const s = commSpan(cls, ps);
+  s.dataset.pseudo = ps;
+  const b = badgeEmoji(badgeId);
+  if (b) s.textContent = ps + " " + b;
+  return s;
+}
 function commEmpty() {
   const p = document.createElement("p");
   p.className = "comm-empty";
@@ -584,7 +599,7 @@ function renderCommunity() {
             const row = document.createElement("div");
             row.className = "comm-rank";
             row.appendChild(commSpan("comm-rank-pos", medals[i] || String(i + 1)));
-            row.appendChild(commSpan("comm-rank-name", e.pseudo || "Anonyme"));
+            row.appendChild(commNameSpan("comm-rank-name", e.pseudo, e.badge));
             row.appendChild(commSpan("comm-rank-score", fmtPts(e.score) + " pts"));
             topEl.appendChild(row);
           });
@@ -602,7 +617,7 @@ function renderCommunity() {
             const meta = [e.zoneLabel, e.ago].filter(Boolean).join(" · ");
             const row = document.createElement("div");
             row.className = "comm-recent";
-            row.appendChild(commSpan("comm-recent-name", e.pseudo || "Anonyme"));
+            row.appendChild(commNameSpan("comm-recent-name", e.pseudo, e.badge));
             row.appendChild(commSpan("comm-recent-meta", meta));
             row.appendChild(commSpan("comm-recent-score", fmtPts(e.score) + " pts"));
             recentEl.appendChild(row);
@@ -681,9 +696,9 @@ function selectAvatar(i) {
   setAvatar("avatar-current", i);
   // en lobby : mettre à jour mon avatar et prévenir les autres joueurs
   if (G.online.active) {
-    const meP = myPlayer(); if (meP) { meP.av = i; meP.avStyle = currentAvStyle(); }
+    const meP = myPlayer(); if (meP) { meP.av = i; meP.avStyle = currentAvStyle(); meP.badge = equippedItems().badge; }
     if (G.online.isHost) broadcastRoster();
-    else sendToHost({ type: "hello", name: G.playerName, av: i, avStyle: currentAvStyle() });
+    else sendToHost({ type: "hello", name: G.playerName, av: i, avStyle: currentAvStyle(), badge: equippedItems().badge });
   }
   renderLobby();
 }
@@ -1510,6 +1525,7 @@ function makePano(loc, pov) {
   G.pano.addListener("pov_changed", () => { try { updateCompass(G.pano.getPov().heading); } catch (e) {} });
   try { updateCompass((pov && pov.heading) || 0); } catch (e) {}
   const hav = $("hud-me-av"); if (hav) hav.src = avatarURL(G.avatarChoice);   // ta tête dans le HUD
+  const hbd = $("hud-me-badge"); if (hbd) hbd.textContent = myBadgeEmoji();   // ton badge équipé dans le HUD
 }
 // Tuiles claires CartoDB Voyager — utilisées UNIQUEMENT pour les mini-cartes du sélecteur de
 // zone (Leaflet). Les cartes en jeu (guess + résultat) sont passées à Google Maps (POI/commerces).
@@ -2113,7 +2129,11 @@ function renderLeaderboard(list, scores) {
     "</div>"
   ).join("");
   // les pseudos viennent des joueurs : injectés en textContent (jamais innerHTML) → aucun XSS stocké
-  list.querySelectorAll(".lb-name").forEach((el, i) => { el.textContent = scores[i].pseudo; });
+  list.querySelectorAll(".lb-name").forEach((el, i) => {
+    el.dataset.pseudo = scores[i].pseudo;
+    const b = badgeEmoji(scores[i].badge);
+    el.textContent = scores[i].pseudo + (b ? " " + b : "");
+  });
 }
 
 // modale « Classement » ouverte depuis l'accueil : top global toutes zones
@@ -2170,7 +2190,10 @@ function renderLobby() {
       html += '<button class="lobby-kick" data-kick="' + p.id + '" title="Exclure ce joueur">✕</button>';
     row.innerHTML = html;
     const nameEl = row.querySelector(".lobby-name");
+    nameEl.dataset.pseudo = p.id === meId() ? ((AUTH.user && AUTH.user.pseudo) || G.playerName || "") : p.name;
     nameEl.textContent = p.id === meId() ? ((G.playerName || "Toi") + " (toi)") : p.name;
+    const bdg = p.id === meId() ? myBadgeEmoji() : badgeEmoji(p.badge);
+    if (bdg) nameEl.textContent += " " + bdg;   // badge équipé à côté du pseudo
     nameEl.style.color = playerColor(p.id);
     box.appendChild(row);
   });
@@ -2215,7 +2238,7 @@ function sendMsg(m) { if (G.online.isHost) broadcast(m); else sendToHost(m); }
 function buildRoster() {
   return G.online.order.map((id) => {
     const p = G.online.players[id];
-    return p ? { id, name: p.name, av: p.av, avStyle: p.avStyle || "avataaars", isHost: !!p.isHost } : null;
+    return p ? { id, name: p.name, av: p.av, avStyle: p.avStyle || "avataaars", badge: p.badge || "", isHost: !!p.isHost } : null;
   }).filter(Boolean);
 }
 function broadcastRoster() { if (G.online.isHost) broadcast({ type: "roster", players: buildRoster() }); renderLobby(); updateMultiHud(); }
@@ -2224,7 +2247,7 @@ function applyRoster(list) {
   G.online.players = {}; G.online.order = [];
   (list || []).forEach((p) => {
     const prev = old[p.id] || {};
-    G.online.players[p.id] = { id: p.id, name: p.name, av: p.av, avStyle: p.avStyle || "avataaars", isHost: !!p.isHost,
+    G.online.players[p.id] = { id: p.id, name: p.name, av: p.av, avStyle: p.avStyle || "avataaars", badge: p.badge || "", isHost: !!p.isHost,
                                scores: prev.scores || [], guess: prev.guess || null, done: prev.done || false };
     G.online.order.push(p.id);
   });
@@ -2322,7 +2345,7 @@ function createRoom() {
   mlog("createRoom code", code, "→ relay", roomsUrl());
   G.online.active = true;
   G.online.myId = id;
-  G.online.players[id] = { id, name: G.playerName, av: G.avatarChoice, avStyle: currentAvStyle(), scores: [], guess: null, done: false, isHost: true };
+  G.online.players[id] = { id, name: G.playerName, av: G.avatarChoice, avStyle: currentAvStyle(), badge: equippedItems().badge, scores: [], guess: null, done: false, isHost: true };
   G.online.order = [id];
   renderLobby();
 
@@ -2455,10 +2478,10 @@ function setupGuestRelay(ws, id) {
 
   // s'inscrire localement, puis se présenter à l'hôte (qui diffuse le roster complet)
   G.online.players = {}; G.online.order = [];
-  G.online.players[meId()] = { id: meId(), name: G.playerName, av: G.avatarChoice, avStyle: currentAvStyle(), scores: [], guess: null, done: false, isHost: false };
+  G.online.players[meId()] = { id: meId(), name: G.playerName, av: G.avatarChoice, avStyle: currentAvStyle(), badge: equippedItems().badge, scores: [], guess: null, done: false, isHost: false };
   G.online.order = [meId()];
 
-  sendToHost({ type: "hello", name: G.playerName, av: G.avatarChoice, avStyle: currentAvStyle() });
+  sendToHost({ type: "hello", name: G.playerName, av: G.avatarChoice, avStyle: currentAvStyle(), badge: equippedItems().badge });
   $("online-status").textContent = "Connecté — en attente de l'hôte";
   renderLobby();
 }
@@ -2495,7 +2518,7 @@ function onData(m, fromId) {
     if (G.online.isHost && fromId && fromId !== "host") {
       const exists = !!G.online.players[fromId];
       const prev = G.online.players[fromId] || {};
-      G.online.players[fromId] = { id: fromId, name: cleanName(m.name || "Joueur"), av: m.av || 0, avStyle: m.avStyle || "avataaars",
+      G.online.players[fromId] = { id: fromId, name: cleanName(m.name || "Joueur"), av: m.av || 0, avStyle: m.avStyle || "avataaars", badge: m.badge || "",
         scores: prev.scores || [], guess: prev.guess || null, done: prev.done || false, isHost: false };
       if (!exists) G.online.order.push(fromId);
       broadcastRoster();
@@ -2889,7 +2912,7 @@ function rankFor(best) {
 function renderProfilePage() {
   if (!isLogged()) { showScreen("menu"); return; }   // pas de modale auto (évite l'ouverture parasite au boot)
   const pseudo = (AUTH.user && AUTH.user.pseudo) || G.playerName || "Joueur";
-  if ($("prof-pseudo")) $("prof-pseudo").textContent = pseudo;
+  if ($("prof-pseudo")) $("prof-pseudo").textContent = pseudo + (myBadgeEmoji() ? " " + myBadgeEmoji() : "");
   if ($("prof-av")) $("prof-av").innerHTML = '<img src="' + avatarURL(G.avatarChoice) + '" alt="" draggable="false" />';
   if ($("profile-coins")) $("profile-coins").innerHTML = '<span aria-hidden="true">🪙</span> ' + getCoins().toLocaleString("fr-FR");
   renderProfileCollections();
@@ -2994,7 +3017,8 @@ function openPublicProfile(pseudo) {
     .then((d) => {
       if (!d || !d.ok) { $("pub-top3").innerHTML = '<p class="comm-empty">Profil introuvable.</p>'; return; }
       const p = d.profile;
-      $("pub-pseudo").textContent = p.pseudo;
+      const pubBadge = badgeEmoji((p.equipped || {}).badge);
+      $("pub-pseudo").textContent = p.pseudo + (pubBadge ? " " + pubBadge : "");
       const style = (AV_STYLES[(p.equipped || {}).avatarPack]) || "avataaars";
       $("pub-av").innerHTML = '<img src="' + avatarURLFor(p.av || 0, style) + '" alt="" draggable="false" />';
       const rk = rankFor(p.best || 0);
@@ -3034,7 +3058,7 @@ function renderFriends() {
         const row = document.createElement("div"); row.className = "prof-friend-row";
         const img = document.createElement("img"); img.className = "prof-friend-av"; img.src = avatarURLFor(f.av || 0, "avataaars"); img.alt = "";
         img.addEventListener("click", () => openPublicProfile(f.pseudo));
-        const nm = commSpan("prof-friend-name", f.pseudo);
+        const nm = commNameSpan("prof-friend-name", f.pseudo, f.badge);
         nm.addEventListener("click", () => openPublicProfile(f.pseudo));
         const best = commSpan("prof-friend-best", f.best > 0 ? fmtPts(f.best) + " pts" : "—");
         const del = document.createElement("button"); del.className = "prof-friend-del"; del.textContent = "✕"; del.title = "Retirer";
@@ -3063,7 +3087,7 @@ function searchFriends(q) {
           const row = document.createElement("div"); row.className = "friend-result-row";
           const img = document.createElement("img"); img.className = "prof-friend-av"; img.src = avatarURLFor(p.av || 0, "avataaars"); img.alt = "";
           img.addEventListener("click", () => openPublicProfile(p.pseudo));
-          const nm = commSpan("prof-friend-name", p.pseudo);
+          const nm = commNameSpan("prof-friend-name", p.pseudo, p.badge);
           nm.addEventListener("click", () => openPublicProfile(p.pseudo));
           const btn = document.createElement("button"); btn.type = "button"; btn.className = "friend-add-btn";
           // états : déjà ami / demande envoyée (en attente) / l'autre m'a demandé / rien
@@ -3574,7 +3598,8 @@ function wire() {
   document.addEventListener("click", (e) => {
     const el = e.target.closest(".lb-name, .who, .comm-rank-name, .comm-recent-name, .lobby-name, .prof-friend-name");
     if (!el) return;
-    const pseudo = (el.textContent || "").replace(/\s*\(toi\)\s*$/i, "").trim();
+    // data-pseudo (vrai pseudo, sans badge) prioritaire — le textContent peut contenir un emoji de badge
+    const pseudo = (el.dataset.pseudo || el.textContent || "").replace(/\s*\(toi\)\s*$/i, "").trim();
     if (!pseudo || pseudo === "Toi" || pseudo === "Anonyme") return;
     openPublicProfile(pseudo);
   });
@@ -3679,16 +3704,38 @@ function wire() {
   })();
 
   // Déplacement clavier dans le Street View (ZQSD azerty / WASD qwerty + flèches), en jeu seulement
+  // ⚠️ CAPTURE (3e arg true) : Street View a son PROPRE clavier natif (flèches = déplacement)
+  // attaché sur le conteneur du pano. En bubble, notre handler passait APRÈS lui → le pano
+  // bougeait quand même en mode pro. En capture + stopImmediatePropagation, on intercepte la
+  // touche AVANT Google → tout le déplacement passe par svMove/svTurn (qui respectent le mode).
   document.addEventListener("keydown", (e) => {
     if (!$("game") || !$("game").classList.contains("show")) return;
     const tag = (e.target && e.target.tagName) || "";
     if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
     const k = (e.key || "").toLowerCase(), az = kbLayout() === "azerty";
-    if (k === "arrowup" || k === (az ? "z" : "w")) { e.preventDefault(); svMove(true); }
-    else if (k === "arrowdown" || k === "s") { e.preventDefault(); svMove(false); }
-    else if (k === "arrowleft" || k === (az ? "q" : "a")) { e.preventDefault(); svTurn(-22); }
-    else if (k === "arrowright" || k === "d") { e.preventDefault(); svTurn(22); }
-  });
+    const fwd = (k === "arrowup" || k === (az ? "z" : "w"));
+    const back = (k === "arrowdown" || k === "s");
+    const left = (k === "arrowleft" || k === (az ? "q" : "a"));
+    const right = (k === "arrowright" || k === "d");
+    const zoomKey = (k === "+" || k === "-" || k === "=" || k === "_");
+    if (fwd || back || left || right) {
+      e.preventDefault(); e.stopImmediatePropagation();   // neutralise le clavier natif du pano
+      if (fwd) svMove(true);
+      else if (back) svMove(false);
+      else if (left) svTurn(-22);
+      else if (right) svTurn(22);
+    } else if (zoomKey && G.moveMode === "hardcore") {
+      e.preventDefault(); e.stopImmediatePropagation();   // hardcore : pas de zoom clavier (+/-)
+    }
+  }, true);
+  // Hardcore : bloque le zoom de la VUE à la molette / au pinch trackpad (le pano génère un
+  // wheel ; en capture+non-passif on l'annule avant Street View). NB : le zoom NAVIGATEUR
+  // (Cmd/Ctrl +/-) reste hors de notre portée — c'est un raccourci du navigateur.
+  document.addEventListener("wheel", (e) => {
+    if (G.moveMode === "hardcore" && $("game") && $("game").classList.contains("show")) {
+      e.preventDefault(); e.stopImmediatePropagation();
+    }
+  }, { capture: true, passive: false });
 
   // Débloque l'audio dès le 1er geste : sinon la politique « autoplay » des navigateurs
   // crée l'AudioContext suspendu et avale le 1er bip du chrono.

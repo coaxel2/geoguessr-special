@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://api.dicebear.com" />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-  <link rel="stylesheet" href="style.css?v=107" />
+  <link rel="stylesheet" href="style.css?v=108" />
 </head>
 <body>
   <!-- Barre d'actions en haut à droite : cloche, compte, monnaie regroupés dans un
@@ -865,6 +865,7 @@
     <div class="hud hud-right">
       <div class="hud-pill hud-me">
         <img class="hud-me-av" id="hud-me-av" src="" alt="" draggable="false" />
+        <span class="hud-me-badge" id="hud-me-badge" aria-hidden="true"></span>
         <span id="hud-score">0 pts</span>
       </div>
       <button class="hud-pill hud-quit" id="btn-quit">Quitter</button>
@@ -1054,6 +1055,6 @@
 
   <!-- Leaflet : cartes de guess / résultat (tuiles raster, pas de WebGL) -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script src="game.js?v=107"></script>
+  <script src="game.js?v=108"></script>
 </body>
 </html>

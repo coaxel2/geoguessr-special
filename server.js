@@ -805,13 +805,13 @@ app.delete("/api/friends/:pseudo", requireAuth, async (req, res) => {
 app.get("/api/friends", requireAuth, async (req, res) => {
   try {
     const { rows } = await db.query(
-      `SELECT u.pseudo, u.avatar_idx,
+      `SELECT u.pseudo, u.avatar_idx, u.equipped->>'badge' AS badge,
               (SELECT COALESCE(max(score), 0)::int FROM scores s WHERE s.pseudo = u.pseudo) AS best
          FROM friends f JOIN users u ON u.id = f.friend_id
         WHERE f.user_id = $1 AND f.status='accepted' ORDER BY f.created_at DESC LIMIT 50`,
       [req.user.id]
     );
-    res.json({ ok: true, friends: rows.map((r) => ({ pseudo: r.pseudo, av: r.avatar_idx || 0, best: r.best })) });
+    res.json({ ok: true, friends: rows.map((r) => ({ pseudo: r.pseudo, av: r.avatar_idx || 0, best: r.best, badge: r.badge })) });
   } catch (e) { console.error("[friends]", e.message); res.status(500).json({ ok: false, error: "db-error" }); }
 });
 // GET /api/friends/requests — demandes d'ami REÇUES en attente (pour la cloche)
@@ -833,7 +833,7 @@ app.get("/api/players/search", requireAuth, async (req, res) => {
   if (q.length < 2) return res.json({ ok: true, players: [] });
   try {
     const { rows } = await db.query(
-      `SELECT u.pseudo, u.avatar_idx,
+      `SELECT u.pseudo, u.avatar_idx, u.equipped->>'badge' AS badge,
               EXISTS(SELECT 1 FROM friends f WHERE f.user_id = $2 AND f.friend_id = u.id AND f.status='accepted') AS is_friend,
               EXISTS(SELECT 1 FROM friends f WHERE f.user_id = $2 AND f.friend_id = u.id AND f.status='pending')  AS requested,
               EXISTS(SELECT 1 FROM friends f WHERE f.user_id = u.id AND f.friend_id = $2 AND f.status='pending')  AS incoming
@@ -842,7 +842,7 @@ app.get("/api/players/search", requireAuth, async (req, res) => {
         ORDER BY (u.pseudo_key = $3) DESC, u.pseudo ASC LIMIT 12`,
       ["%" + q + "%", req.user.id, q]
     );
-    res.json({ ok: true, players: rows.map((r) => ({ pseudo: r.pseudo, av: r.avatar_idx || 0, isFriend: r.is_friend, requested: r.requested, incoming: r.incoming })) });
+    res.json({ ok: true, players: rows.map((r) => ({ pseudo: r.pseudo, av: r.avatar_idx || 0, isFriend: r.is_friend, requested: r.requested, incoming: r.incoming, badge: r.badge })) });
   } catch (e) { console.error("[search]", e.message); res.status(500).json({ ok: false, error: "db-error" }); }
 });
 
@@ -1184,14 +1184,17 @@ app.get("/api/scores", async (req, res) => {
   if (!Number.isInteger(limit) || limit < 1 || limit > 50) limit = 10;
   try {
     const { rows } = await db.query(
-      `SELECT pseudo, zone_label, rounds, score, duration_s, created_at FROM (
-         SELECT DISTINCT ON (pseudo) pseudo, zone_label, rounds, score, duration_s, created_at
-           FROM scores
-          WHERE ($1 = '' OR zone = $1)
-          ORDER BY pseudo, score DESC, created_at ASC
-       ) t
-       ORDER BY score DESC, created_at ASC
-       LIMIT $2`,
+      `SELECT t.pseudo, t.zone_label, t.rounds, t.score, t.duration_s, t.created_at,
+              u.equipped->>'badge' AS badge
+         FROM (
+           SELECT DISTINCT ON (pseudo) pseudo, zone_label, rounds, score, duration_s, created_at
+             FROM scores
+            WHERE ($1 = '' OR zone = $1)
+            ORDER BY pseudo, score DESC, created_at ASC
+         ) t
+         LEFT JOIN users u ON u.pseudo = t.pseudo
+        ORDER BY t.score DESC, t.created_at ASC
+        LIMIT $2`,
       [zone, limit]
     );
     res.json({ ok: true, scores: rows });
@@ -1229,25 +1232,28 @@ app.get("/api/community", async (req, res) => {
          FROM scores`
     );
     const top = await db.query(
-      `SELECT pseudo, score, zone_label, rounds FROM (
+      `SELECT t.pseudo, t.score, t.zone_label, t.rounds, u.equipped->>'badge' AS badge FROM (
          SELECT DISTINCT ON (pseudo) pseudo, score, COALESCE(NULLIF(zone_label, ''), zone) AS zone_label, rounds
            FROM scores
           ORDER BY pseudo, score DESC
        ) t
-       ORDER BY score DESC
+       LEFT JOIN users u ON u.pseudo = t.pseudo
+       ORDER BY t.score DESC
        LIMIT 5`
     );
     const recent = await db.query(
-      `SELECT pseudo, score, COALESCE(NULLIF(zone_label, ''), zone) AS zone_label, rounds, created_at
-         FROM scores
-        ORDER BY created_at DESC
+      `SELECT s.pseudo, s.score, COALESCE(NULLIF(s.zone_label, ''), s.zone) AS zone_label, s.rounds, s.created_at,
+              u.equipped->>'badge' AS badge
+         FROM scores s
+         LEFT JOIN users u ON u.pseudo = s.pseudo
+        ORDER BY s.created_at DESC
         LIMIT 6`
     );
     res.json({
       ok: true,
       stats: stats.rows[0],
-      top: top.rows.map((r) => ({ pseudo: r.pseudo, score: r.score, zoneLabel: r.zone_label, rounds: r.rounds })),
-      recent: recent.rows.map((r) => ({ pseudo: r.pseudo, score: r.score, zoneLabel: r.zone_label, rounds: r.rounds, ago: frAgo(r.created_at) })),
+      top: top.rows.map((r) => ({ pseudo: r.pseudo, score: r.score, zoneLabel: r.zone_label, rounds: r.rounds, badge: r.badge })),
+      recent: recent.rows.map((r) => ({ pseudo: r.pseudo, score: r.score, zoneLabel: r.zone_label, rounds: r.rounds, ago: frAgo(r.created_at), badge: r.badge })),
     });
   } catch (e) {
     console.error("[db] community error:", e.message);

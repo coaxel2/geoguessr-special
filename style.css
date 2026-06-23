@@ -1047,6 +1047,8 @@ body[data-fx="aurora"] .home-bg::after {
 .hud-right { right: 16px; }            /* ta tête + ton score + quitter (haut-droite) */
 .hud-me { display: inline-flex; align-items: center; gap: 8px; padding-left: 7px; }
 .hud-me-av { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; border: 1.5px solid var(--accent); background: rgba(255, 255, 255, .06); }
+.hud-me-badge { font-size: 15px; line-height: 1; margin-left: -2px; }
+.hud-me-badge:empty { display: none; }
 .hud-pill {
   background: rgba(10,15,31,.66);
   backdrop-filter: blur(12px);
