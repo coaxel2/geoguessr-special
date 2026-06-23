@@ -1312,6 +1312,7 @@ function cleanupClient(ws) {
   if (ws.playerId === room.hostId) {
     room.clients.forEach((client) => send(client, { type: "host-closed" }));
     rooms.delete(room.code);
+    openGames.delete(room.code);   // l'hôte a quitté → retire l'annonce (sinon notif « fantôme » vers une salle morte)
     console.log("[rooms] closed " + room.code);
     return;
   }

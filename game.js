@@ -2421,11 +2421,13 @@ function joinRoom(codeArg) {
 
     } else if (m.type === "host-closed") {
       clearInterval(G.online.ka);
-      $("online-error").textContent = "La salle a été fermée.";
+      $("online-error").textContent = "Cette partie n'est plus disponible : l'hôte a quitté le salon.";
+      if (typeof markNotifRead === "function") markNotifRead("game:" + code);   // retire la notif fantôme
       backToOnlineChoice();
 
     } else if (m.type === "error") {
-      $("online-error").textContent = m.reason === "not-found" ? "Salle introuvable. Vérifie le code." : "Erreur réseau : " + (m.reason || "relay");
+      if (m.reason === "not-found" && typeof markNotifRead === "function") markNotifRead("game:" + code);
+      $("online-error").textContent = m.reason === "not-found" ? "Cette partie n'existe plus (l'hôte a fermé le salon) ou le code est erroné." : "Erreur réseau : " + (m.reason || "relay");
       backToOnlineChoice();
     }
   };
