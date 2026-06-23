@@ -1043,7 +1043,7 @@ const BIG_PACK_ORDER = ["france", "usa", "canada", "uk-ireland", "spain-portugal
 function cpKey(country, slug) { return "cp:" + country + ":" + slug; }
 function loadCityPacks() {
   if (loadCityPacks._p) return loadCityPacks._p;
-  loadCityPacks._p = fetch("cities-by-country.json?v=4").then((r) => r.json())
+  loadCityPacks._p = fetch("cities-by-country.json?v=5").then((r) => r.json())
     .then((packs) => {
       CITY_PACKS = packs || {};
       // dédup : retire des packs toute ville proche d'une ville NATIVE (qui a déjà un vrai
@@ -1238,10 +1238,12 @@ async function findOneLocation() {
   for (let attempt = 0; attempt < 70; attempt++) {
     const pool = activePool();
     const r = pickRegion();
-    // villes : recherche resserrée autour du centre (évite de spawner dans la ville d'à côté)
-    const searchRadius = pool.type === "city" ? Math.max(1800, Math.min(6000, (r[2] || 8000) * 0.6)) : 70000;
+    // villes : spawn très resserré autour du centre-ville (cible proche du centre + recherche
+    // de panorama courte) → on reste dans la ville, jamais dans la ville d'à côté.
+    const cr = r[2] || 6000;
+    const searchRadius = pool.type === "city" ? Math.max(1200, Math.min(3500, cr * 0.45)) : 70000;
     const target = pool.type === "city"
-      ? randomPointNear(r[0], r[1], (r[2] || 8000) * 0.5)
+      ? randomPointNear(r[0], r[1], cr * 0.35)
       : { lat: rand(r[0], r[1]), lng: rand(r[2], r[3]) };
     const req = {
       location: target,
@@ -1554,10 +1556,9 @@ function geomRadiusKm(geom){return Math.sqrt(Math.max(1,geomAreaKm2(geom))/Math.
 const MEDIAN=(arr)=>{const s=[...arr].sort((x,y)=>x-y);return s[Math.floor(s.length/2)];};
 function zoneRadiusKm(){const z=G.zoneFilter,co=G.countryFilter;if(z==="world")return 9000;if(typeof CITY_ZONES!=="undefined"&&CITY_ZONES[z])return(CITY_ZONES[z][2]||12000)/1000;if(z==="world-cities"&&typeof WORLD_CITIES!=="undefined")return MEDIAN(WORLD_CITIES.map((c)=>c[2]))/1000;if(z==="france-cities"&&typeof FRANCE_CITIES!=="undefined")return MEDIAN(FRANCE_CITIES.map((c)=>c[2]))/1000;try{const key=zoneGeometryKey();if(key&&ZGEO&&ZGEO[key])return geomRadiusKm(ZGEO[key]);}catch(e){}try{const s=zoneShape(z,co);if(s&&s.boxes){const b=bboxOf(s.boxes);return distM({lat:b.getSouth(),lng:b.getWest()},{lat:b.getNorth(),lng:b.getEast()})/1000/2;}}catch(e){}return 1500;}
 // Score adaptatif à la taille de la zone. tau = distance de décroissance (à tau, ~37% des points).
-// Loi LINÉAIRE tau = 0.23·R : tolérance proportionnelle à la taille de la zone. Garde le monde
-// sévère (R grand) mais reste clément sur les petites zones (ville/région) — où la sur-linéaire
-// punissait trop. À >100 km dans une ville = toujours 0. Coef = curseur de sévérité (plus bas = + sévère).
-function scoreFor(d){const km=d/1000;const R=zoneRadiusKm();const tau=Math.max(1.0,Math.min(3000,0.23*R));const perfect=Math.max(0.06,Math.min(70,R*0.013));if(km<=perfect)return 5000;const s=Math.round(5000*Math.exp(-(km-perfect)/tau));return Math.max(0,Math.min(5000,s));}
+// tau = 0.23·R·(1 + R/15000) : quasi-linéaire pour les petites zones (villes restent serrées/exigeantes),
+// mais sur-linéaire pour les grandes (monde/continents plus cléments → plus de points selon la distance).
+function scoreFor(d){const km=d/1000;const R=zoneRadiusKm();const tau=Math.max(1.0,Math.min(4800,0.23*R*(1+R/15000)));const perfect=Math.max(0.06,Math.min(70,R*0.013));if(km<=perfect)return 5000;const s=Math.round(5000*Math.exp(-(km-perfect)/tau));return Math.max(0,Math.min(5000,s));}
 
 /* ---------- chrono + son ---------- */
 let audioCtx = null;
