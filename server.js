@@ -411,6 +411,14 @@ async function initDb() {
   `);
   await db.query(`CREATE INDEX IF NOT EXISTS idx_scores_zone_score ON scores (zone, score DESC);`);
   await db.query(`ALTER TABLE scores ADD COLUMN IF NOT EXISTS duration_s INTEGER NOT NULL DEFAULT 0;`);   // chrono de la partie
+  await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS favorites JSONB NOT NULL DEFAULT '[]'::jsonb;`);   // zones favorites (page profil)
+  await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_idx INTEGER NOT NULL DEFAULT 0;`);          // avatar choisi (profil public)
+  await db.query(`CREATE TABLE IF NOT EXISTS friends (
+    user_id    INTEGER     NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    friend_id  INTEGER     NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (user_id, friend_id)
+  );`);
   // ---- comptes joueurs + sessions (auth persistante) ----
   await db.query(`
     CREATE TABLE IF NOT EXISTS users (
@@ -484,7 +492,7 @@ function pseudoKey(s) { return String(s || "").trim().toLowerCase().normalize("N
 // Pseudo affiché nettoyé (max 18 car.) ; "Joueur" est réservé → rejeté.
 function cleanPseudo(s) { const v = String(s || "").trim().replace(/\s+/g, " ").slice(0, 18); return /^joueur$/i.test(v) ? "" : v; }
 // Vue publique d'un compte (jamais le hash ni l'id interne).
-function publicUser(u) { return { pseudo: u.pseudo, coins: u.coins, owned: u.owned, equipped: u.equipped }; }
+function publicUser(u) { return { pseudo: u.pseudo, coins: u.coins, owned: u.owned, equipped: u.equipped, favorites: u.favorites || [], av: u.avatar_idx || 0 }; }
 
 function readToken(req) {
   if (req.cookies && req.cookies.gtok) return req.cookies.gtok;
@@ -652,16 +660,93 @@ app.put("/api/me/state", requireAuth, async (req, res) => {
   if (!b.owned || typeof b.owned !== "object" || Array.isArray(b.owned)) return res.status(400).json({ ok: false, error: "owned-invalide" });
   if (!b.equipped || typeof b.equipped !== "object" || Array.isArray(b.equipped)) return res.status(400).json({ ok: false, error: "equipped-invalide" });
   const coins = Math.min(b.coins, 100000000);
+  const fav = Array.isArray(b.favorites) ? b.favorites.filter((x) => x && typeof x === "object").slice(0, 3) : null;
+  const av = (Number.isInteger(b.av) && b.av >= 0 && b.av < 100) ? b.av : null;
   try {
     const { rows } = await db.query(
-      `UPDATE users SET coins = $1, owned = $2::jsonb, equipped = $3::jsonb WHERE id = $4 RETURNING *`,
-      [coins, JSON.stringify(b.owned), JSON.stringify(b.equipped), req.user.id]
+      `UPDATE users SET coins = $1, owned = $2::jsonb, equipped = $3::jsonb,
+              favorites = COALESCE($5::jsonb, favorites), avatar_idx = COALESCE($6, avatar_idx) WHERE id = $4 RETURNING *`,
+      [coins, JSON.stringify(b.owned), JSON.stringify(b.equipped), req.user.id, fav ? JSON.stringify(fav) : null, av]
     );
     res.json({ ok: true, user: publicUser(rows[0]) });
   } catch (e) {
     console.error("[me/state]", e.message);
     res.status(500).json({ ok: false, error: "db-error" });
   }
+});
+
+// GET /api/me/top — top 3 scores + stats du joueur connecté (page profil).
+app.get("/api/me/top", requireAuth, async (req, res) => {
+  try {
+    const top = await db.query(
+      `SELECT zone_label, score, duration_s, created_at FROM scores WHERE pseudo = $1 ORDER BY score DESC, created_at ASC LIMIT 3`,
+      [req.user.pseudo]
+    );
+    const st = await db.query(
+      `SELECT count(*)::int AS games, COALESCE(max(score), 0)::int AS best FROM scores WHERE pseudo = $1`,
+      [req.user.pseudo]
+    );
+    res.json({ ok: true, top: top.rows, games: st.rows[0].games, best: st.rows[0].best });
+  } catch (e) {
+    console.error("[me/top]", e.message);
+    res.status(500).json({ ok: false, error: "db-error" });
+  }
+});
+
+// GET /api/profile/:pseudo — profil PUBLIC d'un joueur (pas les pièces). isFriend/isMe si connecté.
+app.get("/api/profile/:pseudo", async (req, res) => {
+  if (!requireDb(res)) return;
+  const key = pseudoKey(req.params.pseudo);
+  try {
+    const u = await db.query(`SELECT id, pseudo, equipped, avatar_idx FROM users WHERE pseudo_key = $1`, [key]);
+    if (!u.rows.length) return res.status(404).json({ ok: false, error: "joueur introuvable" });
+    const usr = u.rows[0];
+    const st = await db.query(`SELECT count(*)::int AS games, COALESCE(max(score), 0)::int AS best FROM scores WHERE pseudo = $1`, [usr.pseudo]);
+    const top = await db.query(`SELECT zone_label, score, duration_s FROM scores WHERE pseudo = $1 ORDER BY score DESC, created_at ASC LIMIT 3`, [usr.pseudo]);
+    let isFriend = false, isMe = false;
+    if (req.user) {
+      isMe = req.user.id === usr.id;
+      const f = await db.query(`SELECT 1 FROM friends WHERE user_id = $1 AND friend_id = $2`, [req.user.id, usr.id]);
+      isFriend = f.rows.length > 0;
+    }
+    res.json({ ok: true, profile: { pseudo: usr.pseudo, av: usr.avatar_idx || 0, equipped: usr.equipped || {}, games: st.rows[0].games, best: st.rows[0].best, top: top.rows, isFriend, isMe } });
+  } catch (e) {
+    console.error("[profile]", e.message);
+    res.status(500).json({ ok: false, error: "db-error" });
+  }
+});
+
+// Amis (suivi simple) : POST ajoute, DELETE retire, GET liste.
+app.post("/api/friends/:pseudo", requireAuth, async (req, res) => {
+  const key = pseudoKey(req.params.pseudo);
+  try {
+    const u = await db.query(`SELECT id FROM users WHERE pseudo_key = $1`, [key]);
+    if (!u.rows.length) return res.status(404).json({ ok: false, error: "joueur introuvable" });
+    if (u.rows[0].id === req.user.id) return res.status(400).json({ ok: false, error: "impossible-soi-meme" });
+    await db.query(`INSERT INTO friends (user_id, friend_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, [req.user.id, u.rows[0].id]);
+    res.json({ ok: true });
+  } catch (e) { console.error("[friends+]", e.message); res.status(500).json({ ok: false, error: "db-error" }); }
+});
+app.delete("/api/friends/:pseudo", requireAuth, async (req, res) => {
+  const key = pseudoKey(req.params.pseudo);
+  try {
+    const u = await db.query(`SELECT id FROM users WHERE pseudo_key = $1`, [key]);
+    if (!u.rows.length) return res.status(404).json({ ok: false, error: "joueur introuvable" });
+    await db.query(`DELETE FROM friends WHERE user_id = $1 AND friend_id = $2`, [req.user.id, u.rows[0].id]);
+    res.json({ ok: true });
+  } catch (e) { console.error("[friends-]", e.message); res.status(500).json({ ok: false, error: "db-error" }); }
+});
+app.get("/api/friends", requireAuth, async (req, res) => {
+  try {
+    const { rows } = await db.query(
+      `SELECT u.pseudo, u.avatar_idx,
+              (SELECT COALESCE(max(score), 0)::int FROM scores s WHERE s.pseudo = u.pseudo) AS best
+         FROM friends f JOIN users u ON u.id = f.friend_id
+        WHERE f.user_id = $1 ORDER BY f.created_at DESC LIMIT 50`,
+      [req.user.id]
+    );
+    res.json({ ok: true, friends: rows.map((r) => ({ pseudo: r.pseudo, av: r.avatar_idx || 0, best: r.best })) });
+  } catch (e) { console.error("[friends]", e.message); res.status(500).json({ ok: false, error: "db-error" }); }
 });
 
 // ====================================================================

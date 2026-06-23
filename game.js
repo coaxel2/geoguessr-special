@@ -26,7 +26,7 @@ function showScreen(id) {
   syncTabs(id);
   // La monnaie n'a de sens que sur les écrans « vitrine » ; on la masque en partie
   // (game / result / final) pour ne pas encombrer le Street View ni ses contrôles.
-  const isHub = (id === "menu" || id === "online" || id === "leaderboard" || id === "shop" || id === "community");
+  const isHub = (id === "menu" || id === "online" || id === "leaderboard" || id === "shop" || id === "community" || id === "profile");
   const wallet = document.getElementById("wallet-pill");
   if (wallet) wallet.style.display = isHub ? "" : "none";
   const accountBtn = document.getElementById("account-btn");
@@ -42,6 +42,7 @@ function showScreen(id) {
   if (id === "leaderboard") loadLeaderboardPage();
   if (id === "community") renderCommunity();
   if (id === "shop") renderShop();   // labels Acheter/Équiper/Équipé à jour à chaque ouverture
+  if (id === "profile") renderProfilePage();
   if (isHub) {
     try { $(id).scrollTop = 0; } catch (e) {}
   }
@@ -57,6 +58,7 @@ function routeForTab(tab) {
   if (tab === "leaderboard") return "/classement";
   if (tab === "shop") return "/boutique";
   if (tab === "community") return "/communaute";
+  if (tab === "profile") return "/profil";
   return "/";
 }
 function tabForPath(path) {
@@ -65,6 +67,7 @@ function tabForPath(path) {
   if (clean === "/classement") return "leaderboard";
   if (clean === "/boutique") return "shop";
   if (clean === "/communaute") return "community";
+  if (clean === "/profil") return "profile";
   return "menu";
 }
 function setRoute(tab, replace) {
@@ -109,6 +112,11 @@ function goTab(tab, opts) {
   if (tab === "community") {
     showScreen("community");
     if (!opts.fromPop) setRoute("community", opts.replace);
+    return;
+  }
+  if (tab === "profile") {
+    showScreen("profile");
+    if (!opts.fromPop) setRoute("profile", opts.replace);
     return;
   }
   clearTimer();
@@ -235,6 +243,8 @@ function hydrateFromServer(u) {
     saveEquippedItems(u.equipped || {});
     G.playerName = u.pseudo;
     try { localStorage.setItem("geoq-name", u.pseudo); } catch (e) {}
+    if (Array.isArray(u.favorites)) { try { localStorage.setItem("geoq-fav", JSON.stringify(u.favorites)); } catch (e) {} }
+    if (typeof u.av === "number") { G.avatarChoice = u.av; try { localStorage.setItem("geoq-av", String(u.av)); } catch (e) {} }
     if (typeof updateWallet === "function") updateWallet();
     if (typeof applyCosmetics === "function") applyCosmetics();
     if (typeof renderShop === "function") renderShop();
@@ -255,7 +265,7 @@ function pushState() {
       method: "PUT",
       credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ coins: getCoins(), owned: ownedItems(), equipped: equippedItems() }),
+      body: JSON.stringify({ coins: getCoins(), owned: ownedItems(), equipped: equippedItems(), favorites: getFavorites(), av: G.avatarChoice }),
     }).catch(() => {});
   }, 450);
 }
@@ -602,6 +612,12 @@ function avatarURL(choice) {
   return "https://api.dicebear.com/9.x/" + currentAvStyle() + "/svg?seed=" +
          encodeURIComponent(seed) + "&backgroundColor=" + AV_BG;
 }
+// avatar d'un AUTRE joueur (profil public) avec SON style (pack équipé), pas le nôtre
+function avatarURLFor(choice, style) {
+  const seed = AVATARS[choice] || AVATARS[0];
+  return "https://api.dicebear.com/9.x/" + (style || "avataaars") + "/svg?seed=" +
+         encodeURIComponent(seed) + "&backgroundColor=" + AV_BG;
+}
 // Version PNG RONDE (radius=50) pour servir d'icône de marqueur « tête du joueur »
 // sur les cartes Google (le SVG se redimensionne mal en icône Marker).
 function avatarPngURL(choice) {
@@ -634,6 +650,7 @@ function buildAvatarGrid() {
 function selectAvatar(i) {
   G.avatarChoice = i;
   try { localStorage.setItem("geoq-av", String(i)); } catch (e) {}
+  if (typeof pushState === "function") pushState();   // persiste l'avatar au compte (profil public)
   const grid = $("avatar-grid");
   if (grid) grid.querySelectorAll(".avatar-opt").forEach((b) =>
     b.classList.toggle("on", parseInt(b.dataset.i, 10) === i));
@@ -1263,6 +1280,7 @@ function updateZoneTrigger() {
   });
 }
 function selectZone(z, co) {
+  if (G.favPick) { G.favPick = false; $("zone-modal").hidden = true; addFavorite(z, co); return; }   // choix d'une favorite
   G.zoneFilter = z;
   if (co) G.countryFilter = co;
   // synchronise les 3 sélecteurs cachés (compat read/mirror). Les zones communautaires
@@ -2822,25 +2840,175 @@ const PROFILE_CATS = [
   ["fx", "Effets"],
 ];
 function openProfile() {
-  // Le profil complet nécessite d'être connecté ; sinon on bascule sur le login.
   if (!isLogged()) { openAuthModal(); return; }
-  const m = $("profile-modal");
-  if (!m) return;
-  const av = $("profile-avatar");
-  if (av) {
-    if (typeof setAvatar === "function") setAvatar("profile-avatar", G.avatarChoice);
-    else av.innerHTML = '<img src="' + avatarURL(G.avatarChoice) + '" alt="" draggable="false" />';
-  }
-  const ps = $("profile-pseudo");
-  if (ps) ps.textContent = G.playerName || (AUTH.user && AUTH.user.pseudo) || "Joueur";
-  const coins = $("profile-coins");
-  if (coins) coins.innerHTML = '<span aria-hidden="true">🪙</span> ' + getCoins().toLocaleString("fr-FR");
-  renderProfileCollections();
-  m.hidden = false;
+  goTab("profile");                    // page dédiée (plus de pop-up)
 }
-function closeProfile() {
-  const m = $("profile-modal");
-  if (m) m.hidden = true;
+function closeProfile() { /* la page se ferme par navigation ; conservé pour compat */ }
+
+// ===== Page Profil : identité + rang + top 3 + zones favorites =====
+const RANKS = [
+  [0, "Explorateur novice", "🧭"], [8000, "Aventurier", "🗺️"], [13000, "Globe-trotteur", "🌍"],
+  [17000, "Cartographe", "📍"], [20000, "Maître géographe", "🎯"], [23000, "Légende du globe", "👑"],
+];
+function rankFor(best) {
+  let r = RANKS[0];
+  for (const x of RANKS) if (best >= x[0]) r = x;
+  const idx = RANKS.indexOf(r), next = RANKS[idx + 1] || null;
+  return { name: r[1], icon: r[2], cur: r[0], next: next ? next[0] : null };
+}
+function renderProfilePage() {
+  if (!isLogged()) { showScreen("menu"); openAuthModal(); return; }
+  const pseudo = (AUTH.user && AUTH.user.pseudo) || G.playerName || "Joueur";
+  if ($("prof-pseudo")) $("prof-pseudo").textContent = pseudo;
+  if ($("prof-av")) $("prof-av").innerHTML = '<img src="' + avatarURL(G.avatarChoice) + '" alt="" draggable="false" />';
+  if ($("profile-coins")) $("profile-coins").innerHTML = '<span aria-hidden="true">🪙</span> ' + getCoins().toLocaleString("fr-FR");
+  renderProfileCollections();
+  renderFavorites();
+  if (typeof renderFriends === "function") renderFriends();
+  const box = $("prof-top3"); if (box) box.innerHTML = '<p class="comm-empty">Chargement…</p>';
+  fetch("/api/me/top", { credentials: "same-origin" })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((d) => {
+      d = d || {};
+      const best = d.best || 0, games = d.games || 0;
+      if ($("prof-best")) $("prof-best").textContent = best > 0 ? "Record " + best.toLocaleString("fr-FR") : "Record —";
+      if ($("prof-games")) $("prof-games").textContent = games + (games > 1 ? " parties" : " partie");
+      const rk = rankFor(best);
+      if ($("prof-rank")) $("prof-rank").textContent = rk.icon + " " + rk.name;
+      const fill = $("prof-xp-fill"), lab = $("prof-xp-label");
+      if (rk.next) {
+        const pct = Math.max(0, Math.min(100, (best - rk.cur) / (rk.next - rk.cur) * 100));
+        if (fill) fill.style.width = pct + "%";
+        if (lab) lab.textContent = (rk.next - best).toLocaleString("fr-FR") + " pts avant le rang suivant";
+      } else { if (fill) fill.style.width = "100%"; if (lab) lab.textContent = "Rang maximal atteint 🏆"; }
+      if (!box) return;
+      box.innerHTML = "";
+      const top = Array.isArray(d.top) ? d.top : [];
+      if (!top.length) { box.innerHTML = '<p class="comm-empty">Aucune partie enregistrée — lance-toi !</p>'; return; }
+      const medals = ["🥇", "🥈", "🥉"];
+      top.forEach((s, i) => {
+        const row = document.createElement("div");
+        row.className = "prof-score-row";
+        row.appendChild(commSpan("prof-score-rank", medals[i] || (i + 1) + "ᵉ"));
+        row.appendChild(commSpan("prof-score-zone", s.zone_label || "—"));
+        if (s.duration_s > 0) row.appendChild(commSpan("prof-score-time", "⏱ " + fmtTime(s.duration_s)));
+        row.appendChild(commSpan("prof-score-pts", fmtPts(s.score) + " pts"));
+        box.appendChild(row);
+      });
+    })
+    .catch(() => { if (box) box.innerHTML = '<p class="comm-empty">Scores indisponibles.</p>'; });
+}
+
+// ----- Zones favorites -----
+const FAV_KEY = "geoq-fav";
+function getFavorites() { try { return JSON.parse(localStorage.getItem(FAV_KEY)) || []; } catch (e) { return []; } }
+function saveFavorites(f) { try { localStorage.setItem(FAV_KEY, JSON.stringify(f)); } catch (e) {} pushState(); }
+function favLabelFor(z, co) {
+  let label = z;
+  zoneGroups().forEach((g) => g[1].forEach((e) => { if (e.z === z && (!e.co || e.co === co)) label = e.l; }));
+  return label;
+}
+function addFavorite(z, co) {
+  let f = getFavorites();
+  const key = z + "|" + (co || "");
+  f = f.filter((x) => x.key !== key);
+  f.unshift({ key: key, z: z, co: co || "", label: favLabelFor(z, co) });
+  saveFavorites(f.slice(0, 3)); renderFavorites();
+}
+function removeFavorite(key) { saveFavorites(getFavorites().filter((x) => x.key !== key)); renderFavorites(); }
+function renderFavorites() {
+  const box = $("prof-fav"); if (!box) return;
+  box.innerHTML = "";
+  const favs = getFavorites();
+  favs.forEach((f) => {
+    const row = document.createElement("div"); row.className = "prof-fav-item";
+    const play = document.createElement("button"); play.type = "button"; play.className = "prof-fav-play";
+    play.appendChild(commSpan("prof-fav-name", f.label));
+    play.appendChild(commSpan("prof-fav-go", "Jouer ›"));
+    play.addEventListener("click", () => { selectZone(f.z, f.co || undefined); startSolo(); });
+    const del = document.createElement("button"); del.type = "button"; del.className = "prof-fav-del"; del.textContent = "✕"; del.title = "Retirer";
+    del.addEventListener("click", () => removeFavorite(f.key));
+    row.appendChild(play); row.appendChild(del); box.appendChild(row);
+  });
+  if (favs.length < 3) {
+    const add = document.createElement("button"); add.type = "button"; add.className = "prof-fav-add";
+    add.textContent = "+ Ajouter une zone favorite";
+    add.addEventListener("click", () => { G.favPick = true; buildZoneModal(true); $("zone-modal").hidden = false; });
+    box.appendChild(add);
+  }
+}
+
+// ----- Profil PUBLIC (modale ouverte en cliquant un pseudo) + amis -----
+function profScoreRow(s, i) {
+  const medals = ["🥇", "🥈", "🥉"];
+  const row = document.createElement("div"); row.className = "prof-score-row";
+  row.appendChild(commSpan("prof-score-rank", medals[i] || (i + 1) + "ᵉ"));
+  row.appendChild(commSpan("prof-score-zone", s.zone_label || "—"));
+  if (s.duration_s > 0) row.appendChild(commSpan("prof-score-time", "⏱ " + fmtTime(s.duration_s)));
+  row.appendChild(commSpan("prof-score-pts", fmtPts(s.score) + " pts"));
+  return row;
+}
+let _pubPseudo = null;
+function openPublicProfile(pseudo) {
+  const m = $("pubprofile-modal"); if (!m || !pseudo) return;
+  _pubPseudo = pseudo;
+  $("pub-pseudo").textContent = pseudo;
+  $("pub-av").innerHTML = ""; $("pub-rank").textContent = "…";
+  $("pub-best").textContent = "Record —"; $("pub-games").textContent = "";
+  $("pub-top3").innerHTML = '<p class="comm-empty">Chargement…</p>';
+  $("pub-friend").hidden = true;
+  m.hidden = false;
+  fetch("/api/profile/" + encodeURIComponent(pseudo), { credentials: "same-origin" })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((d) => {
+      if (!d || !d.ok) { $("pub-top3").innerHTML = '<p class="comm-empty">Profil introuvable.</p>'; return; }
+      const p = d.profile;
+      $("pub-pseudo").textContent = p.pseudo;
+      const style = (AV_STYLES[(p.equipped || {}).avatarPack]) || "avataaars";
+      $("pub-av").innerHTML = '<img src="' + avatarURLFor(p.av || 0, style) + '" alt="" draggable="false" />';
+      const rk = rankFor(p.best || 0);
+      $("pub-rank").textContent = rk.icon + " " + rk.name;
+      $("pub-best").textContent = p.best > 0 ? "Record " + p.best.toLocaleString("fr-FR") : "Record —";
+      $("pub-games").textContent = (p.games || 0) + ((p.games || 0) > 1 ? " parties" : " partie");
+      const box = $("pub-top3"); box.innerHTML = "";
+      const top = Array.isArray(p.top) ? p.top : [];
+      if (!top.length) box.innerHTML = '<p class="comm-empty">Aucune partie enregistrée.</p>';
+      else top.forEach((s, i) => box.appendChild(profScoreRow(s, i)));
+      const fb = $("pub-friend");
+      if (isLogged() && !p.isMe) {
+        fb.hidden = false;
+        fb.textContent = p.isFriend ? "✓ Ami — retirer" : "+ Ajouter en ami";
+        fb.dataset.friend = p.isFriend ? "1" : "0";
+      } else fb.hidden = true;
+    })
+    .catch(() => { $("pub-top3").innerHTML = '<p class="comm-empty">Erreur réseau.</p>'; });
+}
+function renderFriends() {
+  const block = $("prof-friends-block"), box = $("prof-friends");
+  if (!block || !box) return;
+  if (!isLogged()) { block.hidden = true; return; }
+  block.hidden = false;
+  box.innerHTML = '<p class="comm-empty">Chargement…</p>';
+  fetch("/api/friends", { credentials: "same-origin" })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((d) => {
+      const friends = (d && d.friends) || [];
+      box.innerHTML = "";
+      if (!friends.length) { box.innerHTML = '<p class="comm-empty">Aucun ami — clique sur un pseudo (classement, communauté…) pour l\'ajouter.</p>'; return; }
+      friends.forEach((f) => {
+        const row = document.createElement("div"); row.className = "prof-friend-row";
+        const img = document.createElement("img"); img.className = "prof-friend-av"; img.src = avatarURLFor(f.av || 0, "avataaars"); img.alt = "";
+        img.addEventListener("click", () => openPublicProfile(f.pseudo));
+        const nm = commSpan("prof-friend-name", f.pseudo);
+        nm.addEventListener("click", () => openPublicProfile(f.pseudo));
+        const best = commSpan("prof-friend-best", f.best > 0 ? fmtPts(f.best) + " pts" : "—");
+        const del = document.createElement("button"); del.className = "prof-friend-del"; del.textContent = "✕"; del.title = "Retirer";
+        del.addEventListener("click", () => { fetch("/api/friends/" + encodeURIComponent(f.pseudo), { method: "DELETE", credentials: "same-origin" }).then(() => renderFriends()); });
+        row.appendChild(img); row.appendChild(nm); row.appendChild(best); row.appendChild(del);
+        box.appendChild(row);
+      });
+    })
+    .catch(() => { box.innerHTML = '<p class="comm-empty">Amis indisponibles.</p>'; });
 }
 function renderProfileCollections() {
   const wrap = $("profile-collections");
@@ -2977,13 +3145,8 @@ function wireAuth() {
   wireProfile();
 }
 function wireProfile() {
-  const m = $("profile-modal");
-  if (!m) return;
-  const close = $("profile-close");
-  if (close) close.addEventListener("click", closeProfile);
-  m.addEventListener("click", (e) => { if (e.target === m) closeProfile(); });
-  const out = $("profile-logout");
-  if (out) out.addEventListener("click", () => { logout(); closeProfile(); });
+  const out = $("prof-logout");
+  if (out) out.addEventListener("click", () => { logout(); goTab("menu"); });
   const coll = $("profile-collections");
   if (coll) coll.addEventListener("click", (e) => {
     const cell = e.target.closest(".profile-item"); if (!cell) return;
@@ -3223,6 +3386,26 @@ function wire() {
     qm.addEventListener("click", (e) => { if (e.target === qm) { qm.hidden = true; G._quitYes = null; } });
   }
 
+  // Profils publics : cliquer un pseudo (classement, communauté, lobby, amis) ouvre sa fiche
+  document.addEventListener("click", (e) => {
+    const el = e.target.closest(".lb-name, .who, .comm-rank-name, .comm-recent-name, .lobby-name, .prof-friend-name");
+    if (!el) return;
+    const pseudo = (el.textContent || "").replace(/\s*\(toi\)\s*$/i, "").trim();
+    if (!pseudo || pseudo === "Toi" || pseudo === "Anonyme") return;
+    openPublicProfile(pseudo);
+  });
+  const pubM = $("pubprofile-modal");
+  if (pubM) {
+    $("pub-close").addEventListener("click", () => { pubM.hidden = true; });
+    pubM.addEventListener("click", (e) => { if (e.target === pubM) pubM.hidden = true; });
+    $("pub-friend").addEventListener("click", () => {
+      if (!_pubPseudo) return;
+      const isFriend = $("pub-friend").dataset.friend === "1";
+      fetch("/api/friends/" + encodeURIComponent(_pubPseudo), { method: isFriend ? "DELETE" : "POST", credentials: "same-origin" })
+        .then(() => openPublicProfile(_pubPseudo));   // rafraîchit l'état du bouton
+    });
+  }
+
   $("btn-next").addEventListener("click", nextRound);
   $("btn-replay").addEventListener("click", replay);
   if ($("btn-share")) $("btn-share").addEventListener("click", shareResult);
@@ -3231,7 +3414,7 @@ function wire() {
   // Raccourcis clavier : Échap ferme une modale ; Entrée = deviner / manche suivante.
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
-      const modals = ["quit-modal", "name-modal", "auth-modal", "profile-modal", "avatar-modal", "zone-modal", "lb-modal"];
+      const modals = ["quit-modal", "name-modal", "auth-modal", "pubprofile-modal", "avatar-modal", "zone-modal", "lb-modal"];
       for (const id of modals) { const m = $(id); if (m && !m.hidden) { m.hidden = true; e.preventDefault(); return; } }
       return;
     }

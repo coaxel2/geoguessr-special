@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://api.dicebear.com" />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-  <link rel="stylesheet" href="style.css?v=90" />
+  <link rel="stylesheet" href="style.css?v=92" />
 </head>
 <body>
   <div class="wallet-pill" id="wallet-pill" aria-label="Monnaie disponible">
@@ -738,6 +738,79 @@
     </div>
   </section>
 
+  <!-- ====================== PROFIL (page dédiée) ====================== -->
+  <section id="profile" class="screen">
+    <div class="home-bg"></div>
+    <div class="app-shell profile-shell">
+      <header class="site-header">
+        <button type="button" class="brand-mark tab-link" data-tab="menu" aria-label="Accueil Geoloc">
+          <span class="brand-pin" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 10c0 5.4-8 12-8 12s-8-6.6-8-12a8 8 0 0 1 16 0Z" />
+              <circle cx="12" cy="10" r="3" />
+            </svg>
+          </span>
+          <span class="logo">Geo<span>loc</span></span>
+        </button>
+        <nav class="site-tabs" aria-label="Navigation principale">
+          <button type="button" class="tab-link" data-tab="menu">Solo</button>
+          <button type="button" class="tab-link" data-tab="online">Multijoueur</button>
+          <button type="button" class="tab-link" data-tab="leaderboard">Classement</button>
+          <button type="button" class="tab-link" data-tab="shop">Boutique</button>
+          <button type="button" class="tab-link" data-tab="community">Communauté</button>
+        </nav>
+      </header>
+
+      <main class="profile-page">
+        <header class="page-heading">
+          <p class="kicker">Joueur</p>
+          <h1>Mon profil</h1>
+          <p>Ton bilan, tes meilleurs scores, tes zones favorites et tes amis.</p>
+        </header>
+
+        <section class="prof-hero">
+          <span class="prof-hero-av" id="prof-av"></span>
+          <div class="prof-hero-id">
+            <h2 id="prof-pseudo">Joueur</h2>
+            <p class="prof-rank" id="prof-rank">Explorateur</p>
+            <div class="prof-pills">
+              <span class="prof-pill" id="prof-best">Record —</span>
+              <span class="prof-pill" id="prof-games">0 parties</span>
+              <span class="prof-pill" id="profile-coins">🪙 0</span>
+              <span class="prof-pill" id="profile-unlocked">0/0 débloqués</span>
+            </div>
+            <div class="prof-xp" aria-hidden="true"><div class="prof-xp-fill" id="prof-xp-fill"></div></div>
+            <p class="prof-xp-label" id="prof-xp-label"></p>
+          </div>
+        </section>
+
+        <div class="prof-cols">
+          <section class="prof-block">
+            <h3 class="prof-block-title">🏆 Tes 3 meilleurs scores</h3>
+            <div class="prof-top3" id="prof-top3"><p class="comm-empty">Chargement…</p></div>
+          </section>
+          <section class="prof-block">
+            <h3 class="prof-block-title">⭐ Tes zones favorites</h3>
+            <p class="prof-help">Jusqu'à 3 zones à lancer en un clic.</p>
+            <div class="prof-fav" id="prof-fav"></div>
+          </section>
+        </div>
+
+        <section class="prof-block" id="prof-friends-block" hidden>
+          <h3 class="prof-block-title">👥 Tes amis</h3>
+          <div class="prof-friends" id="prof-friends"></div>
+        </section>
+
+        <section class="prof-block">
+          <h3 class="prof-block-title">🎨 Ta collection</h3>
+          <div class="profile-collections" id="profile-collections"></div>
+        </section>
+
+        <button class="btn btn-ghost prof-logout-btn" id="prof-logout">Se déconnecter</button>
+      </main>
+    </div>
+  </section>
+
   <!-- ====================== GAME ====================== -->
   <section id="game" class="screen game">
     <div id="pano" class="pano"></div>
@@ -915,22 +988,24 @@
   </div>
 
   <!-- ====================== PROFIL (modale) ====================== -->
-  <div class="modal-overlay" id="profile-modal" hidden>
-    <div class="modal-card modal-card-lg profile-card">
-      <button class="modal-close" id="profile-close" aria-label="Fermer">✕</button>
+  <!-- ====================== PROFIL PUBLIC (modale, clic sur un pseudo) ====================== -->
+  <div class="modal-overlay" id="pubprofile-modal" hidden>
+    <div class="modal-card modal-card-lg pubprofile-card">
+      <button class="modal-close" id="pub-close" aria-label="Fermer">✕</button>
       <header class="profile-header">
-        <span class="av av-xl profile-avatar" id="profile-avatar"></span>
+        <span class="prof-hero-av" id="pub-av"></span>
         <div class="profile-id">
-          <h2 class="profile-pseudo" id="profile-pseudo">Joueur</h2>
-          <p class="profile-rank" id="profile-rank">Explorateur</p>
-          <div class="profile-pills">
-            <span class="profile-pill profile-coins" id="profile-coins"><span aria-hidden="true">🪙</span> 0</span>
-            <span class="profile-pill profile-unlocked" id="profile-unlocked">0 / 0 débloqués</span>
+          <h2 class="profile-pseudo" id="pub-pseudo">Joueur</h2>
+          <p class="profile-rank" id="pub-rank">Explorateur</p>
+          <div class="prof-pills">
+            <span class="prof-pill" id="pub-best">Record —</span>
+            <span class="prof-pill" id="pub-games">0 parties</span>
           </div>
         </div>
       </header>
-      <div class="profile-collections" id="profile-collections"></div>
-      <button class="btn btn-ghost profile-logout" id="profile-logout">Se déconnecter</button>
+      <h3 class="prof-block-title">🏆 Ses meilleurs scores</h3>
+      <div class="prof-top3" id="pub-top3"></div>
+      <button class="btn btn-primary" id="pub-friend" hidden>Ajouter en ami</button>
     </div>
   </div>
 
@@ -946,6 +1021,6 @@
 
   <!-- Leaflet : cartes de guess / résultat (tuiles raster, pas de WebGL) -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script src="game.js?v=90"></script>
+  <script src="game.js?v=92"></script>
 </body>
 </html>
