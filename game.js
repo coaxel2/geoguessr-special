@@ -639,12 +639,18 @@ function avatarURLFor(choice, style) {
 // Version PNG RONDE (radius=50) pour servir d'icône de marqueur « tête du joueur »
 // sur les cartes Google (le SVG se redimensionne mal en icône Marker).
 function avatarPngURL(choice) {
+  return avatarPngURLFor(choice, currentAvStyle());
+}
+// version PNG ronde d'un joueur DONNÉ (index + style) — pour afficher la tête de CHAQUE
+// joueur en multi (sinon tous les marqueurs prennent le style du joueur local).
+function avatarPngURLFor(choice, style) {
   const seed = AVATARS[choice] || AVATARS[0];
-  return "https://api.dicebear.com/9.x/" + currentAvStyle() + "/png?seed=" +
+  return "https://api.dicebear.com/9.x/" + (style || "avataaars") + "/png?seed=" +
          encodeURIComponent(seed) + "&backgroundColor=" + AV_BG + "&radius=50&size=96";
 }
-function avatarPinIcon(choice) {
-  return { url: avatarPngURL(choice), scaledSize: new google.maps.Size(36, 36), anchor: new google.maps.Point(18, 18) };
+function avatarPinIcon(choice) { return avatarPinIconFor(choice, currentAvStyle()); }
+function avatarPinIconFor(choice, style) {
+  return { url: avatarPngURLFor(choice, style), scaledSize: new google.maps.Size(36, 36), anchor: new google.maps.Point(18, 18) };
 }
 function setAvatar(elId, choice) {
   const el = $(elId);
@@ -675,9 +681,9 @@ function selectAvatar(i) {
   setAvatar("avatar-current", i);
   // en lobby : mettre à jour mon avatar et prévenir les autres joueurs
   if (G.online.active) {
-    const meP = myPlayer(); if (meP) meP.av = i;
+    const meP = myPlayer(); if (meP) { meP.av = i; meP.avStyle = currentAvStyle(); }
     if (G.online.isHost) broadcastRoster();
-    else sendToHost({ type: "hello", name: G.playerName, av: i });
+    else sendToHost({ type: "hello", name: G.playerName, av: i, avStyle: currentAvStyle() });
   }
   renderLobby();
 }
@@ -1878,10 +1884,11 @@ function drawResult(loc) {
   const gb = new google.maps.LatLngBounds(); gb.extend(actual);
   const real = pin(loc.lat, loc.lng, "#ffd35c", 9, "Lieu réel"); real.setMap(resMap); resOverlays.push(real);
   let n = 0;
-  const drawFor = (la, ln, color, label, avChoice) => {
+  const drawFor = (la, ln, color, label, avChoice, avStyle) => {
     gb.extend({ lat: la, lng: ln }); n++;
-    // marqueur = la « tête » du joueur (avatar) au lieu d'un point coloré
-    const m = new google.maps.Marker({ position: { lat: la, lng: ln }, icon: avatarPinIcon(avChoice), title: label, zIndex: 5 });
+    // marqueur = la « tête » du joueur (avatar) au lieu d'un point coloré — chaque joueur
+    // avec SON index ET SON style (en multi), pas le style du joueur local.
+    const m = new google.maps.Marker({ position: { lat: la, lng: ln }, icon: avatarPinIconFor(avChoice, avStyle), title: label, zIndex: 5 });
     m.setMap(resMap); resOverlays.push(m);
     // ligne pointillée guess → lieu réel (Google : trait masqué + symboles répétés)
     const line = new google.maps.Polyline({
@@ -1893,10 +1900,10 @@ function drawResult(loc) {
   if (G.online.active) {
     playerList().forEach((p) => {
       const g = p.guess;
-      if (g && g.lat != null) drawFor(g.lat, g.lng, playerColor(p.id), p.id === meId() ? "Toi" : p.name, p.av);
+      if (g && g.lat != null) drawFor(g.lat, g.lng, playerColor(p.id), p.id === meId() ? "Toi" : p.name, p.av, p.id === meId() ? currentAvStyle() : p.avStyle);
     });
   } else if (G.guess) {
-    drawFor(G.guess.lat, G.guess.lng, accentColor(), "Toi", G.avatarChoice);
+    drawFor(G.guess.lat, G.guess.lng, accentColor(), "Toi", G.avatarChoice, currentAvStyle());
   }
   if (n > 0) {
     resMap.fitBounds(gb, 56);
@@ -2208,7 +2215,7 @@ function sendMsg(m) { if (G.online.isHost) broadcast(m); else sendToHost(m); }
 function buildRoster() {
   return G.online.order.map((id) => {
     const p = G.online.players[id];
-    return p ? { id, name: p.name, av: p.av, isHost: !!p.isHost } : null;
+    return p ? { id, name: p.name, av: p.av, avStyle: p.avStyle || "avataaars", isHost: !!p.isHost } : null;
   }).filter(Boolean);
 }
 function broadcastRoster() { if (G.online.isHost) broadcast({ type: "roster", players: buildRoster() }); renderLobby(); updateMultiHud(); }
@@ -2217,7 +2224,7 @@ function applyRoster(list) {
   G.online.players = {}; G.online.order = [];
   (list || []).forEach((p) => {
     const prev = old[p.id] || {};
-    G.online.players[p.id] = { id: p.id, name: p.name, av: p.av, isHost: !!p.isHost,
+    G.online.players[p.id] = { id: p.id, name: p.name, av: p.av, avStyle: p.avStyle || "avataaars", isHost: !!p.isHost,
                                scores: prev.scores || [], guess: prev.guess || null, done: prev.done || false };
     G.online.order.push(p.id);
   });
@@ -2315,7 +2322,7 @@ function createRoom() {
   mlog("createRoom code", code, "→ relay", roomsUrl());
   G.online.active = true;
   G.online.myId = id;
-  G.online.players[id] = { id, name: G.playerName, av: G.avatarChoice, scores: [], guess: null, done: false, isHost: true };
+  G.online.players[id] = { id, name: G.playerName, av: G.avatarChoice, avStyle: currentAvStyle(), scores: [], guess: null, done: false, isHost: true };
   G.online.order = [id];
   renderLobby();
 
@@ -2446,10 +2453,10 @@ function setupGuestRelay(ws, id) {
 
   // s'inscrire localement, puis se présenter à l'hôte (qui diffuse le roster complet)
   G.online.players = {}; G.online.order = [];
-  G.online.players[meId()] = { id: meId(), name: G.playerName, av: G.avatarChoice, scores: [], guess: null, done: false, isHost: false };
+  G.online.players[meId()] = { id: meId(), name: G.playerName, av: G.avatarChoice, avStyle: currentAvStyle(), scores: [], guess: null, done: false, isHost: false };
   G.online.order = [meId()];
 
-  sendToHost({ type: "hello", name: G.playerName, av: G.avatarChoice });
+  sendToHost({ type: "hello", name: G.playerName, av: G.avatarChoice, avStyle: currentAvStyle() });
   $("online-status").textContent = "Connecté — en attente de l'hôte";
   renderLobby();
 }
@@ -2486,7 +2493,7 @@ function onData(m, fromId) {
     if (G.online.isHost && fromId && fromId !== "host") {
       const exists = !!G.online.players[fromId];
       const prev = G.online.players[fromId] || {};
-      G.online.players[fromId] = { id: fromId, name: cleanName(m.name || "Joueur"), av: m.av || 0,
+      G.online.players[fromId] = { id: fromId, name: cleanName(m.name || "Joueur"), av: m.av || 0, avStyle: m.avStyle || "avataaars",
         scores: prev.scores || [], guess: prev.guess || null, done: prev.done || false, isHost: false };
       if (!exists) G.online.order.push(fromId);
       broadcastRoster();
@@ -3088,6 +3095,18 @@ function closeOpenGame() {
     body: JSON.stringify({ code: G.online.code }) }).catch(() => {});
 }
 let _notifReqs = [], _notifGames = [];
+// Notifs « lues » (masquées) — persistées localement, car le poll régénère sinon la liste.
+// id d'une demande = "req:"+pseudo ; id d'une partie = "game:"+code.
+function notifReadSet() { try { return new Set(readJSON("geoq-notif-read", [])); } catch (e) { return new Set(); } }
+function saveNotifRead(set) { try { localStorage.setItem("geoq-notif-read", JSON.stringify([...set].slice(-200))); } catch (e) {} }
+function markNotifRead(id) { const s = notifReadSet(); s.add(id); saveNotifRead(s); renderNotifBell(_notifReqs, _notifGames); }
+// Marque toutes les notifs actuellement affichées comme lues (bouton à droite du titre).
+function markAllNotifRead() {
+  const s = notifReadSet();
+  _notifReqs.forEach((r) => s.add("req:" + r.pseudo));
+  _notifGames.forEach((g) => s.add("game:" + g.code));
+  saveNotifRead(s); renderNotifBell(_notifReqs, _notifGames);
+}
 // Petit lien avatar+pseudo cliquable vers le profil public (referme le panneau).
 function notifProfileLink(el, pseudo) {
   el.style.cursor = "pointer";
@@ -3095,16 +3114,20 @@ function notifProfileLink(el, pseudo) {
 }
 function renderNotifBell(reqs, games) {
   _notifReqs = reqs || []; _notifGames = games || [];
-  const badge = $("notif-badge"), list = $("notif-list");
-  const total = _notifReqs.length + _notifGames.length;
+  const read = notifReadSet();
+  const vReqs = _notifReqs.filter((r) => !read.has("req:" + r.pseudo));   // non lues seulement
+  const vGames = _notifGames.filter((g) => !read.has("game:" + g.code));
+  const badge = $("notif-badge"), list = $("notif-list"), readAll = $("notif-readall");
+  const total = vReqs.length + vGames.length;
   if (badge) { if (total) { badge.textContent = total > 9 ? "9+" : total; badge.hidden = false; } else badge.hidden = true; }
+  if (readAll) readAll.hidden = total === 0;   // « tout lu » seulement s'il reste des notifs
   if (!list) return;
   list.innerHTML = "";
   if (!total) { list.innerHTML = '<p class="comm-empty">Rien de neuf. Les demandes d\'ami et les parties ouvertes de tes amis apparaîtront ici.</p>'; return; }
   // --- Demandes d'ami reçues (accepter / refuser) ---
-  if (_notifReqs.length) {
+  if (vReqs.length) {
     const h = document.createElement("div"); h.className = "notif-sec"; h.textContent = "Demandes d'ami"; list.appendChild(h);
-    _notifReqs.forEach((r) => {
+    vReqs.forEach((r) => {
       const row = document.createElement("div"); row.className = "notif-item";
       const img = document.createElement("img"); img.className = "notif-item-av"; img.src = avatarURLFor(r.av || 0, "avataaars"); img.alt = ""; notifProfileLink(img, r.pseudo);
       const txt = document.createElement("div"); txt.className = "notif-item-txt";
@@ -3119,18 +3142,24 @@ function renderNotifBell(reqs, games) {
       row.appendChild(img); row.appendChild(txt); row.appendChild(acts); list.appendChild(row);
     });
   }
-  // --- Parties multi ouvertes des amis (rejoindre) ---
-  if (_notifGames.length) {
+  // --- Parties multi ouvertes des amis (rejoindre + masquer) ---
+  if (vGames.length) {
     const h = document.createElement("div"); h.className = "notif-sec"; h.textContent = "Parties de tes amis"; list.appendChild(h);
-    _notifGames.forEach((g) => {
+    vGames.forEach((g) => {
       const row = document.createElement("div"); row.className = "notif-item";
       const img = document.createElement("img"); img.className = "notif-item-av"; img.src = avatarURLFor(g.av || 0, "avataaars"); img.alt = ""; notifProfileLink(img, g.host);
       const txt = document.createElement("div"); txt.className = "notif-item-txt";
       const nm = commSpan("notif-item-host", g.host); notifProfileLink(nm, g.host); txt.appendChild(nm);
       txt.appendChild(commSpan("notif-item-sub", (g.label || "Partie") + " · " + (g.rounds || 5) + " manches"));
+      const acts = document.createElement("div"); acts.className = "notif-acts";
       const btn = document.createElement("button"); btn.type = "button"; btn.className = "notif-join"; btn.textContent = "Rejoindre";
-      btn.addEventListener("click", () => { $("notif-panel").hidden = true; requestName(() => joinRoom(g.code)); });
-      row.appendChild(img); row.appendChild(txt); row.appendChild(btn); list.appendChild(row);
+      // on peut être sur n'importe quel écran hub → basculer sur « online » AVANT de rejoindre
+      // (sinon joinRoom manipule #online-wait/#online-choice qui sont masqués → « ça ne marche pas »).
+      btn.addEventListener("click", () => { $("notif-panel").hidden = true; requestName(() => { showScreen("online"); joinRoom(g.code); }); });
+      const x = document.createElement("button"); x.type = "button"; x.className = "notif-dismiss"; x.textContent = "✕"; x.title = "Masquer cette notification";
+      x.addEventListener("click", () => markNotifRead("game:" + g.code));
+      acts.appendChild(btn); acts.appendChild(x);
+      row.appendChild(img); row.appendChild(txt); row.appendChild(acts); list.appendChild(row);
     });
   }
 }
@@ -3573,6 +3602,8 @@ function wire() {
   if (bell && npanel) {
     bell.addEventListener("click", (e) => { e.stopPropagation(); npanel.hidden = !npanel.hidden; if (!npanel.hidden) pollFriendGames(); });
     document.addEventListener("click", (e) => { if (!npanel.hidden && $("notif-wrap") && !$("notif-wrap").contains(e.target)) npanel.hidden = true; });
+    const readAllBtn = $("notif-readall");
+    if (readAllBtn) readAllBtn.addEventListener("click", (e) => { e.stopPropagation(); markAllNotifRead(); });
   }
   // toggle « partie ouverte / fermée » du salon (hôte) → annonce ou retire des notifs amis
   const openSeg = $("room-open-seg");

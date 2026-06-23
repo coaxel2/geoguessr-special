@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://api.dicebear.com" />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-  <link rel="stylesheet" href="style.css?v=103" />
+  <link rel="stylesheet" href="style.css?v=104" />
 </head>
 <body>
   <!-- Barre d'actions en haut à droite : cloche, compte, monnaie regroupés dans un
@@ -28,7 +28,7 @@
         <span class="notif-badge" id="notif-badge" hidden>0</span>
       </button>
       <div class="notif-panel" id="notif-panel" hidden>
-        <div class="notif-head">🔔 Notifications</div>
+        <div class="notif-head"><span>🔔 Notifications</span><button class="notif-readall" id="notif-readall" type="button" hidden>Tout lire</button></div>
         <div class="notif-list" id="notif-list"><p class="comm-empty">Rien de neuf pour l'instant.</p></div>
       </div>
     </div>
@@ -121,7 +121,7 @@
               </button>
             </div>
 
-            <div class="field">
+            <div class="field rounds-field">
               <label for="rounds">Manches</label>
               <div class="seg" id="rounds-seg">
                 <button data-r="3">3</button>
@@ -1053,6 +1053,6 @@
 
   <!-- Leaflet : cartes de guess / résultat (tuiles raster, pas de WebGL) -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script src="game.js?v=103"></script>
+  <script src="game.js?v=104"></script>
 </body>
 </html>
