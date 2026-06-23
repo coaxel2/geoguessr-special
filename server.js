@@ -456,7 +456,14 @@ async function initDb() {
   try {
     const dd = await db.query(`DELETE FROM community_zones a USING community_zones b
                                WHERE a.id > b.id AND lower(btrim(a.name)) = lower(btrim(b.name));`);
-    if (dd.rowCount) console.log("[db] zones doublons supprimées :", dd.rowCount);
+    if (dd.rowCount) console.log("[db] zones doublons (nom) supprimées :", dd.rowCount);
+    // + doublons de LIEU : même centre géocodé (≈ même ville) même si le nom diffère
+    // (ex. « bordeaux$ » vs « Bordeaux »). Garde la plus ancienne.
+    const dd2 = await db.query(`DELETE FROM community_zones a USING community_zones b
+                                WHERE a.id > b.id
+                                  AND abs(a.center_lat - b.center_lat) < 0.025
+                                  AND abs(a.center_lng - b.center_lng) < 0.025;`);
+    if (dd2.rowCount) console.log("[db] zones doublons (lieu) supprimées :", dd2.rowCount);
     await db.query(`CREATE UNIQUE INDEX IF NOT EXISTS uniq_czone_name ON community_zones (lower(btrim(name)));`);
   } catch (e) { console.error("[db] dédup community_zones:", e.message); }
   console.log("[db] tables 'scores', 'users', 'sessions', 'community_zones' prêtes");
@@ -735,6 +742,16 @@ app.post("/api/community/zones", requireAuth, async (req, res) => {
   const small = decimateGeom(geom, 360);
   if (JSON.stringify(small).length > 500000) return res.status(400).json({ ok: false, error: "Zone trop vaste — choisis une ville ou une région plus précise." });
   const meta = geoMeta(small);
+  // anti-doublon par LIEU : si une zone existe déjà au même endroit (centre géocodé proche),
+  // on refuse — même si le nom tapé diffère (fautes, casse, « $ »…). C'est le vrai garde-fou.
+  try {
+    const near = await db.query(
+      `SELECT name, pseudo FROM community_zones
+        WHERE abs(center_lat - $1) < 0.025 AND abs(center_lng - $2) < 0.025 LIMIT 1`,
+      [meta.centerLat, meta.centerLng]
+    );
+    if (near.rows.length) return res.status(409).json({ ok: false, error: "Cette zone existe déjà : « " + near.rows[0].name + " » (par " + near.rows[0].pseudo + ")." });
+  } catch (e) { /* erreur DB : on laisse l'INSERT trancher */ }
   try {
     const { rows } = await db.query(
       `INSERT INTO community_zones (user_id, pseudo, name, geojson, center_lat, center_lng, bbox, radius_km)
