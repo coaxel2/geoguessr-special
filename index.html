@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://api.dicebear.com" />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-  <link rel="stylesheet" href="style.css?v=79" />
+  <link rel="stylesheet" href="style.css?v=80" />
 </head>
 <body>
   <div class="wallet-pill" id="wallet-pill" aria-label="Monnaie disponible">
@@ -677,10 +677,10 @@
         <section class="feature-panel">
           <div class="challenge-board">
             <article class="challenge-main">
-              <p class="shop-eyebrow">Défi hebdo</p>
-              <h2>Capitales cachées</h2>
-              <p>5 manches, grandes villes du monde, timer 5 minutes. Objectif : dépasser 18 000 pts.</p>
-              <button type="button" class="btn btn-primary" id="btn-weekly-challenge">Lancer le défi</button>
+              <p class="shop-eyebrow">⚡ Défi du jour</p>
+              <h2 id="challenge-title">Défi du jour</h2>
+              <p id="challenge-desc">Chargement…</p>
+              <button type="button" class="btn btn-primary" id="btn-weekly-challenge">Lancer le défi du jour</button>
             </article>
           </div>
         </section>
@@ -875,6 +875,6 @@
 
   <!-- Leaflet : cartes de guess / résultat (tuiles raster, pas de WebGL) -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script src="game.js?v=79"></script>
+  <script src="game.js?v=80"></script>
 </body>
 </html>

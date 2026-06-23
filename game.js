@@ -354,15 +354,62 @@ function awardGameCoins(score) {
   if (earned > 0) addCoins(earned);
   return earned;
 }
-function startWeeklyChallenge() {
-  G.rounds = 5;
-  G.timeLimit = 5 * 60;
-  G.zoneFilter = "world-cities";
-  setRoundSeg("rounds-seg", 5);
+// ===== Défi du jour : tourne chaque jour, jouable UNE seule fois par jour =====
+// r = manches (3/5/10), m = minutes/manche (5), z = zone (toutes valides côté jeu), g = objectif.
+const DAILY_CHALLENGES = [
+  { t: "Capitales cachées",     d: "5 manches dans les grandes villes du monde.", z: "world-cities",  r: 5,  m: 5, g: 18000 },
+  { t: "Tour du monde",         d: "5 manches n'importe où sur Terre.",           z: "world",         r: 5,  m: 5, g: 12000 },
+  { t: "Grand tour d'Europe",   d: "5 manches à travers l'Europe.",               z: "europe",        r: 5,  m: 5, g: 16000 },
+  { t: "Échappée asiatique",    d: "5 manches en Asie.",                          z: "asia",          r: 5,  m: 5, g: 15000 },
+  { t: "Safari africain",       d: "5 manches en Afrique.",                       z: "africa",        r: 5,  m: 5, g: 14000 },
+  { t: "Nouveau Monde",         d: "5 manches en Amérique du Nord.",              z: "north-america", r: 5,  m: 5, g: 16000 },
+  { t: "Esprit latino",         d: "5 manches en Amérique du Sud.",               z: "south-america", r: 5,  m: 5, g: 14000 },
+  { t: "Au cœur du Pacifique",  d: "5 manches en Océanie.",                       z: "oceania",       r: 5,  m: 5, g: 15000 },
+  { t: "Sprint mondial",        d: "3 manches éclair dans les grandes villes.",   z: "world-cities",  r: 3,  m: 5, g: 9000 },
+  { t: "Marathon planétaire",   d: "10 manches autour du globe.",                 z: "world",         r: 10, m: 5, g: 24000 },
+  { t: "Soleil levant",         d: "5 manches au Japon.",                         z: "japan",         r: 5,  m: 5, g: 18000 },
+  { t: "Carnaval brésilien",    d: "5 manches au Brésil.",                        z: "brazil",        r: 5,  m: 5, g: 16000 },
+  { t: "Far West",              d: "5 manches aux États-Unis.",                   z: "usa",           r: 5,  m: 5, g: 16000 },
+  { t: "Dolce Vita",            d: "5 manches en Italie.",                        z: "italy",         r: 5,  m: 5, g: 17000 },
+];
+function dailyKey() {                       // identifiant du jour LOCAL (anti-rejeu quotidien)
+  const d = new Date();
+  return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+}
+function dailyIndex() {                      // index tournant : change chaque jour, déterministe
+  const d = new Date();
+  const dayNum = Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000);
+  const n = DAILY_CHALLENGES.length;
+  return ((dayNum % n) + n) % n;
+}
+function dailyChallenge() { return DAILY_CHALLENGES[dailyIndex()]; }
+function dailyDone() {
+  try { return localStorage.getItem("geoq-daily-done") === dailyKey(); } catch (e) { return false; }
+}
+function renderDailyChallenge() {
+  const c = dailyChallenge();
+  const title = $("challenge-title"), desc = $("challenge-desc"), btn = $("btn-weekly-challenge");
+  if (title) title.textContent = c.t;
+  if (desc) desc.textContent = c.d + " Objectif : " + fmtPts(c.g) + " pts.";
+  if (btn) {
+    const done = dailyDone();
+    btn.disabled = done;
+    btn.textContent = done ? "✓ Défi du jour terminé — reviens demain" : "Lancer le défi du jour";
+  }
+}
+function startWeeklyChallenge() {            // (nom conservé : câblé sur le bouton du défi)
+  if (dailyDone()) { renderDailyChallenge(); return; }
+  const c = dailyChallenge();
+  G.rounds = c.r;
+  G.timeLimit = c.m * 60;
+  G.zoneFilter = c.z;
+  G.countryFilter = "";
+  setRoundSeg("rounds-seg", c.r);
   setTimeSeg("time-seg", G.timeLimit);
-  $("zone-filter").value = G.zoneFilter;
+  $("zone-filter").value = c.z;
   updateZoneTrigger();
   setShopFeedback("");
+  try { localStorage.setItem("geoq-daily-done", dailyKey()); } catch (e) {}   // 1 essai / jour
   startSolo();
 }
 function openPublicRoom() {
@@ -427,7 +474,7 @@ function renderCommunityZones() {
   loadCommunityZones(true).then(() => {
     if (!COMMUNITY_ZONES.length) { box.innerHTML = '<p class="comm-empty">Aucune zone pour l\'instant — sois le premier à en créer une !</p>'; return; }
     box.innerHTML = "";
-    COMMUNITY_ZONES.slice(0, 14).forEach((z) => {
+    COMMUNITY_ZONES.slice(0, 10).forEach((z) => {
       const row = document.createElement("button");
       row.type = "button"; row.className = "czone-item";
       const nm = document.createElement("span"); nm.className = "czone-item-name"; nm.textContent = z.name;
@@ -441,6 +488,7 @@ function renderCommunityZones() {
 }
 
 function renderCommunity() {
+  renderDailyChallenge();
   renderCommunityZones();
   // ancien faux « vote » : peut avoir disparu de l'HTML → guards systématiques.
   const voteTxt = $("community-vote-text");
@@ -477,7 +525,7 @@ function renderCommunity() {
       // --- Podium ---
       if (topEl) {
         topEl.innerHTML = "";
-        const top = Array.isArray(d.top) ? d.top : [];
+        const top = (Array.isArray(d.top) ? d.top : []).slice(0, 10);
         if (!top.length) {
           topEl.appendChild(commEmpty());
         } else {
@@ -496,7 +544,7 @@ function renderCommunity() {
       // --- Parties récentes ---
       if (recentEl) {
         recentEl.innerHTML = "";
-        const recent = Array.isArray(d.recent) ? d.recent : [];
+        const recent = (Array.isArray(d.recent) ? d.recent : []).slice(0, 10);
         if (!recent.length) {
           recentEl.appendChild(commEmpty());
         } else {
@@ -2934,7 +2982,8 @@ function wire() {
       const curTab = cur ? cur.dataset.tab : "menu";
       drawer.querySelectorAll(".drawer-tab").forEach((b) => b.classList.toggle("on", b.dataset.tab === curTab));
       drawer.hidden = false; scrim.hidden = false;
-      requestAnimationFrame(() => document.body.classList.add("drawer-open"));
+      void drawer.offsetWidth;   // reflow : peint l'état initial puis déclenche l'animation d'ouverture
+      document.body.classList.add("drawer-open");
       burger.setAttribute("aria-expanded", "true");
     };
     const closeDrawer = () => {
@@ -2942,7 +2991,12 @@ function wire() {
       burger.setAttribute("aria-expanded", "false");
       setTimeout(() => { drawer.hidden = true; scrim.hidden = true; }, 260);
     };
-    burger.addEventListener("click", openDrawer);
+    // le burger est fixe au-dessus du tiroir (z-index supérieur) : il sert donc de
+    // bascule (ouvre / ferme) et se transforme en croix — évite que le burger intercepte
+    // le clic destiné à une croix interne placée au même endroit.
+    burger.addEventListener("click", () => {
+      if (document.body.classList.contains("drawer-open")) closeDrawer(); else openDrawer();
+    });
     if (closeBtn) closeBtn.addEventListener("click", closeDrawer);
     scrim.addEventListener("click", closeDrawer);
     drawer.querySelectorAll(".drawer-tab").forEach((b) =>
