@@ -1012,6 +1012,23 @@ const WORLD_CITIES = [
   [-37.8136, 144.9631, 20000, 2], [-23.5505, -46.6333, 26000, 2], [-34.6037, -58.3816, 22000, 2],
   [-33.9249, 18.4241, 18000, 2], [45.5019, -73.5674, 18000, 2], [43.6532, -79.3832, 20000, 2],
 ];
+// Zone spéciale « Vue bateau » : plans d'eau (canaux/ports) à forte couverture Street View
+// prise depuis l'eau. [lat, lng, rayon m de recherche, poids]. Venise + Amsterdam dominent
+// (couverture nautique quasi certaine) → la zone trouve toujours des panoramas sur l'eau.
+const BOAT_SPOTS = [
+  [45.4380, 12.3358, 1100, 5],   // Venise — Grand Canal (Rialto)
+  [45.4316, 12.3289, 1000, 4],   // Venise — Grand Canal (Accademia)
+  [45.4290, 12.3380, 900, 3],    // Venise — Bassin de San Marco
+  [45.4270, 12.3250, 1000, 3],   // Venise — Canal de la Giudecca
+  [45.4445, 12.3265, 900, 2],    // Venise — Cannaregio
+  [52.3690, 4.8930, 1400, 4],    // Amsterdam — ceinture de canaux
+  [52.3735, 4.8835, 1200, 3],    // Amsterdam — Prinsengracht / Jordaan
+  [52.3625, 4.9010, 1200, 2],    // Amsterdam — Amstel
+  [51.2078, 3.2270, 800, 2],     // Bruges — canaux du centre
+  [53.5430, 9.9880, 1200, 1],    // Hambourg — Speicherstadt
+  [59.9395, 30.3200, 1500, 1],   // Saint-Pétersbourg — canaux
+  [59.3250, 18.0750, 1800, 1],   // Stockholm — Gamla stan
+];
 const FRANCE_CITIES = [
   [48.8566, 2.3522, 15000, 4], [45.7640, 4.8357, 12000, 3], [43.2965, 5.3698, 12000, 3],
   [43.6047, 1.4442, 11000, 2], [43.7102, 7.2620, 10000, 2], [47.2184, -1.5536, 10000, 2],
@@ -1068,6 +1085,10 @@ function zoneGeometryKey() {
 }
 function locationAllowed(loc, pool, picked) {
   if (!loc) return false;
+  if (pool.type === "boat") {
+    // zone bateau : on accepte tout panorama proche du plan d'eau ciblé (canal/port)
+    return distM({ lat: picked[0], lng: picked[1] }, loc) <= (picked[2] || 1200) * 1.8;
+  }
   if (pool.type === "city") {
     // si la ville a un contour réel (frontière), le lieu doit tomber DEDANS (resserré, fidèle) ;
     // sinon on se rabat sur le rayon du cercle.
@@ -1085,7 +1106,8 @@ function locationAllowed(loc, pool, picked) {
   return true;
 }
 function activePool() {
-  if (G.zoneFilter === "world-cities" || G.zoneFilter === "world-cities-boat") return { type: "city", items: WORLD_CITIES };
+  if (G.zoneFilter === "world-cities") return { type: "city", items: WORLD_CITIES };
+  if (G.zoneFilter === "world-cities-boat") return { type: "boat", items: BOAT_SPOTS };
   if (G.zoneFilter === "france-cities") return { type: "city", items: FRANCE_CITIES };
   if (CITY_ZONES[G.zoneFilter]) return { type: "city", items: [CITY_ZONES[G.zoneFilter]] };
   if (FR_REGION_ZONES[G.zoneFilter]) return { type: "region", items: FR_REGION_ZONES[G.zoneFilter] };
@@ -1165,9 +1187,11 @@ function zoneGroups() {
       { l: "Océanie", z: "oceania", la: -25, lo: 140, tz: 3 },
     ]],
     ["🏳️ Pays", countries],
+    ["✨ Spécial", [
+      { l: "🚢 Vue bateau — villes d'eau", z: "world-cities-boat", la: 25, lo: 0, tz: 1 },
+    ]],
     ["🌆 Villes du monde", [
       { l: "Toutes les grandes villes du monde", z: "world-cities", la: 25, lo: 0, tz: 1 },
-      { l: "Grandes villes — mode bateau 🚢", z: "world-cities-boat", la: 25, lo: 0, tz: 1 },
       ...wCity,
     ]],
     ["🇫🇷 Régions de France", frReg],
@@ -1478,12 +1502,6 @@ function selectZone(z, co) {
     s.value = z;
   });
   if (co) ["country-filter", "online-country-filter", "room-country-filter"].forEach((id) => { const s = $(id); if (s) s.value = co; });
-  // « Grandes villes — mode bateau » : bascule le déplacement sur Bateau par défaut (solo + multi)
-  if (z === "world-cities-boat") {
-    G.moveMode = "boat";
-    ["mode-seg", "online-mode-seg", "room-mode-seg"].forEach((id) => setModeSeg(id, "boat"));
-    if ($("mode-hint")) $("mode-hint").textContent = MOVE_HINTS.boat;
-  }
   highlightZone();
   updateZoneTrigger();
   $("zone-modal").hidden = true;
@@ -1511,7 +1529,6 @@ const MOVE_HINTS = {
   free: "Déplacement, rotation et zoom autorisés.",
   pro: "Déplacement désactivé — tu restes sur place (rotation + zoom OK).",
   hardcore: "Ni déplacement ni zoom — juste regarder autour. Pour les pros.",
-  boat: "Mode bateau : navigation libre et fluide (rotation + zoom OK).",
 };
 function selectedMode(id) {
   const sel = $(id) && $(id).querySelector("button.on");
@@ -1592,9 +1609,11 @@ async function findOneLocation() {
     const cr = r[2] || 6000;
     // villes : cible QUASI au centre-ville (≤18 % du rayon) + recherche de panorama
     // courte → on tombe en plein centre, jamais en périphérie ni dans la ville voisine.
-    const searchRadius = pool.type === "city" ? Math.max(700, Math.min(2200, cr * 0.32)) : 70000;
-    const target = pool.type === "city"
-      ? randomPointNear(r[0], r[1], cr * 0.18)
+    const searchRadius = pool.type === "city" ? Math.max(700, Math.min(2200, cr * 0.32))
+                       : pool.type === "boat" ? Math.max(500, Math.min(1600, cr))
+                       : 70000;
+    const target = (pool.type === "city" || pool.type === "boat")
+      ? randomPointNear(r[0], r[1], cr * (pool.type === "boat" ? 0.4 : 0.18))
       : { lat: rand(r[0], r[1]), lng: rand(r[2], r[3]) };
     const req = {
       location: target,
@@ -1922,7 +1941,7 @@ function ringAreaKm2(ring){let lat0=0;for(const p of ring)lat0+=p[1];lat0=lat0/r
 function geomAreaKm2(geom){let A=0;const add=(poly)=>{A+=ringAreaKm2(poly[0]);for(let h=1;h<poly.length;h++)A-=ringAreaKm2(poly[h]);};if(geom.type==="Polygon")add(geom.coordinates);else if(geom.type==="MultiPolygon")geom.coordinates.forEach(add);return A;}
 function geomRadiusKm(geom){return Math.sqrt(Math.max(1,geomAreaKm2(geom))/Math.PI);}
 const MEDIAN=(arr)=>{const s=[...arr].sort((x,y)=>x-y);return s[Math.floor(s.length/2)];};
-function zoneRadiusKm(){const z=G.zoneFilter,co=G.countryFilter;if(z==="world")return 9000;if(typeof CITY_ZONES!=="undefined"&&CITY_ZONES[z])return(CITY_ZONES[z][2]||12000)/1000;if((z==="world-cities"||z==="world-cities-boat")&&typeof WORLD_CITIES!=="undefined")return MEDIAN(WORLD_CITIES.map((c)=>c[2]))/1000;if(z==="france-cities"&&typeof FRANCE_CITIES!=="undefined")return MEDIAN(FRANCE_CITIES.map((c)=>c[2]))/1000;try{const key=zoneGeometryKey();if(key&&ZGEO&&ZGEO[key])return geomRadiusKm(ZGEO[key]);}catch(e){}try{const s=zoneShape(z,co);if(s&&s.boxes){const b=bboxOf(s.boxes);return distM({lat:b.getSouth(),lng:b.getWest()},{lat:b.getNorth(),lng:b.getEast()})/1000/2;}}catch(e){}return 1500;}
+function zoneRadiusKm(){const z=G.zoneFilter,co=G.countryFilter;if(z==="world")return 9000;if(typeof CITY_ZONES!=="undefined"&&CITY_ZONES[z])return(CITY_ZONES[z][2]||12000)/1000;if(z==="world-cities"&&typeof WORLD_CITIES!=="undefined")return MEDIAN(WORLD_CITIES.map((c)=>c[2]))/1000;if(z==="world-cities-boat")return 10;if(z==="france-cities"&&typeof FRANCE_CITIES!=="undefined")return MEDIAN(FRANCE_CITIES.map((c)=>c[2]))/1000;try{const key=zoneGeometryKey();if(key&&ZGEO&&ZGEO[key])return geomRadiusKm(ZGEO[key]);}catch(e){}try{const s=zoneShape(z,co);if(s&&s.boxes){const b=bboxOf(s.boxes);return distM({lat:b.getSouth(),lng:b.getWest()},{lat:b.getNorth(),lng:b.getEast()})/1000/2;}}catch(e){}return 1500;}
 // Score adaptatif à la taille de la zone. tau = distance de décroissance (à tau, ~37% des points).
 // tau = 0.23·R·(1 + R/15000) : quasi-linéaire pour les petites zones (villes restent serrées/exigeantes),
 // mais sur-linéaire pour les grandes (monde/continents plus cléments → plus de points selon la distance).
@@ -1987,7 +2006,7 @@ function svMove(forward) {
     const d = Math.abs(((l.heading - target + 540) % 360) - 180);
     if (d < bd) { bd = d; best = l; }
   });
-  if (best && bd <= (G.moveMode === "boat" ? 120 : 72)) G.pano.setPano(best.pano);   // tolérance regard↔route (bateau = plus permissif → glisse plus fluide)
+  if (best && bd <= 72) G.pano.setPano(best.pano);   // tolérance regard↔route (évite les sauts latéraux)
 }
 function fmtTime(s) {
   s = Math.max(0, s | 0);
