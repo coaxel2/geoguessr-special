@@ -3133,7 +3133,7 @@ function renderBattlePass() {
     const reward = passReward(level), claimed = claims.includes(level), unlocked = level <= progress.level;
     const row = document.createElement("article");
     row.className = "pass-tier" + (unlocked ? " unlocked" : "") + (claimed ? " claimed" : "") + (reward.milestone ? " milestone" : "") + (reward.jackpot ? " jackpot" : "") + (reward.ultimate ? " ultimate" : "");
-    const title = reward.ultimate ? "✦ RÉCOMPENSE ULTIME" : reward.jackpot ? "💰 Jackpot" : reward.milestone ? "★ Récompense majeure" : "Récompense";
+    const title = reward.ultimate ? "✦ ULTIME" : reward.jackpot ? "💰 JACKPOT" : reward.milestone ? "★ MAJEUR" : "Récompense";
     const text = reward.item ? reward.label + " + " + reward.coins.toLocaleString("fr-FR") + " pièces" : reward.label;
     const lvl = document.createElement("span"); lvl.className = "pass-level"; lvl.textContent = level;
     row.appendChild(lvl);

@@ -1961,6 +1961,12 @@ body {
 .feature-page {
   grid-template-columns: minmax(260px, .72fr) minmax(520px, 1.1fr);
 }
+/* Boutique : 1 colonne (titre en haut) → la grille d'items s'étale sur toute la largeur */
+.feature-page.shop-page {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+  padding-top: clamp(18px, 4vh, 44px);
+}
 
 .leaderboard-panel {
   padding-top: clamp(10px, 4vh, 44px);
