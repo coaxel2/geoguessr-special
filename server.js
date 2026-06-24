@@ -81,6 +81,16 @@ const ADMIN_PAGE_HTML = `<!doctype html>
   .empty{color:var(--mut);text-align:center;padding:24px}
   .badge{display:inline-block;font-size:11px;color:var(--mut);background:#0b0f15;border:1px solid var(--bd);border-radius:6px;padding:1px 6px;margin:1px}
   .hint{font-size:12px;color:var(--mut);margin-top:6px}
+  .stats{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+  .card h2 .spacer{flex:1}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{font-size:12px;background:#0b0f15;border:1px solid var(--bd);border-radius:7px;padding:4px 8px;cursor:pointer;transition:.12s}
+  .chip:hover{border-color:var(--bad);color:#ffb4ae;background:#2a1719}
+  .chip.eq{border-color:var(--ok);color:#9be7a8}
+  .pc-meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+  .pc-meta span{font-size:12px;color:var(--mut);background:var(--panel);border:1px solid var(--bd);border-radius:7px;padding:4px 9px}
+  .pc-meta b{color:var(--tx)}
+  tr.clickable{cursor:pointer}
 </style>
 </head>
 <body>
@@ -109,23 +119,83 @@ const ADMIN_PAGE_HTML = `<!doctype html>
   <div id="appView" class="hide">
     <div class="stats" id="statsRow">
       <div class="stat"><div class="n" id="stUsers">–</div><div class="l">Comptes</div></div>
+      <div class="stat"><div class="n" id="stActive">–</div><div class="l">Actifs (24 h)</div></div>
       <div class="stat"><div class="n coins" id="stCoins">–</div><div class="l">Pièces en circulation</div></div>
       <div class="stat"><div class="n" id="stScores">–</div><div class="l">Scores enregistrés</div></div>
+      <div class="stat"><div class="n" id="stScores24">–</div><div class="l">Scores (24 h)</div></div>
+      <div class="stat"><div class="n" id="stZones">–</div><div class="l">Zones communauté</div></div>
     </div>
 
     <div class="tabs">
-      <button data-tab="accounts" class="on">Comptes</button>
-      <button data-tab="credit">Créditer / Gérer</button>
+      <button data-tab="dashboard" class="on">Tableau de bord</button>
+      <button data-tab="players">Joueurs</button>
       <button data-tab="scores">Scores</button>
+      <button data-tab="zones">Zones</button>
+      <button data-tab="tools">Outils</button>
     </div>
 
-    <!-- Onglet comptes -->
-    <section id="tab-accounts" class="card">
-      <h2><span class="ic">👥</span> Comptes joueurs</h2>
+    <!-- Tableau de bord -->
+    <section id="tab-dashboard" class="card">
+      <h2><span class="ic">📊</span> Top joueurs <span class="spacer"></span><button class="sm" id="dashRefresh">Rafraîchir</button></h2>
+      <div style="overflow:auto">
+        <table>
+          <thead><tr><th>#</th><th>Pseudo</th><th>Meilleur score</th><th>Parties</th><th>Pièces</th><th></th></tr></thead>
+          <tbody id="topBody"><tr><td colspan="6" class="empty">…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Joueurs -->
+    <section id="tab-players" class="card hide">
+      <h2><span class="ic">👥</span> Joueurs</h2>
       <div class="row" style="margin-bottom:12px">
-        <div class="col"><label>Recherche (pseudo)</label><input id="accSearch" placeholder="Rechercher…"></div>
+        <div class="col"><label>Recherche (pseudo)</label><input id="accSearch" placeholder="Rechercher un joueur…"></div>
         <button id="accRefresh">Rafraîchir</button>
       </div>
+
+      <!-- Fiche joueur détaillée (cachée tant qu'aucun joueur n'est sélectionné) -->
+      <div id="playerCard" class="card hide" style="background:var(--panel2);border-color:var(--acc)">
+        <h2><span class="ic">🎯</span> <span id="pcName">—</span><span class="spacer"></span><button class="sm" id="pcClose">Fermer ✕</button></h2>
+        <div class="pc-meta" id="pcMeta"></div>
+
+        <div class="grid g2" style="margin-top:14px">
+          <div class="card" style="margin:0;background:var(--panel)">
+            <label>🪙 Pièces — <span id="pcCoins" class="coins">–</span></label>
+            <div class="row" style="margin-top:6px"><div class="col"><input id="pcCoinVal" type="number" placeholder="ex: 500"></div>
+              <button class="sm pri" data-pc="coinAdd">Créditer</button><button class="sm" data-pc="coinSet">Définir</button></div>
+          </div>
+          <div class="card" style="margin:0;background:var(--panel)">
+            <label>🎟 Passe — palier <span id="pcLevel">–</span> / 100 · <span id="pcXp">–</span> XP</label>
+            <div class="row" style="margin-top:6px"><div class="col"><input id="pcPassVal" type="number" placeholder="palier ou XP"></div>
+              <button class="sm pri" data-pc="passLevel">Définir palier</button><button class="sm" data-pc="passXp">Définir XP</button></div>
+            <div class="acts" style="margin-top:8px">
+              <button class="sm" data-pc="passAdd1">+1 palier</button>
+              <button class="sm" data-pc="passAdd5">+5 paliers</button>
+              <button class="sm" data-pc="passAdd1k">+1 000 XP</button>
+              <button class="sm danger" data-pc="passReset">Reset passe</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin:14px 0 0;background:var(--panel)">
+          <label>🎨 Cosmétiques possédés <span id="pcOwnCount" class="muted"></span> — clique pour retirer</label>
+          <div id="pcOwned" class="chips" style="margin:6px 0 10px"></div>
+          <div class="row"><div class="col"><input id="pcItem" list="itemList" placeholder="id d'item (ex: bannerOcean, passBadgeDragon)"></div>
+            <button class="sm pri" data-pc="itemGrant">Donner</button></div>
+        </div>
+
+        <div class="grid g2" style="margin-top:14px">
+          <div class="card" style="margin:0;background:var(--panel)">
+            <label>🔑 Réinitialiser le mot de passe (6+)</label>
+            <div class="row" style="margin-top:6px"><div class="col"><input id="pcPw" type="text" placeholder="nouveau mot de passe"></div><button class="sm" data-pc="pw">Changer</button></div>
+          </div>
+          <div class="card" style="margin:0;background:var(--panel)">
+            <label>⚠️ Zone de danger</label>
+            <div class="acts" style="margin-top:6px"><button class="sm danger" data-pc="reset">Reset compte</button><button class="sm danger" data-pc="delete">Supprimer le compte</button></div>
+          </div>
+        </div>
+      </div>
+
       <div style="overflow:auto">
         <table>
           <thead><tr><th>Pseudo</th><th>Pièces</th><th>Items</th><th>Vu</th><th>Créé</th><th></th></tr></thead>
@@ -135,38 +205,7 @@ const ADMIN_PAGE_HTML = `<!doctype html>
       <div id="accMore" class="muted" style="margin-top:10px"></div>
     </section>
 
-    <!-- Onglet credit/gestion -->
-    <section id="tab-credit" class="card hide">
-      <h2><span class="ic">🪙</span> Créditer / débiter</h2>
-      <div class="row">
-        <div class="col"><label>Pseudo</label><input id="crPseudo" placeholder="pseudo du joueur"></div>
-        <div class="col"><label>Montant (négatif = débit)</label><input id="crAmount" type="number" placeholder="ex: 500 ou -200"></div>
-        <button class="pri" id="crBtn">Appliquer</button>
-      </div>
-      <div class="hint">Le solde est borné entre 0 et 100 000 000.</div>
-
-      <h2 style="margin-top:24px"><span class="ic">🔑</span> Réinitialiser le mot de passe</h2>
-      <div class="row">
-        <div class="col"><label>Pseudo</label><input id="pwPseudo" placeholder="pseudo du joueur"></div>
-        <div class="col"><label>Nouveau mot de passe (6+)</label><input id="pwNew" type="text" placeholder="nouveau mot de passe"></div>
-        <button id="pwBtn">Changer</button>
-      </div>
-      <div class="hint">Déconnecte toutes les sessions du joueur.</div>
-
-      <h2 style="margin-top:24px"><span class="ic">⚠️</span> Actions destructrices</h2>
-      <div class="grid g2">
-        <div class="card" style="margin:0;background:var(--panel2)">
-          <label>Réinitialiser un compte (pièces / items à zéro)</label>
-          <div class="row" style="margin-top:6px"><div class="col"><input id="rsPseudo" placeholder="pseudo"></div><button class="danger" id="rsBtn">Réinitialiser</button></div>
-        </div>
-        <div class="card" style="margin:0;background:var(--panel2)">
-          <label>Supprimer un compte définitivement</label>
-          <div class="row" style="margin-top:6px"><div class="col"><input id="delPseudo" placeholder="pseudo"></div><button class="danger" id="delBtn">Supprimer</button></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Onglet scores -->
+    <!-- Scores -->
     <section id="tab-scores" class="card hide">
       <h2><span class="ic">🏆</span> Scores / classement</h2>
       <div class="row" style="margin-bottom:12px">
@@ -181,8 +220,38 @@ const ADMIN_PAGE_HTML = `<!doctype html>
         </table>
       </div>
     </section>
+
+    <!-- Zones communautaires -->
+    <section id="tab-zones" class="card hide">
+      <h2><span class="ic">🗺️</span> Zones communautaires <span class="spacer"></span><button class="sm" id="znRefresh">Rafraîchir</button></h2>
+      <div style="overflow:auto">
+        <table>
+          <thead><tr><th>#</th><th>Nom</th><th>Créateur</th><th>Rayon</th><th>Coordonnées</th><th>Date</th><th></th></tr></thead>
+          <tbody id="znBody"><tr><td colspan="7" class="empty">…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Outils -->
+    <section id="tab-tools" class="card hide">
+      <h2><span class="ic">🛠️</span> Outils globaux</h2>
+      <div class="card" style="margin:0;background:var(--panel2)">
+        <label>🪙 Créditer / débiter TOUS les comptes</label>
+        <div class="row" style="margin-top:6px"><div class="col"><input id="caAmount" type="number" placeholder="ex: 1000 (négatif = débit)"></div><button class="pri" id="caBtn">Appliquer à tous</button></div>
+        <div class="hint">Ajoute le montant au solde de chaque joueur (borné 0 – 100 000 000).</div>
+      </div>
+    </section>
   </div>
 </div>
+<datalist id="itemList">
+  <option value="themeDefault"><option value="aurora"><option value="sunset"><option value="emerald"><option value="magma"><option value="cyber"><option value="sakura"><option value="mono"><option value="boreal">
+  <option value="badge"><option value="badgeCompass"><option value="badgeFlame"><option value="badgeStar"><option value="badgeCrown">
+  <option value="avatars"><option value="avatarsBot"><option value="avatarsPixel"><option value="avatarsExpedition">
+  <option value="fxNone"><option value="fxAurora">
+  <option value="bannerDefault"><option value="bannerSummit"><option value="bannerAurora"><option value="bannerSunset"><option value="bannerAtlas"><option value="bannerOcean"><option value="bannerForest"><option value="bannerCosmos"><option value="bannerRuby">
+  <option value="passBadgeCeleste"><option value="passBadgeNord"><option value="passBadgeSolar"><option value="passBadgeAtlas"><option value="passBadgeSouverain"><option value="passBadgeDiamond"><option value="passBadgeBolt"><option value="passBadgeWave"><option value="passBadgeDragon">
+  <option value="passBannerSummit"><option value="passBannerAurora"><option value="passBannerSunset"><option value="passBannerAtlas"><option value="passBannerLegendary"><option value="passBannerNebula"><option value="passBannerEmber"><option value="passBannerGold">
+</datalist>
 
 <div id="toast" class="toast"></div>
 
@@ -194,180 +263,145 @@ const ADMIN_PAGE_HTML = `<!doctype html>
   var esc = function(s){ return String(s==null?"":s).replace(/[&<>"']/g, function(c){ return ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]; }); };
   var fmt = function(n){ return Number(n||0).toLocaleString("fr-FR"); };
   var dt = function(s){ if(!s) return ""; try{ return new Date(s).toLocaleString("fr-FR",{dateStyle:"short",timeStyle:"short"}); }catch(e){ return s; } };
-
   var toastT;
-  function toast(msg, kind){
-    var t = $("toast"); t.textContent = msg; t.className = "toast show " + (kind||"");
-    clearTimeout(toastT); toastT = setTimeout(function(){ t.className = "toast " + (kind||""); }, 2600);
-  }
+  function toast(msg, kind){ var t=$("toast"); t.textContent=msg; t.className="toast show "+(kind||""); clearTimeout(toastT); toastT=setTimeout(function(){ t.className="toast "+(kind||""); }, 2600); }
 
   async function api(method, path, body){
-    var opt = { method: method, headers: { "X-Admin-Secret": SECRET || "" } };
-    if(body !== undefined){ opt.headers["Content-Type"] = "application/json"; opt.body = JSON.stringify(body); }
-    var r = await fetch("/admin-geo/api" + path, opt);
-    var data = {};
-    try{ data = await r.json(); }catch(e){}
-    if(r.status === 403){ throw { status: 403, error: "admin-refuse" }; }
-    if(!r.ok){ throw { status: r.status, error: (data && data.error) || ("erreur-" + r.status) }; }
+    var opt={ method:method, headers:{ "X-Admin-Secret": SECRET||"" } };
+    if(body!==undefined){ opt.headers["Content-Type"]="application/json"; opt.body=JSON.stringify(body); }
+    var r=await fetch("/admin-geo/api"+path, opt);
+    var data={}; try{ data=await r.json(); }catch(e){}
+    if(r.status===403){ throw { status:403, error:"admin-refuse" }; }
+    if(!r.ok){ throw { status:r.status, error:(data&&data.error)||("erreur-"+r.status) }; }
     return data;
   }
 
-  function showApp(){
-    $("loginView").classList.add("hide");
-    $("appView").classList.remove("hide");
-    $("who").classList.remove("hide"); $("who").textContent = "session active";
-    $("logoutBtn").classList.remove("hide");
-    refreshStats(); loadAccounts();
-  }
-  function showLogin(){
-    SECRET = null;
-    $("appView").classList.add("hide");
-    $("loginView").classList.remove("hide");
-    $("who").classList.add("hide"); $("logoutBtn").classList.add("hide");
-    $("secret").value = ""; $("secret").focus();
-  }
+  function showApp(){ $("loginView").classList.add("hide"); $("appView").classList.remove("hide"); $("who").classList.remove("hide"); $("who").textContent="session active"; $("logoutBtn").classList.remove("hide"); refreshStats(); loadAccounts(); }
+  function showLogin(){ SECRET=null; $("appView").classList.add("hide"); $("loginView").classList.remove("hide"); $("who").classList.add("hide"); $("logoutBtn").classList.add("hide"); $("secret").value=""; $("secret").focus(); }
+  function guard(err){ if(err && err.status===403){ showLogin(); toast("Session expirée","err"); return true; } return false; }
 
-  // ---- login ----
-  $("loginForm").addEventListener("submit", async function(e){
-    e.preventDefault();
-    SECRET = $("secret").value;
-    if(!SECRET){ toast("Mot de passe requis", "err"); return; }
-    try{ await api("GET", "/stats"); showApp(); }
-    catch(err){ SECRET = null; toast(err.status === 403 ? "Mot de passe incorrect" : ("Erreur: " + err.error), "err"); }
-  });
+  $("loginForm").addEventListener("submit", async function(e){ e.preventDefault(); SECRET=$("secret").value; if(!SECRET){ toast("Mot de passe requis","err"); return; } try{ await api("GET","/stats"); showApp(); }catch(err){ SECRET=null; toast(err.status===403?"Mot de passe incorrect":("Erreur: "+err.error),"err"); } });
   $("logoutBtn").addEventListener("click", showLogin);
 
-  // ---- tabs ----
+  var TABS=["dashboard","players","scores","zones","tools"];
   Array.prototype.forEach.call(document.querySelectorAll(".tabs button"), function(b){
     b.addEventListener("click", function(){
       Array.prototype.forEach.call(document.querySelectorAll(".tabs button"), function(x){ x.classList.remove("on"); });
       b.classList.add("on");
-      var t = b.getAttribute("data-tab");
-      $("tab-accounts").classList.toggle("hide", t !== "accounts");
-      $("tab-credit").classList.toggle("hide", t !== "credit");
-      $("tab-scores").classList.toggle("hide", t !== "scores");
-      if(t === "scores") loadScores();
+      var t=b.getAttribute("data-tab");
+      TABS.forEach(function(name){ $("tab-"+name).classList.toggle("hide", name!==t); });
+      if(t==="scores") loadScores(); else if(t==="zones") loadZones(); else if(t==="dashboard") refreshStats();
     });
   });
 
-  // ---- stats ----
   async function refreshStats(){
-    try{ var d = await api("GET", "/stats");
-      $("stUsers").textContent = fmt(d.users);
-      $("stCoins").textContent = fmt(d.totalCoins);
-      $("stScores").textContent = fmt(d.scores);
-    }catch(err){ if(err.status===403) showLogin(); }
+    try{ var d=await api("GET","/stats");
+      $("stUsers").textContent=fmt(d.users); $("stActive").textContent=fmt(d.active24);
+      $("stCoins").textContent=fmt(d.totalCoins); $("stScores").textContent=fmt(d.scores);
+      $("stScores24").textContent=fmt(d.scores24); $("stZones").textContent=fmt(d.zones);
+      var top=d.top||[];
+      $("topBody").innerHTML = top.length ? top.map(function(u,i){
+        return '<tr class="clickable" data-open="'+esc(u.pseudo)+'"><td class="muted">'+(i+1)+'</td><td class="mono">'+esc(u.pseudo)+'</td><td class="coins">'+fmt(u.best)+'</td><td>'+fmt(u.games)+'</td><td class="coins">'+fmt(u.coins)+'</td><td><button class="sm" data-open="'+esc(u.pseudo)+'">Gerer</button></td></tr>';
+      }).join("") : '<tr><td colspan="6" class="empty">Aucun joueur</td></tr>';
+    }catch(err){ guard(err); }
   }
+  $("dashRefresh").addEventListener("click", refreshStats);
 
-  // ---- accounts ----
-  function itemCount(owned){ if(!owned||typeof owned!=="object") return 0; var n=0; for(var k in owned){ if(owned[k]) n++; } return n; }
-  function equippedBadges(eq){ if(!eq||typeof eq!=="object") return ""; var out=""; for(var k in eq){ if(eq[k]) out += '<span class="badge">'+esc(k)+": "+esc(eq[k])+'</span>'; } return out; }
-
+  function itemCount(o){ if(!o||typeof o!=="object") return 0; var n=0; for(var k in o){ if(o[k]) n++; } return n; }
   async function loadAccounts(){
-    var q = $("accSearch").value.trim();
-    $("accBody").innerHTML = '<tr><td colspan="6" class="empty">Chargement…</td></tr>';
+    var q=$("accSearch").value.trim();
+    $("accBody").innerHTML='<tr><td colspan="6" class="empty">Chargement...</td></tr>';
     try{
-      var d = await api("GET", "/accounts?limit=100&q=" + encodeURIComponent(q));
-      if(!d.accounts.length){ $("accBody").innerHTML = '<tr><td colspan="6" class="empty">Aucun compte</td></tr>'; $("accMore").textContent=""; return; }
-      var html = d.accounts.map(function(a){
-        var p = esc(a.pseudo);
-        var pj = JSON.stringify(a.pseudo);
-        return '<tr>'
-          + '<td class="mono">'+p+'</td>'
-          + '<td class="coins">'+fmt(a.coins)+'</td>'
-          + '<td>'+itemCount(a.owned)+' '+equippedBadges(a.equipped)+'</td>'
-          + '<td class="muted">'+dt(a.last_seen)+'</td>'
-          + '<td class="muted">'+dt(a.created_at)+'</td>'
-          + '<td><div class="acts">'
-            + '<button class="sm" onclick=\\'quickCredit('+pj+')\\'>+ Pièces</button>'
-            + '<button class="sm danger" onclick=\\'doReset('+pj+')\\'>Reset</button>'
-            + '<button class="sm danger" onclick=\\'doDelete('+pj+')\\'>Suppr.</button>'
-          + '</div></td>'
-        + '</tr>';
+      var d=await api("GET","/accounts?limit=100&q="+encodeURIComponent(q));
+      if(!d.accounts.length){ $("accBody").innerHTML='<tr><td colspan="6" class="empty">Aucun compte</td></tr>'; $("accMore").textContent=""; return; }
+      $("accBody").innerHTML=d.accounts.map(function(a){
+        return '<tr class="clickable" data-open="'+esc(a.pseudo)+'"><td class="mono">'+esc(a.pseudo)+'</td><td class="coins">'+fmt(a.coins)+'</td><td>'+itemCount(a.owned)+'</td><td class="muted">'+dt(a.last_seen)+'</td><td class="muted">'+dt(a.created_at)+'</td><td><button class="sm pri" data-open="'+esc(a.pseudo)+'">Gerer</button></td></tr>';
       }).join("");
-      $("accBody").innerHTML = html;
-      $("accMore").textContent = d.accounts.length + " / " + d.total + " compte(s)";
-    }catch(err){ if(err.status===403){ showLogin(); return; } $("accBody").innerHTML = '<tr><td colspan="6" class="empty">Erreur: '+esc(err.error)+'</td></tr>'; }
+      $("accMore").textContent=d.accounts.length+" / "+d.total+" compte(s)";
+    }catch(err){ if(guard(err)) return; $("accBody").innerHTML='<tr><td colspan="6" class="empty">Erreur: '+esc(err.error)+'</td></tr>'; }
   }
   var accT; $("accSearch").addEventListener("input", function(){ clearTimeout(accT); accT=setTimeout(loadAccounts, 250); });
   $("accRefresh").addEventListener("click", function(){ loadAccounts(); refreshStats(); });
 
-  // quick actions (exposées en global pour les onclick)
-  window.quickCredit = function(pseudo){
-    var v = prompt("Montant à créditer pour " + pseudo + " (négatif pour débiter) :", "100");
-    if(v === null) return; var n = parseInt(v, 10);
-    if(!Number.isInteger(n)){ toast("Montant invalide", "err"); return; }
-    credit(pseudo, n);
-  };
-  window.doReset = function(pseudo){ if(!confirm("Réinitialiser le compte « "+pseudo+" » (pièces et items à zéro) ?")) return; reset(pseudo); };
-  window.doDelete = function(pseudo){ if(!confirm("SUPPRIMER définitivement le compte « "+pseudo+" » ? Cette action est irréversible.")) return; del(pseudo); };
+  document.addEventListener("click", function(e){ var el=e.target.closest("[data-open]"); if(el){ openPlayer(el.getAttribute("data-open")); } });
 
-  async function credit(pseudo, amount){
-    try{ var d = await api("POST", "/credit", { pseudo: pseudo, amount: amount });
-      toast(d.pseudo + " → " + fmt(d.coins) + " pièces", "ok"); loadAccounts(); refreshStats();
-    }catch(err){ toast("Échec: " + err.error, "err"); }
-  }
-  async function reset(pseudo){
-    try{ await api("POST", "/reset", { pseudo: pseudo }); toast("Compte réinitialisé", "ok"); loadAccounts(); refreshStats(); }
-    catch(err){ toast("Échec: " + err.error, "err"); }
-  }
-  async function del(pseudo){
-    try{ await api("DELETE", "/accounts/" + encodeURIComponent(pseudo)); toast("Compte supprimé", "ok"); loadAccounts(); refreshStats(); }
-    catch(err){ toast("Échec: " + err.error, "err"); }
-  }
-
-  // ---- credit tab buttons ----
-  $("crBtn").addEventListener("click", function(){
-    var p = $("crPseudo").value.trim(); var n = parseInt($("crAmount").value, 10);
-    if(!p){ toast("Pseudo requis", "err"); return; }
-    if(!Number.isInteger(n)){ toast("Montant invalide", "err"); return; }
-    credit(p, n);
-  });
-  $("pwBtn").addEventListener("click", async function(){
-    var p = $("pwPseudo").value.trim(); var pw = $("pwNew").value;
-    if(!p){ toast("Pseudo requis", "err"); return; }
-    if(pw.length < 6){ toast("Mot de passe trop court (6 min.)", "err"); return; }
-    try{ await api("POST", "/set-password", { pseudo: p, password: pw }); $("pwNew").value=""; toast("Mot de passe changé", "ok"); }
-    catch(err){ toast("Échec: " + err.error, "err"); }
-  });
-  $("rsBtn").addEventListener("click", function(){ var p=$("rsPseudo").value.trim(); if(!p){toast("Pseudo requis","err");return;} window.doReset(p); });
-  $("delBtn").addEventListener("click", function(){ var p=$("delPseudo").value.trim(); if(!p){toast("Pseudo requis","err");return;} window.doDelete(p); });
-
-  // ---- scores ----
-  async function loadScores(){
-    var q = $("scSearch").value.trim();
-    $("scBody").innerHTML = '<tr><td colspan="7" class="empty">Chargement…</td></tr>';
+  var CUR=null;
+  async function openPlayer(pseudo){
     try{
-      var d = await api("GET", "/scores?limit=150&pseudo=" + encodeURIComponent(q));
-      if(!d.scores.length){ $("scBody").innerHTML = '<tr><td colspan="7" class="empty">Aucun score</td></tr>'; return; }
-      $("scBody").innerHTML = d.scores.map(function(s){
-        var label = s.zone_label || s.zone || "";
-        return '<tr>'
-          + '<td class="muted mono">'+s.id+'</td>'
-          + '<td class="mono">'+esc(s.pseudo)+'</td>'
-          + '<td>'+esc(label)+'</td>'
-          + '<td>'+esc(s.rounds)+'</td>'
-          + '<td class="coins">'+fmt(s.score)+'</td>'
-          + '<td class="muted">'+dt(s.created_at)+'</td>'
-          + '<td><button class="sm danger" onclick="delScore('+s.id+')">Suppr.</button></td>'
-        + '</tr>';
+      var d=await api("GET","/account/"+encodeURIComponent(pseudo));
+      CUR=d.account; renderPlayer();
+      $("playerCard").classList.remove("hide");
+      var pt=document.querySelector('.tabs button[data-tab="players"]'); if($("tab-players").classList.contains("hide")) pt.click();
+      $("playerCard").scrollIntoView({behavior:"smooth", block:"start"});
+    }catch(err){ if(!guard(err)) toast("Echec: "+err.error,"err"); }
+  }
+  function renderPlayer(){
+    var a=CUR; if(!a) return;
+    $("pcName").textContent=a.pseudo;
+    $("pcCoins").textContent=fmt(a.coins); $("pcLevel").textContent=a.level; $("pcXp").textContent=fmt(a.xp);
+    $("pcMeta").innerHTML=[["Parties",fmt(a.games)],["Record",fmt(a.best)],["Amis",fmt(a.friends)],["Zones",fmt(a.zones)],["Avatar","#"+a.avatar_idx],["Paliers recup.",(a.claims||[]).length],["Cree",dt(a.created_at)],["Vu",dt(a.last_seen)]].map(function(p){ return '<span>'+p[0]+' <b>'+esc(p[1])+'</b></span>'; }).join("");
+    var eq=a.equipped||{}; var eqSet={}; for(var s in eq){ if(eq[s]) eqSet[eq[s]]=1; }
+    var owned=a.owned||{}; var keys=Object.keys(owned).filter(function(k){ return owned[k]; });
+    $("pcOwnCount").textContent="("+keys.length+")";
+    $("pcOwned").innerHTML = keys.length ? keys.map(function(k){ return '<span class="chip'+(eqSet[k]?" eq":"")+'" data-revoke="'+esc(k)+'" title="Retirer">'+esc(k)+(eqSet[k]?" ✓":"")+'</span>'; }).join("") : '<span class="muted">aucun</span>';
+  }
+  $("pcClose").addEventListener("click", function(){ $("playerCard").classList.add("hide"); CUR=null; });
+  $("pcOwned").addEventListener("click", function(e){ var c=e.target.closest("[data-revoke]"); if(!c||!CUR) return; itemAction("revoke", c.getAttribute("data-revoke")); });
+
+  async function refreshCur(){ if(!CUR) return; try{ var d=await api("GET","/account/"+encodeURIComponent(CUR.pseudo)); CUR=d.account; renderPlayer(); }catch(e){} }
+  async function passOp(op, value){ try{ var d=await api("POST","/pass",{ pseudo:CUR.pseudo, op:op, value:value }); toast("Passe -> palier "+d.level+" ("+fmt(d.xp)+" XP)","ok"); await refreshCur(); }catch(err){ if(!guard(err)) toast("Echec: "+err.error,"err"); } }
+  async function coinOp(op, value){ try{ var d=await api("POST","/coins",{ pseudo:CUR.pseudo, op:op, value:value }); toast(d.pseudo+" -> "+fmt(d.coins)+" pieces","ok"); await refreshCur(); refreshStats(); }catch(err){ if(!guard(err)) toast("Echec: "+err.error,"err"); } }
+  async function itemAction(op, item){ try{ await api("POST","/item",{ pseudo:CUR.pseudo, op:op, item:item }); toast(op==="grant"?"Item donne":"Item retire","ok"); await refreshCur(); }catch(err){ if(!guard(err)) toast("Echec: "+err.error,"err"); } }
+
+  $("playerCard").addEventListener("click", function(e){
+    var b=e.target.closest("[data-pc]"); if(!b||!CUR) return;
+    var act=b.getAttribute("data-pc");
+    if(act==="coinAdd"||act==="coinSet"){ var v=parseInt($("pcCoinVal").value,10); if(!Number.isInteger(v)){ toast("Montant invalide","err"); return; } coinOp(act==="coinSet"?"set":"add", v); }
+    else if(act==="passLevel"){ var l=parseInt($("pcPassVal").value,10); if(!Number.isInteger(l)){ toast("Palier invalide","err"); return; } passOp("setlevel",l); }
+    else if(act==="passXp"){ var x=parseInt($("pcPassVal").value,10); if(!Number.isInteger(x)){ toast("XP invalide","err"); return; } passOp("setxp",x); }
+    else if(act==="passAdd1"){ passOp("addxp",1000); }
+    else if(act==="passAdd5"){ passOp("addxp",5000); }
+    else if(act==="passAdd1k"){ passOp("addxp",1000); }
+    else if(act==="passReset"){ if(confirm("Remettre le passe de "+CUR.pseudo+" a zero ?")) passOp("reset",0); }
+    else if(act==="itemGrant"){ var it=$("pcItem").value.trim(); if(!it){ toast("Id d'item requis","err"); return; } itemAction("grant",it); $("pcItem").value=""; }
+    else if(act==="pw"){ var pw=$("pcPw").value; if(pw.length<6){ toast("Mot de passe trop court (6 min.)","err"); return; } setPw(CUR.pseudo, pw); $("pcPw").value=""; }
+    else if(act==="reset"){ if(confirm("Reinitialiser le compte "+CUR.pseudo+" (pieces + items a zero) ?")) doReset(CUR.pseudo); }
+    else if(act==="delete"){ if(confirm("SUPPRIMER definitivement "+CUR.pseudo+" ? Irreversible.")) doDelete(CUR.pseudo); }
+  });
+  async function setPw(pseudo, pw){ try{ await api("POST","/set-password",{ pseudo:pseudo, password:pw }); toast("Mot de passe change","ok"); }catch(err){ if(!guard(err)) toast("Echec: "+err.error,"err"); } }
+  async function doReset(pseudo){ try{ await api("POST","/reset",{ pseudo:pseudo }); toast("Compte reinitialise","ok"); await refreshCur(); loadAccounts(); refreshStats(); }catch(err){ if(!guard(err)) toast("Echec: "+err.error,"err"); } }
+  async function doDelete(pseudo){ try{ await api("DELETE","/accounts/"+encodeURIComponent(pseudo)); toast("Compte supprime","ok"); $("playerCard").classList.add("hide"); CUR=null; loadAccounts(); refreshStats(); }catch(err){ if(!guard(err)) toast("Echec: "+err.error,"err"); } }
+
+  async function loadScores(){
+    var q=$("scSearch").value.trim();
+    $("scBody").innerHTML='<tr><td colspan="7" class="empty">Chargement...</td></tr>';
+    try{
+      var d=await api("GET","/scores?limit=150&pseudo="+encodeURIComponent(q));
+      if(!d.scores.length){ $("scBody").innerHTML='<tr><td colspan="7" class="empty">Aucun score</td></tr>'; return; }
+      $("scBody").innerHTML=d.scores.map(function(s){
+        return '<tr><td class="muted mono">'+s.id+'</td><td class="mono">'+esc(s.pseudo)+'</td><td>'+esc(s.zone_label||s.zone||"")+'</td><td>'+esc(s.rounds)+'</td><td class="coins">'+fmt(s.score)+'</td><td class="muted">'+dt(s.created_at)+'</td><td><button class="sm danger" data-delscore="'+s.id+'">Suppr.</button></td></tr>';
       }).join("");
-    }catch(err){ if(err.status===403){ showLogin(); return; } $("scBody").innerHTML = '<tr><td colspan="7" class="empty">Erreur: '+esc(err.error)+'</td></tr>'; }
+    }catch(err){ if(guard(err)) return; $("scBody").innerHTML='<tr><td colspan="7" class="empty">Erreur: '+esc(err.error)+'</td></tr>'; }
   }
   var scT; $("scSearch").addEventListener("input", function(){ clearTimeout(scT); scT=setTimeout(loadScores, 250); });
   $("scRefresh").addEventListener("click", function(){ loadScores(); refreshStats(); });
-  window.delScore = async function(id){
-    if(!confirm("Supprimer le score #" + id + " ?")) return;
-    try{ await api("DELETE", "/scores/" + id); toast("Score supprimé", "ok"); loadScores(); refreshStats(); }
-    catch(err){ toast("Échec: " + err.error, "err"); }
-  };
-  $("scPurge").addEventListener("click", async function(){
-    if(!confirm("PURGER TOUT le classement ? Tous les scores seront supprimés. Action irréversible.")) return;
-    var c = prompt('Pour confirmer, tape PURGE en majuscules :', "");
-    if(c !== "PURGE"){ toast("Purge annulée", "err"); return; }
-    try{ var d = await api("POST", "/scores/purge", { confirm: "PURGE" }); toast(fmt(d.deleted) + " score(s) supprimé(s)", "ok"); loadScores(); refreshStats(); }
-    catch(err){ toast("Échec: " + err.error, "err"); }
-  });
+  $("scBody").addEventListener("click", async function(e){ var b=e.target.closest("[data-delscore]"); if(!b) return; var id=b.getAttribute("data-delscore"); if(!confirm("Supprimer le score #"+id+" ?")) return; try{ await api("DELETE","/scores/"+id); toast("Score supprime","ok"); loadScores(); refreshStats(); }catch(err){ if(!guard(err)) toast("Echec: "+err.error,"err"); } });
+  $("scPurge").addEventListener("click", async function(){ if(!confirm("PURGER TOUT le classement ? Irreversible.")) return; var c=prompt("Tape PURGE pour confirmer :",""); if(c!=="PURGE"){ toast("Purge annulee","err"); return; } try{ var d=await api("POST","/scores/purge",{ confirm:"PURGE" }); toast(fmt(d.deleted)+" score(s) supprime(s)","ok"); loadScores(); refreshStats(); }catch(err){ if(!guard(err)) toast("Echec: "+err.error,"err"); } });
+
+  async function loadZones(){
+    $("znBody").innerHTML='<tr><td colspan="7" class="empty">Chargement...</td></tr>';
+    try{
+      var d=await api("GET","/zones?limit=200");
+      if(!d.zones.length){ $("znBody").innerHTML='<tr><td colspan="7" class="empty">Aucune zone</td></tr>'; return; }
+      $("znBody").innerHTML=d.zones.map(function(z){
+        return '<tr><td class="muted mono">'+z.id+'</td><td>'+esc(z.name)+'</td><td class="mono">'+esc(z.pseudo)+'</td><td>'+esc(Math.round(z.radius_km))+' km</td><td class="muted mono">'+Number(z.center_lat).toFixed(2)+', '+Number(z.center_lng).toFixed(2)+'</td><td class="muted">'+dt(z.created_at)+'</td><td><button class="sm danger" data-delzone="'+z.id+'">Suppr.</button></td></tr>';
+      }).join("");
+    }catch(err){ if(guard(err)) return; $("znBody").innerHTML='<tr><td colspan="7" class="empty">Erreur: '+esc(err.error)+'</td></tr>'; }
+  }
+  $("znRefresh").addEventListener("click", loadZones);
+  $("znBody").addEventListener("click", async function(e){ var b=e.target.closest("[data-delzone]"); if(!b) return; var id=b.getAttribute("data-delzone"); if(!confirm("Supprimer la zone #"+id+" ?")) return; try{ await api("DELETE","/zones/"+id); toast("Zone supprimee","ok"); loadZones(); refreshStats(); }catch(err){ if(!guard(err)) toast("Echec: "+err.error,"err"); } });
+
+  $("caBtn").addEventListener("click", async function(){ var v=parseInt($("caAmount").value,10); if(!Number.isInteger(v)||v===0){ toast("Montant invalide","err"); return; } if(!confirm("Appliquer "+(v>0?"+":"")+fmt(v)+" pieces a TOUS les comptes ?")) return; try{ var d=await api("POST","/credit-all",{ amount:v }); toast(fmt(d.updated)+" compte(s) credite(s)","ok"); refreshStats(); }catch(err){ if(!guard(err)) toast("Echec: "+err.error,"err"); } });
 
   showLogin();
 })();
@@ -1030,9 +1064,20 @@ app.get("/admin-geo", (req, res) => {
 // GET /admin-geo/api/stats — chiffres globaux pour le dashboard.
 app.get("/admin-geo/api/stats", checkAdmin, async (req, res) => {
   try {
-    const u = await db.query(`SELECT count(*)::int AS users, COALESCE(SUM(coins), 0)::bigint AS coins FROM users`);
-    const s = await db.query(`SELECT count(*)::int AS scores FROM scores`);
-    res.json({ ok: true, users: u.rows[0].users, totalCoins: Number(u.rows[0].coins), scores: s.rows[0].scores });
+    const u = await db.query(`SELECT count(*)::int AS users, COALESCE(SUM(coins), 0)::bigint AS coins,
+        count(*) FILTER (WHERE created_at > now() - interval '7 days')::int AS new7,
+        count(*) FILTER (WHERE last_seen > now() - interval '24 hours')::int AS active24 FROM users`);
+    const s = await db.query(`SELECT count(*)::int AS scores,
+        count(*) FILTER (WHERE created_at > now() - interval '24 hours')::int AS scores24 FROM scores`);
+    const z = await db.query(`SELECT count(*)::int AS zones FROM community_zones`);
+    const top = await db.query(
+      `SELECT u.pseudo, u.coins, COALESCE(MAX(sc.score), 0)::int AS best, COUNT(sc.id)::int AS games
+         FROM users u LEFT JOIN scores sc ON lower(sc.pseudo) = lower(u.pseudo)
+        GROUP BY u.pseudo, u.coins ORDER BY best DESC, u.coins DESC LIMIT 8`
+    );
+    res.json({ ok: true, users: u.rows[0].users, totalCoins: Number(u.rows[0].coins),
+      scores: s.rows[0].scores, new7: u.rows[0].new7, active24: u.rows[0].active24,
+      scores24: s.rows[0].scores24, zones: z.rows[0].zones, top: top.rows });
   } catch (e) { console.error("[admin/stats]", e.message); res.status(500).json({ ok: false, error: "db-error" }); }
 });
 
@@ -1154,6 +1199,121 @@ app.post("/admin-geo/api/scores/purge", checkAdmin, async (req, res) => {
     const { rowCount } = await db.query(`DELETE FROM scores`);
     res.json({ ok: true, deleted: rowCount });
   } catch (e) { console.error("[admin/purge]", e.message); res.status(500).json({ ok: false, error: "db-error" }); }
+});
+
+// GET /admin-geo/api/account/:pseudo — fiche détaillée d'un joueur.
+app.get("/admin-geo/api/account/:pseudo", checkAdmin, async (req, res) => {
+  const key = pseudoKey(req.params.pseudo);
+  if (!key) return res.status(400).json({ ok: false, error: "pseudo-requis" });
+  try {
+    const u = await db.query(`SELECT id, pseudo, coins, owned, equipped, progress, favorites, avatar_idx, created_at, last_seen FROM users WHERE pseudo_key = $1`, [key]);
+    if (!u.rows[0]) return res.status(404).json({ ok: false, error: "compte-introuvable" });
+    const usr = u.rows[0];
+    const st = await db.query(`SELECT count(*)::int AS games, COALESCE(MAX(score), 0)::int AS best FROM scores WHERE lower(pseudo) = lower($1)`, [usr.pseudo]);
+    const fr = await db.query(`SELECT count(*)::int AS friends FROM friends WHERE user_id = $1 AND status = 'accepted'`, [usr.id]);
+    const zn = await db.query(`SELECT count(*)::int AS zones FROM community_zones WHERE user_id = $1`, [usr.id]);
+    const xp = (usr.progress && Number.isInteger(usr.progress.xp)) ? Math.max(0, Math.min(usr.progress.xp, 100000)) : 0;
+    res.json({ ok: true, account: {
+      pseudo: usr.pseudo, coins: usr.coins, owned: usr.owned || {}, equipped: usr.equipped || {},
+      xp, level: Math.min(100, Math.floor(xp / 1000) + 1), claims: (usr.progress && usr.progress.claims) || [],
+      favorites: usr.favorites || [], avatar_idx: usr.avatar_idx || 0,
+      created_at: usr.created_at, last_seen: usr.last_seen,
+      games: st.rows[0].games, best: st.rows[0].best, friends: fr.rows[0].friends, zones: zn.rows[0].zones,
+    } });
+  } catch (e) { console.error("[admin/account]", e.message); res.status(500).json({ ok: false, error: "db-error" }); }
+});
+
+// POST /admin-geo/api/pass {pseudo, op, value} — gère l'XP / le palier du passe de combat.
+// op : "addxp" (+value XP), "setxp" (XP exact), "setlevel" (palier 1..100), "reset".
+app.post("/admin-geo/api/pass", checkAdmin, async (req, res) => {
+  const b = req.body || {};
+  const key = pseudoKey(b.pseudo);
+  const op = String(b.op || "");
+  const value = Number(b.value);
+  if (!key) return res.status(400).json({ ok: false, error: "pseudo-requis" });
+  try {
+    const u = await db.query(`SELECT progress FROM users WHERE pseudo_key = $1`, [key]);
+    if (!u.rows[0]) return res.status(404).json({ ok: false, error: "compte-introuvable" });
+    const prog = (u.rows[0].progress && typeof u.rows[0].progress === "object") ? u.rows[0].progress : { xp: 0, claims: [] };
+    let xp = Number.isInteger(prog.xp) ? prog.xp : 0;
+    if (op === "addxp") { if (!Number.isFinite(value)) return res.status(400).json({ ok: false, error: "valeur-invalide" }); xp += Math.round(value); }
+    else if (op === "setxp") { if (!Number.isFinite(value)) return res.status(400).json({ ok: false, error: "valeur-invalide" }); xp = Math.round(value); }
+    else if (op === "setlevel") { if (!Number.isFinite(value)) return res.status(400).json({ ok: false, error: "valeur-invalide" }); xp = (Math.max(1, Math.min(100, Math.round(value))) - 1) * 1000; }
+    else if (op === "reset") { xp = 0; }
+    else return res.status(400).json({ ok: false, error: "op-invalide" });
+    xp = Math.max(0, Math.min(100000, xp));
+    const claims = Array.isArray(prog.claims) ? prog.claims : [];
+    const newProg = { xp, claims: op === "reset" ? [] : claims };
+    await db.query(`UPDATE users SET progress = $1::jsonb WHERE pseudo_key = $2`, [JSON.stringify(newProg), key]);
+    res.json({ ok: true, xp, level: Math.min(100, Math.floor(xp / 1000) + 1) });
+  } catch (e) { console.error("[admin/pass]", e.message); res.status(500).json({ ok: false, error: "db-error" }); }
+});
+
+// POST /admin-geo/api/coins {pseudo, op, value} — op "add" (delta) ou "set" (valeur exacte).
+app.post("/admin-geo/api/coins", checkAdmin, async (req, res) => {
+  const b = req.body || {};
+  const key = pseudoKey(b.pseudo);
+  const op = String(b.op || "add");
+  const value = Number(b.value);
+  if (!key) return res.status(400).json({ ok: false, error: "pseudo-requis" });
+  if (!Number.isInteger(value)) return res.status(400).json({ ok: false, error: "valeur-invalide" });
+  const sql = op === "set"
+    ? `UPDATE users SET coins = GREATEST(0, LEAST(100000000, $1)) WHERE pseudo_key = $2 RETURNING pseudo, coins`
+    : `UPDATE users SET coins = GREATEST(0, LEAST(100000000, coins + $1)) WHERE pseudo_key = $2 RETURNING pseudo, coins`;
+  try {
+    const { rows } = await db.query(sql, [value, key]);
+    if (!rows[0]) return res.status(404).json({ ok: false, error: "compte-introuvable" });
+    res.json({ ok: true, pseudo: rows[0].pseudo, coins: rows[0].coins });
+  } catch (e) { console.error("[admin/coins]", e.message); res.status(500).json({ ok: false, error: "db-error" }); }
+});
+
+// POST /admin-geo/api/item {pseudo, op, item} — op "grant" (débloque) ou "revoke" (retire) un cosmétique.
+app.post("/admin-geo/api/item", checkAdmin, async (req, res) => {
+  const b = req.body || {};
+  const key = pseudoKey(b.pseudo);
+  const op = String(b.op || "grant");
+  const item = String(b.item || "").trim().slice(0, 60);
+  if (!key) return res.status(400).json({ ok: false, error: "pseudo-requis" });
+  if (!/^[a-zA-Z0-9_-]+$/.test(item)) return res.status(400).json({ ok: false, error: "item-invalide" });
+  try {
+    const u = await db.query(`SELECT owned FROM users WHERE pseudo_key = $1`, [key]);
+    if (!u.rows[0]) return res.status(404).json({ ok: false, error: "compte-introuvable" });
+    const owned = (u.rows[0].owned && typeof u.rows[0].owned === "object") ? u.rows[0].owned : {};
+    if (op === "revoke") delete owned[item]; else owned[item] = true;
+    await db.query(`UPDATE users SET owned = $1::jsonb WHERE pseudo_key = $2`, [JSON.stringify(owned), key]);
+    res.json({ ok: true, item, op, count: Object.keys(owned).filter((k) => owned[k]).length });
+  } catch (e) { console.error("[admin/item]", e.message); res.status(500).json({ ok: false, error: "db-error" }); }
+});
+
+// POST /admin-geo/api/credit-all {amount} — crédite (ou débite) TOUS les comptes d'un coup.
+app.post("/admin-geo/api/credit-all", checkAdmin, async (req, res) => {
+  const amount = Number((req.body || {}).amount);
+  if (!Number.isInteger(amount) || amount === 0) return res.status(400).json({ ok: false, error: "montant-invalide" });
+  try {
+    const { rowCount } = await db.query(`UPDATE users SET coins = GREATEST(0, LEAST(100000000, coins + $1))`, [amount]);
+    res.json({ ok: true, updated: rowCount });
+  } catch (e) { console.error("[admin/credit-all]", e.message); res.status(500).json({ ok: false, error: "db-error" }); }
+});
+
+// GET /admin-geo/api/zones?limit= — zones communautaires (modération).
+app.get("/admin-geo/api/zones", checkAdmin, async (req, res) => {
+  let limit = parseInt(req.query.limit, 10);
+  if (!Number.isInteger(limit) || limit < 1 || limit > 300) limit = 100;
+  try {
+    const { rows } = await db.query(`SELECT id, pseudo, name, center_lat, center_lng, radius_km, created_at FROM community_zones ORDER BY created_at DESC LIMIT $1`, [limit]);
+    res.json({ ok: true, zones: rows });
+  } catch (e) { console.error("[admin/zones]", e.message); res.status(500).json({ ok: false, error: "db-error" }); }
+});
+
+// DELETE /admin-geo/api/zones/:id — supprime une zone communautaire.
+app.delete("/admin-geo/api/zones/:id", checkAdmin, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (!Number.isInteger(id) || id < 1) return res.status(400).json({ ok: false, error: "id-invalide" });
+  try {
+    const { rows } = await db.query(`DELETE FROM community_zones WHERE id = $1 RETURNING id`, [id]);
+    if (!rows[0]) return res.status(404).json({ ok: false, error: "zone-introuvable" });
+    res.json({ ok: true, id: rows[0].id });
+  } catch (e) { console.error("[admin/del-zone]", e.message); res.status(500).json({ ok: false, error: "db-error" }); }
 });
 
 // POST /api/scores — enregistre le score d'une partie solo terminée
