@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://api.dicebear.com" />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-  <link rel="stylesheet" href="style.css?v=118" />
+  <link rel="stylesheet" href="style.css?v=119" />
 </head>
 <body>
   <!-- Barre d'actions en haut à droite : cloche, compte, monnaie regroupés dans un
@@ -110,15 +110,6 @@
             <div class="field profile-field">
               <label for="player-name">Pseudo</label>
               <input id="player-name" class="text-input" maxlength="18" placeholder="Joueur" autocomplete="nickname" spellcheck="false" />
-            </div>
-
-            <div class="field avatar-field">
-              <label>Avatar</label>
-              <button type="button" class="avatar-trigger" id="avatar-trigger">
-                <span class="av av-lg" id="avatar-current"></span>
-                <span class="avatar-trigger-txt">Choisir mon avatar</span>
-                <span class="avatar-trigger-go">›</span>
-              </button>
             </div>
 
             <div class="field rounds-field">
@@ -834,6 +825,11 @@
               <span class="prof-pill" id="profile-unlocked">0/0 débloqués</span>
             </div>
             <button type="button" class="profile-pass" id="profile-pass-open"><span><strong>Passe de combat</strong><small id="profile-pass-progress">0 / 1 000 XP</small></span><span class="profile-pass-bar"><i id="profile-pass-fill"></i></span><b>Voir ›</b></button>
+            <button type="button" class="avatar-trigger prof-avatar-trigger" id="avatar-trigger">
+              <span class="av" id="avatar-current"></span>
+              <span class="avatar-trigger-txt">Changer mon avatar</span>
+              <span class="avatar-trigger-go">›</span>
+            </button>
           </div>
         </section>
 
@@ -1106,6 +1102,6 @@
 
   <!-- Leaflet : cartes de guess / résultat (tuiles raster, pas de WebGL) -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script src="game.js?v=120"></script>
+  <script src="game.js?v=121"></script>
 </body>
 </html>

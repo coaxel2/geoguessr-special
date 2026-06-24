@@ -176,6 +176,15 @@ body[data-badge="compass"] #account-btn.logged #account-name::after { content: "
 body[data-badge="flame"]   #account-btn.logged #account-name::after { content: "🔥"; }
 body[data-badge="star"]    #account-btn.logged #account-name::after { content: "⭐"; }
 body[data-badge="crown"]   #account-btn.logged #account-name::after { content: "👑"; }
+body[data-badge="diamond"]   #account-btn.logged #account-name::after { content: "💎"; }
+body[data-badge="bolt"]      #account-btn.logged #account-name::after { content: "⚡"; }
+body[data-badge="wave"]      #account-btn.logged #account-name::after { content: "🌊"; }
+body[data-badge="dragon"]    #account-btn.logged #account-name::after { content: "🐉"; }
+body[data-badge="celeste"]   #account-btn.logged #account-name::after { content: "🌟"; }
+body[data-badge="nord"]      #account-btn.logged #account-name::after { content: "❄️"; }
+body[data-badge="solar"]     #account-btn.logged #account-name::after { content: "☀️"; }
+body[data-badge="atlasb"]    #account-btn.logged #account-name::after { content: "🗺️"; }
+body[data-badge="souverain"] #account-btn.logged #account-name::after { content: "⚜️"; }
 
 /* ---------- Effet d'ambiance FX (halo aurore) ---------- */
 body[data-fx="aurora"] .home-bg::after {
@@ -628,6 +637,7 @@ body[data-fx="aurora"] .home-bg::after {
 .prof-hero[data-banner="bannerForest"]::before, .pubprofile-card[data-banner="bannerForest"]::before { background: radial-gradient(100% 110% at 18% -8%, rgba(74, 222, 128, .42), transparent 56%), radial-gradient(92% 120% at 90% 92%, rgba(22, 128, 61, .5), transparent 58%), linear-gradient(160deg, #102a1c, #07150e 80%); }
 .prof-hero[data-banner="bannerCosmos"]::before, .pubprofile-card[data-banner="bannerCosmos"]::before { background: radial-gradient(circle at 30% 22%, #fff 0 1.2px, transparent 2.4px), radial-gradient(circle at 78% 64%, #cfe0ff 0 1.2px, transparent 2.4px), radial-gradient(110% 120% at 50% -15%, rgba(99, 102, 241, .55), transparent 58%), linear-gradient(160deg, #131a3e, #060a1c 80%); }
 .prof-hero[data-banner="bannerRuby"]::before, .pubprofile-card[data-banner="bannerRuby"]::before { background: radial-gradient(100% 110% at 22% -8%, rgba(244, 63, 94, .55), transparent 56%), radial-gradient(92% 120% at 88% 95%, rgba(168, 85, 247, .42), transparent 58%), linear-gradient(160deg, #3a0f24, #150811 78%); }
+.prof-avatar-trigger { margin-top: 10px; }
 .pubprofile-card .profile-header { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
 .pubprofile-card #pub-top3 { display: flex; flex-direction: column; gap: 8px; margin: 8px 0 16px; }
 @media (max-width: 720px) { .prof-cols { grid-template-columns: 1fr; } .prof-hero { flex-direction: column; text-align: center; align-items: center; } }

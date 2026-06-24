@@ -275,6 +275,8 @@ const SHOP_ITEMS = {
   passBannerEmber: { price: 0, type: "banner", slot: "banner", label: "Fond Braises ardentes", passOnly: true },
   passBannerGold: { price: 0, type: "banner", slot: "banner", label: "Fond Sacre doré", passOnly: true },
   avatarsExpedition: { price: 0, type: "avatarPack", slot: "avatarPack", label: "Pack Aventurier", passOnly: true },
+  avatarsNeon: { price: 0, type: "avatarPack", slot: "avatarPack", label: "Pack Néon", passOnly: true },
+  avatarsLore: { price: 0, type: "avatarPack", slot: "avatarPack", label: "Pack Conte", passOnly: true },
 };
 
 /* ---------- comptes (login / inscription) ----------
@@ -382,21 +384,23 @@ function setPassXP(xp) { try { localStorage.setItem(PASS_XP_KEY, String(Math.max
 function passLevel() { return Math.min(PASS_MAX_LEVEL, Math.floor(getPassXP() / PASS_XP_PER_LEVEL) + 1); }
 function passProgress() { const xp = getPassXP(); return { level: passLevel(), current: xp >= PASS_MAX_LEVEL * PASS_XP_PER_LEVEL ? PASS_XP_PER_LEVEL : xp % PASS_XP_PER_LEVEL }; }
 function passReward(level) {
-  // Récompenses cosmétiques exclusives, réparties tous les 5 paliers (18 cosmétiques + 2 jackpots + 1 ultime).
+  // Récompenses VARIÉES : 9 badges (emojis uniques) + 3 packs d'avatars + 3 fonds EXCLUSIFS
+  // (les fonds qui dupliquaient la boutique sont retirés) + 4 jackpots de pièces + l'ultime.
   const R = {
-    5:  ["passBadgeDiamond", "Badge Diamant 💎"],   10: ["passBannerSummit", "Fond Sommets"],
-    15: ["passBadgeBolt", "Badge Foudre ⚡"],        20: ["passBadgeCeleste", "Badge Céleste ⭐"],
-    25: ["avatarsExpedition", "Pack Aventurier"],    30: ["passBannerAurora", "Fond Aurore"],
-    35: ["passBadgeWave", "Badge Vague 🌊"],         40: ["passBadgeNord", "Badge Nord 🧭"],
-    45: ["passBannerNebula", "Fond Nébuleuse"],      55: ["passBannerEmber", "Fond Braises ardentes"],
-    60: ["passBannerSunset", "Fond Couchant"],       65: ["passBadgeDragon", "Badge Dragon 🐉"],
-    70: ["passBadgeAtlas", "Badge Atlas 🌍"],        75: ["passBannerGold", "Fond Sacre doré"],
-    80: ["passBannerAtlas", "Fond Atlas nocturne"],  85: ["passBadgeSolar", "Badge Solaire 🔥"],
-    90: ["passBadgeSouverain", "Badge Souverain 👑"],
+    5:  ["passBadgeDiamond", "Badge Diamant 💎"],   10: ["avatarsExpedition", "Pack Aventurier"],
+    15: ["passBadgeBolt", "Badge Foudre ⚡"],        20: ["passBadgeCeleste", "Badge Céleste 🌟"],
+    30: ["passBannerNebula", "Fond Nébuleuse"],      35: ["passBadgeWave", "Badge Vague 🌊"],
+    40: ["passBadgeNord", "Badge Nord ❄️"],          45: ["avatarsNeon", "Pack Néon"],
+    55: ["passBadgeSolar", "Badge Solaire ☀️"],      60: ["passBannerEmber", "Fond Braises ardentes"],
+    65: ["passBadgeDragon", "Badge Dragon 🐉"],      70: ["passBadgeAtlas", "Badge Atlas 🗺️"],
+    75: ["avatarsLore", "Pack Conte"],               80: ["passBannerGold", "Fond Sacre doré"],
+    85: ["passBadgeSouverain", "Badge Souverain ⚜️"],
   };
   if (level === 100) return { coins: 12000, item: "passBannerLegendary", label: "Fond Légende céleste", ultimate: true };
-  if (level === 50) return { coins: 2500, label: "Jackpot · 2 500 pièces", jackpot: true };
-  if (level === 95) return { coins: 4000, label: "Jackpot · 4 000 pièces", jackpot: true };
+  if (level === 25) return { coins: 1500, label: "Jackpot · 1 500 pièces", jackpot: true };
+  if (level === 50) return { coins: 3000, label: "Jackpot · 3 000 pièces", jackpot: true };
+  if (level === 90) return { coins: 4000, label: "Jackpot · 4 000 pièces", jackpot: true };
+  if (level === 95) return { coins: 6000, label: "Jackpot · 6 000 pièces", jackpot: true };
   if (R[level]) return { coins: 250 + level * 30, item: R[level][0], label: R[level][1], milestone: true };
   return { coins: 50 + level * 12, label: (50 + level * 12).toLocaleString("fr-FR") + " pièces" };
 }
@@ -409,8 +413,8 @@ function claimPassReward(level) {
 }
 // Badges : id d'item équipé (badge/badgeCompass/…) → nom court (data-badge) → emoji.
 // Sert à afficher le badge à côté du pseudo PARTOUT (profil, lobby, classement, en jeu…).
-const BADGE_NAME = { badge: "globe", badgeCompass: "compass", badgeFlame: "flame", badgeStar: "star", badgeCrown: "crown", passBadgeCeleste: "star", passBadgeNord: "compass", passBadgeSolar: "flame", passBadgeAtlas: "globe", passBadgeSouverain: "crown", passBadgeDiamond: "diamond", passBadgeBolt: "bolt", passBadgeWave: "wave", passBadgeDragon: "dragon" };
-const BADGE_EMOJI = { globe: "🌍", compass: "🧭", flame: "🔥", star: "⭐", crown: "👑", diamond: "💎", bolt: "⚡", wave: "🌊", dragon: "🐉" };
+const BADGE_NAME = { badge: "globe", badgeCompass: "compass", badgeFlame: "flame", badgeStar: "star", badgeCrown: "crown", passBadgeCeleste: "celeste", passBadgeNord: "nord", passBadgeSolar: "solar", passBadgeAtlas: "atlasb", passBadgeSouverain: "souverain", passBadgeDiamond: "diamond", passBadgeBolt: "bolt", passBadgeWave: "wave", passBadgeDragon: "dragon" };
+const BADGE_EMOJI = { globe: "🌍", compass: "🧭", flame: "🔥", star: "⭐", crown: "👑", diamond: "💎", bolt: "⚡", wave: "🌊", dragon: "🐉", celeste: "🌟", nord: "❄️", solar: "☀️", atlasb: "🗺️", souverain: "⚜️" };
 function badgeEmoji(badgeId) { return BADGE_EMOJI[BADGE_NAME[badgeId]] || ""; }
 function myBadgeEmoji() { return badgeEmoji(equippedItems().badge); }
 const BANNER_SKIN = { passBannerSummit: "bannerSummit", passBannerAurora: "bannerAurora", passBannerSunset: "bannerSunset", passBannerAtlas: "bannerAtlas", passBannerLegendary: "bannerLegendary", passBannerNebula: "bannerNebula", passBannerEmber: "bannerEmber", passBannerGold: "bannerGold" };
@@ -813,7 +817,7 @@ function renderCommunity() {
    En P2P on ne transmet que le pseudo + la graine ; chaque client recompose
    l'avatar de l'autre à l'identique (même seed ⇒ même bonhomme). */
 const AV_STYLE = "avataaars";
-const AV_STYLES = { avatars: "avataaars", avatarsBot: "bottts", avatarsPixel: "pixel-art", avatarsExpedition: "adventurer" };
+const AV_STYLES = { avatars: "avataaars", avatarsBot: "bottts", avatarsPixel: "pixel-art", avatarsExpedition: "adventurer", avatarsNeon: "fun-emoji", avatarsLore: "lorelei" };
 function currentAvStyle() { const eq = equippedItems(); return AV_STYLES[eq.avatarPack] || "avataaars"; }
 const AV_BG = "b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf,d1f4d9,ffeeb3";
 // Galerie d'avatars à CHOISIR (chaque graine = un bonhomme distinct et fixe).
