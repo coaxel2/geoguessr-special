@@ -613,7 +613,7 @@ body[data-fx="aurora"] .home-bg::after {
 .lb-name, .who, .comm-rank-name, .comm-recent-name, .lobby-name, .prof-friend-name { cursor: pointer; }
 .lb-name:hover, .who:hover, .comm-rank-name:hover, .comm-recent-name:hover, .lobby-name:hover, .prof-friend-name:hover { color: var(--accent); }
 .pubprofile-card { position: relative; overflow: hidden; text-align: left; background: #111b33; }
-.pubprofile-card::before { position: absolute; z-index: 0; inset: 0 0 auto; height: 260px; content: ""; pointer-events: none; background: radial-gradient(120% 160% at 50% -60%, rgba(99, 130, 255, .42), transparent 62%), linear-gradient(160deg, #1b2748, #0b1020 78%); }
+.pubprofile-card::before { position: absolute; z-index: 0; inset: 0; content: ""; pointer-events: none; background: radial-gradient(120% 70% at 50% -10%, rgba(99, 130, 255, .42), transparent 60%), linear-gradient(160deg, #1b2748, #0b1020 82%); }
 .pubprofile-card > * { position: relative; z-index: 1; }
 /* === Fonds de profil (perso + public groupés) — refaits v119 === */
 .prof-hero[data-banner="bannerSummit"]::before, .pubprofile-card[data-banner="bannerSummit"]::before { background: radial-gradient(95% 85% at 82% -12%, rgba(125, 205, 255, .5), transparent 56%), radial-gradient(85% 95% at 8% 24%, rgba(132, 104, 210, .34), transparent 60%), linear-gradient(160deg, #243a64, #0d1730 80%); }
@@ -2417,7 +2417,7 @@ body {
 /* ===========================================================
    PASSE DE COMBAT — 100 paliers et jalons visuellement distincts
    =========================================================== */
-.battle-pass-card { max-width: min(1120px, calc(100vw - 28px)); text-align: left; }
+.battle-pass-card { width: min(1120px, calc(100vw - 28px)); max-width: min(1120px, calc(100vw - 28px)); text-align: left; }
 .battle-pass-head { padding: 2px 34px 18px 0; border-bottom: 1px solid var(--stroke); }
 .battle-pass-head h2 { margin: 0; font-size: clamp(26px, 4vw, 38px); }
 .battle-pass-head p:not(.shop-eyebrow) { margin: 8px 0 12px; color: var(--muted); font-weight: 700; }
