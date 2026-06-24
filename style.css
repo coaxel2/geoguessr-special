@@ -562,13 +562,8 @@ body[data-fx="aurora"] .home-bg::after {
   border: 1px solid var(--stroke); border-radius: 18px;
   background: radial-gradient(420px 200px at 12% 0%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 60%), rgba(255, 255, 255, .04);
 }
-.prof-hero::before { position: absolute; z-index: 0; inset: 0; content: ""; pointer-events: none; background: radial-gradient(80% 120% at 15% 0%, rgba(91, 120, 255, .36), transparent 62%), linear-gradient(135deg, #172442, #0b1020 70%); }
+.prof-hero::before { position: absolute; z-index: 0; inset: 0; content: ""; pointer-events: none; background: radial-gradient(120% 90% at 50% -25%, rgba(99, 130, 255, .42), transparent 62%), linear-gradient(160deg, #1b2748, #0b1020 78%); }
 .prof-hero > * { position: relative; z-index: 1; }
-.prof-hero[data-banner="bannerSummit"]::before { background: linear-gradient(160deg, transparent 0 48%, rgba(5, 14, 29, .72) 49% 100%), linear-gradient(35deg, transparent 0 42%, rgba(170, 224, 255, .62) 43% 48%, transparent 49%), linear-gradient(135deg, #80c9f4, #8062c9 55%, #101934); }
-.prof-hero[data-banner="bannerAurora"]::before { background: radial-gradient(80% 140% at 15% 0%, rgba(83, 255, 190, .72), transparent 58%), radial-gradient(70% 110% at 75% 5%, rgba(146, 97, 255, .7), transparent 60%), linear-gradient(135deg, #081d31, #142448 65%, #061018); }
-.prof-hero[data-banner="bannerSunset"]::before { background: radial-gradient(80% 130% at 20% 0%, rgba(255, 218, 121, .65), transparent 58%), radial-gradient(75% 130% at 90% 80%, rgba(245, 82, 142, .62), transparent 62%), linear-gradient(135deg, #f27665, #5d3169 64%, #16122c); }
-.prof-hero[data-banner="bannerAtlas"]::before { background: repeating-linear-gradient(20deg, transparent 0 11px, rgba(170, 230, 255, .14) 12px 13px, transparent 14px 25px), radial-gradient(80% 130% at 20% 0%, rgba(44, 203, 220, .5), transparent 60%), linear-gradient(135deg, #0e2d47, #111a38 62%, #070a16); }
-.prof-hero[data-banner="bannerLegendary"]::before { background: radial-gradient(circle at 65% 24%, #fff9cb 0 3%, transparent 4%), radial-gradient(circle at 20% 30%, #fff 0 2%, transparent 3%), radial-gradient(70% 140% at 10% 0%, rgba(255, 208, 87, .76), transparent 58%), radial-gradient(75% 140% at 90% 100%, rgba(111, 82, 255, .75), transparent 64%), linear-gradient(135deg, #221448, #071b38 60%, #070b19); }
 .prof-hero-av { width: 86px; height: 86px; flex: 0 0 86px; border-radius: 50%; overflow: hidden; border: 3px solid var(--accent); box-shadow: 0 8px 22px rgba(0, 0, 0, .4); background: rgba(255, 255, 255, .06); }
 .prof-hero-av img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .prof-hero-id { flex: 1; min-width: 0; }
@@ -618,16 +613,21 @@ body[data-fx="aurora"] .home-bg::after {
 .lb-name, .who, .comm-rank-name, .comm-recent-name, .lobby-name, .prof-friend-name { cursor: pointer; }
 .lb-name:hover, .who:hover, .comm-rank-name:hover, .comm-recent-name:hover, .lobby-name:hover, .prof-friend-name:hover { color: var(--accent); }
 .pubprofile-card { position: relative; overflow: hidden; text-align: left; background: #111b33; }
-.pubprofile-card::before { position: absolute; z-index: 0; inset: 0 0 auto; height: 260px; content: ""; pointer-events: none; background: radial-gradient(80% 120% at 15% 0%, rgba(91, 120, 255, .36), transparent 62%), linear-gradient(135deg, #172442, #0b1020 70%); }
+.pubprofile-card::before { position: absolute; z-index: 0; inset: 0 0 auto; height: 260px; content: ""; pointer-events: none; background: radial-gradient(120% 160% at 50% -60%, rgba(99, 130, 255, .42), transparent 62%), linear-gradient(160deg, #1b2748, #0b1020 78%); }
 .pubprofile-card > * { position: relative; z-index: 1; }
-.pubprofile-card[data-banner="bannerSummit"]::before { background: linear-gradient(160deg, transparent 0 48%, rgba(5, 14, 29, .72) 49% 100%), linear-gradient(35deg, transparent 0 42%, rgba(170, 224, 255, .62) 43% 48%, transparent 49%), linear-gradient(135deg, #80c9f4, #8062c9 55%, #101934); }
-.pubprofile-card[data-banner="bannerAurora"]::before { background: radial-gradient(80% 140% at 15% 0%, rgba(83, 255, 190, .72), transparent 58%), radial-gradient(70% 110% at 75% 5%, rgba(146, 97, 255, .7), transparent 60%), linear-gradient(135deg, #081d31, #142448 65%, #061018); }
-.pubprofile-card[data-banner="bannerSunset"]::before { background: radial-gradient(80% 130% at 20% 0%, rgba(255, 218, 121, .65), transparent 58%), radial-gradient(75% 130% at 90% 80%, rgba(245, 82, 142, .62), transparent 62%), linear-gradient(135deg, #f27665, #5d3169 64%, #16122c); }
-.pubprofile-card[data-banner="bannerAtlas"]::before { background: repeating-linear-gradient(20deg, transparent 0 11px, rgba(170, 230, 255, .14) 12px 13px, transparent 14px 25px), radial-gradient(80% 130% at 20% 0%, rgba(44, 203, 220, .5), transparent 60%), linear-gradient(135deg, #0e2d47, #111a38 62%, #070a16); }
-.pubprofile-card[data-banner="bannerLegendary"]::before { background: radial-gradient(circle at 65% 24%, #fff9cb 0 3%, transparent 4%), radial-gradient(circle at 20% 30%, #fff 0 2%, transparent 3%), radial-gradient(70% 140% at 10% 0%, rgba(255, 208, 87, .76), transparent 58%), radial-gradient(75% 140% at 90% 100%, rgba(111, 82, 255, .75), transparent 64%), linear-gradient(135deg, #221448, #071b38 60%, #070b19); }
-.prof-hero[data-banner="bannerNebula"]::before, .pubprofile-card[data-banner="bannerNebula"]::before { background: radial-gradient(circle at 30% 22%, #fff 0 1px, transparent 2px), radial-gradient(circle at 70% 38%, #fff 0 1px, transparent 2px), radial-gradient(circle at 84% 16%, #ffe9fb 0 1.5px, transparent 2.5px), radial-gradient(70% 120% at 25% 8%, rgba(168, 85, 247, .62), transparent 60%), radial-gradient(80% 120% at 82% 34%, rgba(236, 72, 153, .52), transparent 60%), linear-gradient(135deg, #1a0b2e, #0c0618 72%); }
-.prof-hero[data-banner="bannerEmber"]::before, .pubprofile-card[data-banner="bannerEmber"]::before { background: radial-gradient(90% 130% at 18% 100%, rgba(255, 94, 38, .7), transparent 60%), radial-gradient(70% 120% at 84% 92%, rgba(255, 176, 32, .55), transparent 56%), repeating-linear-gradient(8deg, transparent 0 16px, rgba(255, 120, 40, .06) 16px 18px), linear-gradient(135deg, #3a0f08, #160806 72%); }
-.prof-hero[data-banner="bannerGold"]::before, .pubprofile-card[data-banner="bannerGold"]::before { background: repeating-linear-gradient(118deg, transparent 0 17px, rgba(255, 216, 120, .12) 17px 19px), radial-gradient(80% 120% at 14% 0%, rgba(255, 206, 92, .6), transparent 60%), radial-gradient(70% 120% at 92% 100%, rgba(180, 130, 40, .5), transparent 60%), linear-gradient(135deg, #4a3410, #18120a 66%, #0a0805); }
+/* === Fonds de profil (perso + public groupés) — refaits v119 === */
+.prof-hero[data-banner="bannerSummit"]::before, .pubprofile-card[data-banner="bannerSummit"]::before { background: radial-gradient(95% 85% at 82% -12%, rgba(125, 205, 255, .5), transparent 56%), radial-gradient(85% 95% at 8% 24%, rgba(132, 104, 210, .34), transparent 60%), linear-gradient(160deg, #243a64, #0d1730 80%); }
+.prof-hero[data-banner="bannerAurora"]::before, .pubprofile-card[data-banner="bannerAurora"]::before { background: radial-gradient(92% 120% at 16% -5%, rgba(83, 255, 190, .5), transparent 56%), radial-gradient(80% 110% at 84% 16%, rgba(150, 100, 255, .5), transparent 58%), linear-gradient(160deg, #06243c, #081026 78%); }
+.prof-hero[data-banner="bannerSunset"]::before, .pubprofile-card[data-banner="bannerSunset"]::before { background: radial-gradient(100% 110% at 18% -8%, rgba(255, 196, 112, .55), transparent 55%), radial-gradient(95% 120% at 90% 95%, rgba(245, 86, 146, .5), transparent 58%), linear-gradient(160deg, #3a2142, #150e22 78%); }
+.prof-hero[data-banner="bannerAtlas"]::before, .pubprofile-card[data-banner="bannerAtlas"]::before { background: repeating-linear-gradient(28deg, transparent 0 17px, rgba(120, 205, 235, .055) 17px 18px, transparent 18px 35px), radial-gradient(100% 95% at 22% -8%, rgba(46, 205, 222, .4), transparent 58%), linear-gradient(160deg, #0e2c45, #060f1d 80%); }
+.prof-hero[data-banner="bannerLegendary"]::before, .pubprofile-card[data-banner="bannerLegendary"]::before { background: radial-gradient(circle at 66% 22%, #fff7cf 0 1.4px, transparent 2.6px), radial-gradient(circle at 22% 32%, #fff 0 1.2px, transparent 2.4px), radial-gradient(circle at 84% 72%, #ffe9b0 0 1.2px, transparent 2.4px), radial-gradient(95% 120% at 12% -10%, rgba(255, 205, 90, .58), transparent 56%), radial-gradient(95% 120% at 90% 105%, rgba(125, 95, 255, .58), transparent 60%), linear-gradient(160deg, #241a44, #0a0a1e 78%); }
+.prof-hero[data-banner="bannerNebula"]::before, .pubprofile-card[data-banner="bannerNebula"]::before { background: radial-gradient(circle at 28% 24%, #fff 0 1.2px, transparent 2.4px), radial-gradient(circle at 74% 58%, #ffe9fb 0 1.2px, transparent 2.4px), radial-gradient(92% 120% at 24% -6%, rgba(170, 90, 250, .58), transparent 56%), radial-gradient(92% 120% at 84% 34%, rgba(236, 72, 153, .5), transparent 58%), linear-gradient(160deg, #1d0f33, #0a0618 78%); }
+.prof-hero[data-banner="bannerEmber"]::before, .pubprofile-card[data-banner="bannerEmber"]::before { background: radial-gradient(110% 120% at 16% 110%, rgba(255, 112, 52, .6), transparent 56%), radial-gradient(90% 110% at 86% 90%, rgba(255, 188, 64, .5), transparent 54%), linear-gradient(160deg, #3a160c, #140706 78%); }
+.prof-hero[data-banner="bannerGold"]::before, .pubprofile-card[data-banner="bannerGold"]::before { background: repeating-linear-gradient(122deg, transparent 0 22px, rgba(255, 216, 130, .07) 22px 24px), radial-gradient(100% 110% at 14% -8%, rgba(255, 212, 112, .55), transparent 58%), radial-gradient(90% 110% at 92% 105%, rgba(184, 134, 52, .45), transparent 60%), linear-gradient(160deg, #3e2e12, #14100a 76%); }
+.prof-hero[data-banner="bannerOcean"]::before, .pubprofile-card[data-banner="bannerOcean"]::before { background: radial-gradient(100% 110% at 22% -8%, rgba(56, 189, 248, .5), transparent 56%), radial-gradient(92% 120% at 88% 95%, rgba(13, 148, 136, .5), transparent 58%), linear-gradient(160deg, #07273e, #04141e 78%); }
+.prof-hero[data-banner="bannerForest"]::before, .pubprofile-card[data-banner="bannerForest"]::before { background: radial-gradient(100% 110% at 18% -8%, rgba(74, 222, 128, .42), transparent 56%), radial-gradient(92% 120% at 90% 92%, rgba(22, 128, 61, .5), transparent 58%), linear-gradient(160deg, #102a1c, #07150e 80%); }
+.prof-hero[data-banner="bannerCosmos"]::before, .pubprofile-card[data-banner="bannerCosmos"]::before { background: radial-gradient(circle at 30% 22%, #fff 0 1.2px, transparent 2.4px), radial-gradient(circle at 78% 64%, #cfe0ff 0 1.2px, transparent 2.4px), radial-gradient(110% 120% at 50% -15%, rgba(99, 102, 241, .55), transparent 58%), linear-gradient(160deg, #131a3e, #060a1c 80%); }
+.prof-hero[data-banner="bannerRuby"]::before, .pubprofile-card[data-banner="bannerRuby"]::before { background: radial-gradient(100% 110% at 22% -8%, rgba(244, 63, 94, .55), transparent 56%), radial-gradient(92% 120% at 88% 95%, rgba(168, 85, 247, .42), transparent 58%), linear-gradient(160deg, #3a0f24, #150811 78%); }
 .pubprofile-card .profile-header { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
 .pubprofile-card #pub-top3 { display: flex; flex-direction: column; gap: 8px; margin: 8px 0 16px; }
 @media (max-width: 720px) { .prof-cols { grid-template-columns: 1fr; } .prof-hero { flex-direction: column; text-align: center; align-items: center; } }
@@ -2010,10 +2010,12 @@ body {
 
 .shop-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
   margin-top: 14px;
 }
+@media (max-width: 1040px) { .shop-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 720px) { .shop-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
 .shop-card {
   min-height: 200px;
@@ -2415,13 +2417,13 @@ body {
 /* ===========================================================
    PASSE DE COMBAT — 100 paliers et jalons visuellement distincts
    =========================================================== */
-.battle-pass-card { max-width: min(860px, calc(100vw - 28px)); text-align: left; }
+.battle-pass-card { max-width: min(1120px, calc(100vw - 28px)); text-align: left; }
 .battle-pass-head { padding: 2px 34px 18px 0; border-bottom: 1px solid var(--stroke); }
 .battle-pass-head h2 { margin: 0; font-size: clamp(26px, 4vw, 38px); }
 .battle-pass-head p:not(.shop-eyebrow) { margin: 8px 0 12px; color: var(--muted); font-weight: 700; }
 .battle-pass-bar { height: 11px; }
 .battle-pass-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; max-height: min(60vh, 590px); overflow-y: auto; padding: 16px 4px 4px 0; overscroll-behavior: contain; }
-.pass-tier { display: grid; grid-template-columns: 36px 40px minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 68px; padding: 9px; border: 1px solid var(--stroke); border-radius: 13px; background: rgba(255, 255, 255, .035); opacity: .58; }
+.pass-tier { display: grid; grid-template-columns: 36px 40px minmax(0, 1fr) auto; align-items: center; gap: 10px; height: 76px; padding: 9px; border: 1px solid var(--stroke); border-radius: 13px; background: rgba(255, 255, 255, .035); opacity: .58; }
 .pass-tier.unlocked { opacity: 1; border-color: rgba(46, 230, 166, .32); }
 .pass-tier.claimed { opacity: .72; background: rgba(46, 230, 166, .08); }
 .pass-tier.milestone { border-color: rgba(255, 211, 92, .42); background: linear-gradient(135deg, rgba(255, 211, 92, .12), rgba(255, 255, 255, .035)); }
@@ -2430,9 +2432,9 @@ body {
 .milestone .pass-level, .ultimate .pass-level { color: #22172a; background: linear-gradient(135deg, #ffe39a, #ffae56); }
 .pass-reward { min-width: 0; }
 .pass-reward strong, .pass-reward small { display: block; }
-.pass-reward strong { font-size: 12px; letter-spacing: .4px; text-transform: uppercase; color: var(--muted); }
+.pass-reward strong { font-size: 12px; letter-spacing: .4px; text-transform: uppercase; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .milestone .pass-reward strong, .ultimate .pass-reward strong { color: var(--gold); }
-.pass-reward small { margin-top: 4px; color: var(--text); font-size: 13px; font-weight: 700; line-height: 1.2; }
+.pass-reward small { margin-top: 4px; color: var(--text); font-size: 13px; font-weight: 700; line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .pass-claim { min-width: 94px; padding-inline: 9px; }
 .pass-claim:disabled { opacity: .58; cursor: default; }
 .pass-art { width: 40px; height: 40px; border-radius: 10px; overflow: hidden; display: grid; place-items: center; font-size: 21px; line-height: 1; background: rgba(255, 255, 255, .06); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08); }

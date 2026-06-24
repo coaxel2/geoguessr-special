@@ -253,6 +253,10 @@ const SHOP_ITEMS = {
   bannerAurora: { price: 1250, type: "banner", slot: "banner", label: "Fond Aurore" },
   bannerSunset: { price: 1050, type: "banner", slot: "banner", label: "Fond Coucher de soleil" },
   bannerAtlas: { price: 1600, type: "banner", slot: "banner", label: "Fond Atlas nocturne" },
+  bannerOcean: { price: 950, type: "banner", slot: "banner", label: "Fond Océan abyssal" },
+  bannerForest: { price: 900, type: "banner", slot: "banner", label: "Fond Forêt boréale" },
+  bannerCosmos: { price: 1350, type: "banner", slot: "banner", label: "Fond Cosmos étoilé" },
+  bannerRuby: { price: 1500, type: "banner", slot: "banner", label: "Fond Rubis royal" },
   passBannerSummit: { price: 0, type: "banner", slot: "banner", label: "Fond Sommets de saison", passOnly: true },
   passBannerAurora: { price: 0, type: "banner", slot: "banner", label: "Fond Aurore de saison", passOnly: true },
   passBannerSunset: { price: 0, type: "banner", slot: "banner", label: "Fond Couchant de saison", passOnly: true },
@@ -413,22 +417,26 @@ const BANNER_SKIN = { passBannerSummit: "bannerSummit", passBannerAurora: "banne
 function bannerSkin(id) { return BANNER_SKIN[id] || id || "bannerDefault"; }
 // Aperçus CSS (mini-vignettes boutique/passe) des fonds — clé = skin (data-banner).
 const BANNER_ART = {
-  bannerDefault: "radial-gradient(80% 120% at 15% 0%, #536eff, transparent 60%), linear-gradient(135deg,#172442,#0b1020)",
-  bannerSummit: "linear-gradient(160deg,transparent 48%,#08101e 49%), linear-gradient(135deg,#80c9f4,#8062c9 55%,#101934)",
-  bannerAurora: "radial-gradient(80% 140% at 15% 0%,#53ffbe,transparent 58%), radial-gradient(70% 110% at 75% 5%,#9261ff,transparent 60%), #081d31",
-  bannerSunset: "radial-gradient(80% 130% at 20% 0%,#ffda79,transparent 58%), linear-gradient(135deg,#f27665,#5d3169 64%,#16122c)",
-  bannerAtlas: "repeating-linear-gradient(20deg,transparent 0 11px,rgba(170,230,255,.3) 12px 13px,transparent 14px 25px), linear-gradient(135deg,#0e2d47,#111a38 62%,#070a16)",
-  bannerLegendary: "radial-gradient(70% 140% at 10% 0%,#ffd057,transparent 58%), radial-gradient(75% 140% at 90% 100%,#6f52ff,transparent 64%), #101530",
-  bannerNebula: "radial-gradient(70% 120% at 25% 10%,#a855f7,transparent 60%), radial-gradient(80% 120% at 80% 30%,#ec4899,transparent 60%), #1a0b2e",
-  bannerEmber: "radial-gradient(90% 130% at 20% 100%,#ff5e26,transparent 60%), radial-gradient(70% 110% at 80% 90%,#ffb020,transparent 55%), #2a0a06",
-  bannerGold: "radial-gradient(80% 120% at 15% 0%,#ffce5c,transparent 60%), linear-gradient(135deg,#4a3410,#1c1407)",
+  bannerDefault: "radial-gradient(120% 90% at 50% -25%, #6382ff, transparent 62%), linear-gradient(160deg,#1b2748,#0b1020)",
+  bannerSummit: "radial-gradient(95% 85% at 82% -12%, #7dcdff, transparent 56%), radial-gradient(85% 95% at 8% 24%, #8468d2, transparent 60%), linear-gradient(160deg,#243a64,#0d1730)",
+  bannerAurora: "radial-gradient(92% 120% at 16% 0%, #53ffbe, transparent 56%), radial-gradient(80% 110% at 84% 16%, #9664ff, transparent 58%), linear-gradient(160deg,#06243c,#081026)",
+  bannerSunset: "radial-gradient(100% 110% at 18% 0%, #ffc470, transparent 55%), radial-gradient(95% 120% at 90% 95%, #f55692, transparent 58%), linear-gradient(160deg,#3a2142,#150e22)",
+  bannerAtlas: "repeating-linear-gradient(28deg,transparent 0 12px,rgba(120,205,235,.16) 12px 13px,transparent 13px 26px), radial-gradient(100% 95% at 22% 0%, #2ecdde, transparent 58%), linear-gradient(160deg,#0e2c45,#060f1d)",
+  bannerLegendary: "radial-gradient(95% 120% at 12% 0%, #ffcd5a, transparent 56%), radial-gradient(95% 120% at 90% 100%, #7d5fff, transparent 60%), linear-gradient(160deg,#241a44,#0a0a1e)",
+  bannerNebula: "radial-gradient(92% 120% at 24% 0%, #aa5afa, transparent 56%), radial-gradient(92% 120% at 84% 34%, #ec4899, transparent 58%), linear-gradient(160deg,#1d0f33,#0a0618)",
+  bannerEmber: "radial-gradient(110% 120% at 16% 100%, #ff7034, transparent 56%), radial-gradient(90% 110% at 86% 90%, #ffbc40, transparent 54%), linear-gradient(160deg,#3a160c,#140706)",
+  bannerGold: "radial-gradient(100% 110% at 14% 0%, #ffd470, transparent 58%), radial-gradient(90% 110% at 92% 100%, #b88634, transparent 60%), linear-gradient(160deg,#3e2e12,#14100a)",
+  bannerOcean: "radial-gradient(100% 110% at 22% 0%, #38bdf8, transparent 56%), radial-gradient(92% 120% at 88% 95%, #0d9488, transparent 58%), linear-gradient(160deg,#07273e,#04141e)",
+  bannerForest: "radial-gradient(100% 110% at 18% 0%, #4ade80, transparent 56%), radial-gradient(92% 120% at 90% 92%, #16803d, transparent 58%), linear-gradient(160deg,#102a1c,#07150e)",
+  bannerCosmos: "radial-gradient(110% 120% at 50% -10%, #6366f1, transparent 58%), linear-gradient(160deg,#131a3e,#060a1c)",
+  bannerRuby: "radial-gradient(100% 110% at 22% 0%, #f43f5e, transparent 56%), radial-gradient(92% 120% at 88% 95%, #a855f7, transparent 58%), linear-gradient(160deg,#3a0f24,#150811)",
 };
 function applyCosmetics() {
   const equipped = equippedItems();
   document.body.dataset.theme = equipped.theme && equipped.theme !== "themeDefault" ? equipped.theme : "";
   document.body.dataset.badge = BADGE_NAME[equipped.badge] || "";
   document.body.dataset.fx = equipped.fx === "fxAurora" ? "aurora" : "";
-  const hero = $("prof-hero"); if (hero) hero.dataset.banner = bannerSkin(equipped.banner);
+  const hero = document.querySelector(".prof-hero"); if (hero) hero.dataset.banner = bannerSkin(equipped.banner);   // .prof-hero est une CLASSE (pas un id) → le fond s'applique sur le profil perso
   // reflète le badge à côté du pseudo du profil IMMÉDIATEMENT (sinon il fallait recharger la page)
   const pp = $("prof-pseudo");
   if (pp) { const ps = (AUTH.user && AUTH.user.pseudo) || G.playerName || "Joueur", b = myBadgeEmoji(); pp.textContent = ps + (b ? " " + b : ""); }
