@@ -109,6 +109,9 @@ function goTab(tab, opts) {
   if (inRound) { clearTimer(); onlineReset(); G.online.active = false; document.body.classList.remove("time-critical"); }
   if (tab === "online") {
     readMenuSettings();
+    // le mode de déplacement en multi est propre au sélecteur multi (online-mode-seg),
+    // jamais hérité du réglage solo → un Hardcore/Bateau solo ne contamine pas la partie multi.
+    G.moveMode = selectedMode("online-mode-seg") || "free";
     mirrorSettingsToOnline();
     backToOnlineChoice();
     $("online-error").textContent = "";
@@ -1082,7 +1085,7 @@ function locationAllowed(loc, pool, picked) {
   return true;
 }
 function activePool() {
-  if (G.zoneFilter === "world-cities") return { type: "city", items: WORLD_CITIES };
+  if (G.zoneFilter === "world-cities" || G.zoneFilter === "world-cities-boat") return { type: "city", items: WORLD_CITIES };
   if (G.zoneFilter === "france-cities") return { type: "city", items: FRANCE_CITIES };
   if (CITY_ZONES[G.zoneFilter]) return { type: "city", items: [CITY_ZONES[G.zoneFilter]] };
   if (FR_REGION_ZONES[G.zoneFilter]) return { type: "region", items: FR_REGION_ZONES[G.zoneFilter] };
@@ -1164,6 +1167,7 @@ function zoneGroups() {
     ["🏳️ Pays", countries],
     ["🌆 Villes du monde", [
       { l: "Toutes les grandes villes du monde", z: "world-cities", la: 25, lo: 0, tz: 1 },
+      { l: "Grandes villes — mode bateau 🚢", z: "world-cities-boat", la: 25, lo: 0, tz: 1 },
       ...wCity,
     ]],
     ["🇫🇷 Régions de France", frReg],
@@ -1401,7 +1405,7 @@ function makeMiniMap(el, la, lo, zoom, zoneVal, co) {
   L.tileLayer(TILE_URL, TILE_OPT).addTo(m);
   el._zmap = m;
   // Monde entier / grandes villes du monde : aucun trait, dézoom maximal
-  if (zoneVal === "world" || zoneVal === "world-cities") {
+  if (zoneVal === "world" || zoneVal === "world-cities" || zoneVal === "world-cities-boat") {
     m.fitWorld();
     setTimeout(() => { try { m.invalidateSize(); m.fitWorld(); } catch (e) {} }, 60);
     return m;
@@ -1474,6 +1478,12 @@ function selectZone(z, co) {
     s.value = z;
   });
   if (co) ["country-filter", "online-country-filter", "room-country-filter"].forEach((id) => { const s = $(id); if (s) s.value = co; });
+  // « Grandes villes — mode bateau » : bascule le déplacement sur Bateau par défaut (solo + multi)
+  if (z === "world-cities-boat") {
+    G.moveMode = "boat";
+    ["mode-seg", "online-mode-seg", "room-mode-seg"].forEach((id) => setModeSeg(id, "boat"));
+    if ($("mode-hint")) $("mode-hint").textContent = MOVE_HINTS.boat;
+  }
   highlightZone();
   updateZoneTrigger();
   $("zone-modal").hidden = true;
@@ -1496,6 +1506,21 @@ function setTimeSeg(id, seconds) {
   const mins = Math.round((seconds || 0) / 60);
   if ($(id)) $(id).querySelectorAll("button").forEach((b) => b.classList.toggle("on", parseInt(b.dataset.t, 10) === mins));
 }
+// Modes de déplacement dans le Street View — partagés entre le menu solo ET le multi.
+const MOVE_HINTS = {
+  free: "Déplacement, rotation et zoom autorisés.",
+  pro: "Déplacement désactivé — tu restes sur place (rotation + zoom OK).",
+  hardcore: "Ni déplacement ni zoom — juste regarder autour. Pour les pros.",
+  boat: "Mode bateau : navigation libre et fluide (rotation + zoom OK).",
+};
+function selectedMode(id) {
+  const sel = $(id) && $(id).querySelector("button.on");
+  return sel ? sel.dataset.m : null;
+}
+function setModeSeg(id, mode) {
+  const seg = $(id); if (!seg) return;
+  seg.querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.m === (mode || "free")));
+}
 function readMenuSettings() {
   G.zoneFilter = $("zone-filter").value;
   G.countryFilter = $("country-filter").value;
@@ -1507,16 +1532,19 @@ function readOnlineSettings() {
   G.timeLimit = selectedTime("online-time-seg");
   G.zoneFilter = $("online-zone-filter").value;
   G.countryFilter = $("online-country-filter").value;
+  G.moveMode = selectedMode("online-mode-seg") || G.moveMode || "free";
 }
 function readRoomSettings() {
   G.rounds = selectedRounds("room-rounds-seg");
   G.timeLimit = selectedTime("room-time-seg");
   G.zoneFilter = $("room-zone-filter").value;
   G.countryFilter = $("room-country-filter").value;
+  G.moveMode = selectedMode("room-mode-seg") || G.moveMode || "free";
 }
 function mirrorSettingsToOnline() {
   setRoundSeg("online-rounds-seg", G.rounds);
   setTimeSeg("online-time-seg", G.timeLimit);
+  setModeSeg("online-mode-seg", G.moveMode);
   $("online-zone-filter").value = G.zoneFilter;
   $("online-country-filter").value = G.countryFilter;
   updateZoneTrigger();
@@ -1524,6 +1552,7 @@ function mirrorSettingsToOnline() {
 function mirrorSettingsToRoom() {
   setRoundSeg("room-rounds-seg", G.rounds);
   setTimeSeg("room-time-seg", G.timeLimit);
+  setModeSeg("room-mode-seg", G.moveMode);
   $("room-zone-filter").value = G.zoneFilter;
   $("room-country-filter").value = G.countryFilter;
   $("room-settings").textContent = settingsText();
@@ -1533,13 +1562,14 @@ function sendRoomSettings() {
   if (!G.online.isHost || G.online.started) return;
   readRoomSettings();
   $("room-settings").textContent = settingsText();
-  broadcast({ type: "settings", rounds: G.rounds, zone: G.zoneFilter, country: G.countryFilter, time: G.timeLimit });
+  broadcast({ type: "settings", rounds: G.rounds, zone: G.zoneFilter, country: G.countryFilter, time: G.timeLimit, mode: G.moveMode });
 }
 function applyRemoteSettings(m) {
   G.rounds = m.rounds || G.rounds;
   if (m.time != null) G.timeLimit = m.time;
   G.zoneFilter = m.zone || G.zoneFilter;
   G.countryFilter = m.country || G.countryFilter;
+  if (m.mode) G.moveMode = m.mode;
   mirrorSettingsToOnline();
   mirrorSettingsToRoom();
   $("room-settings").textContent = settingsText();
@@ -1688,7 +1718,7 @@ function ensureGuessMap() {
 }
 // Convertit un LatLngBounds Leaflet (calculé par la logique de zone) en bounds Google.
 function llToGoogleBounds(b){ return new google.maps.LatLngBounds({ lat: b.getSouth(), lng: b.getWest() }, { lat: b.getNorth(), lng: b.getEast() }); }
-function zoneBoundsForGuess(){const z=G.zoneFilter,co=G.countryFilter;if(z==="world"||z==="world-cities")return null;try{const feats=zoneFeatures(z,co);if(feats&&feats.length){const b=L.geoJSON({type:"FeatureCollection",features:feats}).getBounds();if(b&&b.isValid())return b;}}catch(e){}try{const s=zoneShape(z,co);if(s&&s.circle)return L.latLng(s.circle[0],s.circle[1]).toBounds(s.r*2.2);if(s&&s.boxes)return bboxOf(s.boxes);}catch(e){}return null;}
+function zoneBoundsForGuess(){const z=G.zoneFilter,co=G.countryFilter;if(z==="world"||z==="world-cities"||z==="world-cities-boat")return null;try{const feats=zoneFeatures(z,co);if(feats&&feats.length){const b=L.geoJSON({type:"FeatureCollection",features:feats}).getBounds();if(b&&b.isValid())return b;}}catch(e){}try{const s=zoneShape(z,co);if(s&&s.circle)return L.latLng(s.circle[0],s.circle[1]).toBounds(s.r*2.2);if(s&&s.boxes)return bboxOf(s.boxes);}catch(e){}return null;}
 function frameGuessMapToZone(){
   if (!G.gmap) return;
   const b = zoneBoundsForGuess();
@@ -1788,6 +1818,8 @@ async function loadRound() {
   $("hud-score").textContent = sum(G.scores) + " pts";
   updateMultiHud();
 
+  // repli la carte agrandie : à chaque nouvelle manche, on revient à la mini-carte
+  const gpanel = $("guess-panel"); if (gpanel) gpanel.classList.remove("expanded");
   ensureGuessMap();
   frameGuessMapToZone();
   // la div #map vient d'être affichée → forcer Google à relire sa taille puis recadrer
@@ -1890,7 +1922,7 @@ function ringAreaKm2(ring){let lat0=0;for(const p of ring)lat0+=p[1];lat0=lat0/r
 function geomAreaKm2(geom){let A=0;const add=(poly)=>{A+=ringAreaKm2(poly[0]);for(let h=1;h<poly.length;h++)A-=ringAreaKm2(poly[h]);};if(geom.type==="Polygon")add(geom.coordinates);else if(geom.type==="MultiPolygon")geom.coordinates.forEach(add);return A;}
 function geomRadiusKm(geom){return Math.sqrt(Math.max(1,geomAreaKm2(geom))/Math.PI);}
 const MEDIAN=(arr)=>{const s=[...arr].sort((x,y)=>x-y);return s[Math.floor(s.length/2)];};
-function zoneRadiusKm(){const z=G.zoneFilter,co=G.countryFilter;if(z==="world")return 9000;if(typeof CITY_ZONES!=="undefined"&&CITY_ZONES[z])return(CITY_ZONES[z][2]||12000)/1000;if(z==="world-cities"&&typeof WORLD_CITIES!=="undefined")return MEDIAN(WORLD_CITIES.map((c)=>c[2]))/1000;if(z==="france-cities"&&typeof FRANCE_CITIES!=="undefined")return MEDIAN(FRANCE_CITIES.map((c)=>c[2]))/1000;try{const key=zoneGeometryKey();if(key&&ZGEO&&ZGEO[key])return geomRadiusKm(ZGEO[key]);}catch(e){}try{const s=zoneShape(z,co);if(s&&s.boxes){const b=bboxOf(s.boxes);return distM({lat:b.getSouth(),lng:b.getWest()},{lat:b.getNorth(),lng:b.getEast()})/1000/2;}}catch(e){}return 1500;}
+function zoneRadiusKm(){const z=G.zoneFilter,co=G.countryFilter;if(z==="world")return 9000;if(typeof CITY_ZONES!=="undefined"&&CITY_ZONES[z])return(CITY_ZONES[z][2]||12000)/1000;if((z==="world-cities"||z==="world-cities-boat")&&typeof WORLD_CITIES!=="undefined")return MEDIAN(WORLD_CITIES.map((c)=>c[2]))/1000;if(z==="france-cities"&&typeof FRANCE_CITIES!=="undefined")return MEDIAN(FRANCE_CITIES.map((c)=>c[2]))/1000;try{const key=zoneGeometryKey();if(key&&ZGEO&&ZGEO[key])return geomRadiusKm(ZGEO[key]);}catch(e){}try{const s=zoneShape(z,co);if(s&&s.boxes){const b=bboxOf(s.boxes);return distM({lat:b.getSouth(),lng:b.getWest()},{lat:b.getNorth(),lng:b.getEast()})/1000/2;}}catch(e){}return 1500;}
 // Score adaptatif à la taille de la zone. tau = distance de décroissance (à tau, ~37% des points).
 // tau = 0.23·R·(1 + R/15000) : quasi-linéaire pour les petites zones (villes restent serrées/exigeantes),
 // mais sur-linéaire pour les grandes (monde/continents plus cléments → plus de points selon la distance).
@@ -1955,7 +1987,7 @@ function svMove(forward) {
     const d = Math.abs(((l.heading - target + 540) % 360) - 180);
     if (d < bd) { bd = d; best = l; }
   });
-  if (best && bd <= 72) G.pano.setPano(best.pano);   // tolérance regard↔route (évite les sauts latéraux)
+  if (best && bd <= (G.moveMode === "boat" ? 120 : 72)) G.pano.setPano(best.pano);   // tolérance regard↔route (bateau = plus permissif → glisse plus fluide)
 }
 function fmtTime(s) {
   s = Math.max(0, s | 0);
@@ -2113,7 +2145,8 @@ function renderResultHero() {
   const me = G.online.active ? G.online.players[meId()] : null;
   const myPts = me ? (me.scores[G.current] || 0) : (G.scores[G.current] || 0);
   const myAv = (me && typeof me.av === "number") ? me.av : G.avatarChoice;
-  if (avEl) avEl.src = avatarURL(myAv);
+  const myStyle = (me && me.avStyle) ? me.avStyle : currentAvStyle();
+  if (avEl) avEl.src = avatarURLFor(myAv, myStyle);
   if (qual) qual.textContent = scoreQuality(myPts);
   // barre : remet à 0, force un reflow, puis largeur cible → déclenche la transition CSS (width)
   if (fill) { fill.style.width = "0%"; void fill.offsetWidth; fill.style.width = Math.max(0, Math.min(100, myPts / 5000 * 100)) + "%"; }
@@ -2126,11 +2159,12 @@ function renderResultRows() {
   if (G.online.active) {
     rows = playerList().map((p) => ({
       name: p.id === meId() ? (G.playerName || "Toi") : p.name, av: p.av, me: p.id === meId(),
+      avStyle: p.id === meId() ? currentAvStyle() : (p.avStyle || "avataaars"),
       color: playerColor(p.id), dist: p.guess ? p.guess.dist : null, pts: (p.scores[round] || 0),
       badge: p.id === meId() ? equippedItems().badge : p.badge,
     }));
   } else {
-    rows = [{ name: G.playerName || "Toi", av: G.avatarChoice, me: true, color: accentColor(), dist: G.lastDist, pts: (G.scores[round] || 0), badge: equippedItems().badge }];
+    rows = [{ name: G.playerName || "Toi", av: G.avatarChoice, avStyle: currentAvStyle(), me: true, color: accentColor(), dist: G.lastDist, pts: (G.scores[round] || 0), badge: equippedItems().badge }];
   }
   rows.sort((a, b) => b.pts - a.pts);
   box.innerHTML = "";
@@ -2140,7 +2174,7 @@ function renderResultRows() {
     row.innerHTML =
       '<span class="rank">' + (i + 1) + "</span>" +
       '<span class="dot" style="background:' + r.color + '"></span>' +
-      '<img class="rav" src="' + avatarURL(r.av) + '" alt="" draggable="false" />' +
+      '<img class="rav" src="' + avatarURLFor(r.av, r.avStyle) + '" alt="" draggable="false" />' +
       '<span class="who"></span>' +
       '<span class="dist">' + fmtDist(r.dist) + "</span>" +
       '<span class="pts"><b class="pts-n">0</b> pts</span>';
@@ -2175,9 +2209,9 @@ function showFinal() {
   const max = G.rounds * 5000;
   let rows;
   if (G.online.active) {
-    rows = playerList().map((p) => ({ name: p.id === meId() ? (G.playerName || "Toi") : p.name, av: p.av, me: p.id === meId(), total: sum(p.scores) }));
+    rows = playerList().map((p) => ({ name: p.id === meId() ? (G.playerName || "Toi") : p.name, av: p.av, avStyle: p.id === meId() ? currentAvStyle() : (p.avStyle || "avataaars"), me: p.id === meId(), total: sum(p.scores) }));
   } else {
-    rows = [{ name: G.playerName || "Toi", av: G.avatarChoice, me: true, total: sum(G.scores) }];
+    rows = [{ name: G.playerName || "Toi", av: G.avatarChoice, avStyle: currentAvStyle(), me: true, total: sum(G.scores) }];
   }
   rows.sort((a, b) => b.total - a.total);
   const myRank = Math.max(0, rows.findIndex((r) => r.me));
@@ -2204,7 +2238,7 @@ function showFinal() {
       row.className = "final-score" + (r.me ? " me" : "");
       row.innerHTML =
         '<span class="frank">' + (G.online.active ? (medals[i] || ((i + 1) + "ᵉ")) : "") + "</span>" +
-        '<img class="fav" src="' + avatarURL(r.av) + '" alt="" draggable="false" />' +
+        '<img class="fav" src="' + avatarURLFor(r.av, r.avStyle) + '" alt="" draggable="false" />' +
         '<span class="who"></span>' +
         '<span class="big">0</span>';
       row.querySelector(".who").textContent = r.name;
@@ -2645,7 +2679,7 @@ async function hostStartGame() {
   $("btn-start-room").disabled = true;
   $("btn-start-room").classList.add("hidden");
   $("room-options").classList.add("hidden");
-  broadcast({ type: "start", rounds: G.rounds, zone: G.zoneFilter, country: G.countryFilter, time: G.timeLimit });
+  broadcast({ type: "start", rounds: G.rounds, zone: G.zoneFilter, country: G.countryFilter, time: G.timeLimit, mode: G.moveMode });
   $("online-status").textContent = "Recherche des lieux…";
   showScreen("game");
   resetLocations();
@@ -2672,7 +2706,7 @@ function onData(m, fromId) {
       if (!exists) G.online.order.push(fromId);
       broadcastRoster();
       const c = G.online.conns[fromId];
-      try { if (c && c.open) c.send({ type: "settings", rounds: G.rounds, time: G.timeLimit, zone: G.zoneFilter, country: G.countryFilter }); } catch (e) {}
+      try { if (c && c.open) c.send({ type: "settings", rounds: G.rounds, time: G.timeLimit, zone: G.zoneFilter, country: G.countryFilter, mode: G.moveMode }); } catch (e) {}
       updateLobbyControls();
     }
 
@@ -2793,7 +2827,7 @@ function enterOnlineLobby(statusText) {
 }
 function hostReturnToLobby() {
   if (!G.online.active || !G.online.isHost) return;
-  broadcast({ type: "lobby", rounds: G.rounds, zone: G.zoneFilter, country: G.countryFilter, time: G.timeLimit });
+  broadcast({ type: "lobby", rounds: G.rounds, zone: G.zoneFilter, country: G.countryFilter, time: G.timeLimit, mode: G.moveMode });
   enterOnlineLobby();
 }
 
@@ -3723,24 +3757,30 @@ function wire() {
     });
   })();
 
-  // sélecteur de mode (Libre / Pro / Hardcore) — déplacement & zoom dans le Street View
+  // sélecteur de mode SOLO (Libre / Pro / Hardcore / Bateau) — déplacement & zoom dans le Street View
   const modeSeg = $("mode-seg");
   if (modeSeg) {
-    const hints = {
-      free: "Déplacement, rotation et zoom autorisés.",
-      pro: "Déplacement désactivé — tu restes sur place (rotation + zoom OK).",
-      hardcore: "Ni déplacement ni zoom — juste regarder autour. Pour les pros.",
-    };
     const syncMode = () => {
       const m = G.moveMode || "free";
-      modeSeg.querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.m === m));
-      if ($("mode-hint")) $("mode-hint").textContent = hints[m] || hints.free;
+      setModeSeg("mode-seg", m);
+      if ($("mode-hint")) $("mode-hint").textContent = MOVE_HINTS[m] || MOVE_HINTS.free;
     };
     modeSeg.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => {
       G.moveMode = b.dataset.m; try { localStorage.setItem("geoq-mode", G.moveMode); } catch (e) {} syncMode();
     }));
     syncMode();
   }
+  // sélecteurs de mode MULTI (matchmaking + salon) — réglage propre au multi, n'écrase pas le solo
+  ["online-mode-seg", "room-mode-seg"].forEach((id) => {
+    const seg = $(id); if (!seg) return;
+    seg.addEventListener("click", (e) => {
+      const b = e.target.closest("button[data-m]"); if (!b) return;
+      setModeSeg(id, b.dataset.m);
+      G.moveMode = b.dataset.m;
+      if ($("mode-hint-" + id)) $("mode-hint-" + id).textContent = MOVE_HINTS[b.dataset.m] || MOVE_HINTS.free;
+      if (id === "room-mode-seg") sendRoomSettings();   // hôte : propage le mode aux invités
+    });
+  });
 
   $("btn-solo").addEventListener("click", startSolo);
   if ($("btn-leaderboard")) $("btn-leaderboard").addEventListener("click", () => goTab("leaderboard"));

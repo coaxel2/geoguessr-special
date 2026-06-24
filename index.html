@@ -146,6 +146,7 @@
                 <button type="button" data-m="free" class="on">Libre</button>
                 <button type="button" data-m="pro">Pro</button>
                 <button type="button" data-m="hardcore">Hardcore</button>
+                <button type="button" data-m="boat">Bateau</button>
               </div>
               <p class="mode-hint" id="mode-hint">Déplacement, rotation et zoom autorisés.</p>
             </div>
@@ -165,6 +166,7 @@
             <select id="zone-filter" class="select">
               <option value="world">Monde entier</option>
               <option value="world-cities">Grandes villes du monde</option>
+              <option value="world-cities-boat">Grandes villes — mode bateau 🚢</option>
               <option value="europe">Europe</option>
               <option value="north-america">Amérique du Nord</option>
               <option value="south-america">Amérique du Sud</option>
@@ -263,6 +265,17 @@
             </div>
 
             <div class="field">
+              <label>Mode</label>
+              <div class="seg" id="online-mode-seg">
+                <button type="button" data-m="free" class="on">Libre</button>
+                <button type="button" data-m="pro">Pro</button>
+                <button type="button" data-m="hardcore">Hardcore</button>
+                <button type="button" data-m="boat">Bateau</button>
+              </div>
+              <p class="mode-hint" id="mode-hint-online-mode-seg">Déplacement, rotation et zoom autorisés.</p>
+            </div>
+
+            <div class="field">
               <label>Zone</label>
               <button type="button" class="zone-trigger" id="online-zone-trigger">
                 <div class="zone-trigger-map" id="online-zone-trigger-map"></div>
@@ -276,6 +289,7 @@
               <select id="online-zone-filter" class="select">
                 <option value="world">Monde entier</option>
                 <option value="world-cities">Grandes villes du monde</option>
+                <option value="world-cities-boat">Grandes villes — mode bateau 🚢</option>
                 <option value="europe">Europe</option>
                 <option value="north-america">Amérique du Nord</option>
                 <option value="south-america">Amérique du Sud</option>
@@ -375,6 +389,16 @@
                   </div>
                 </div>
                 <div class="field">
+                  <label>Mode</label>
+                  <div class="seg" id="room-mode-seg">
+                    <button type="button" data-m="free" class="on">Libre</button>
+                    <button type="button" data-m="pro">Pro</button>
+                    <button type="button" data-m="hardcore">Hardcore</button>
+                    <button type="button" data-m="boat">Bateau</button>
+                  </div>
+                  <p class="mode-hint" id="mode-hint-room-mode-seg">Déplacement, rotation et zoom autorisés.</p>
+                </div>
+                <div class="field">
                   <label>Zone</label>
                   <button type="button" class="zone-trigger" id="room-zone-trigger">
                     <div class="zone-trigger-map" id="room-zone-trigger-map"></div>
@@ -387,6 +411,7 @@
                   <select id="room-zone-filter" class="select">
                     <option value="world">Monde entier</option>
                     <option value="world-cities">Grandes villes du monde</option>
+                    <option value="world-cities-boat">Grandes villes — mode bateau 🚢</option>
                     <option value="europe">Europe</option>
                     <option value="north-america">Amérique du Nord</option>
                     <option value="south-america">Amérique du Sud</option>
