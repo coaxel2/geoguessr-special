@@ -875,7 +875,7 @@ function selectAvatar(i) {
   const grid = $("avatar-grid");
   if (grid) grid.querySelectorAll(".avatar-opt").forEach((b) =>
     b.classList.toggle("on", parseInt(b.dataset.i, 10) === i));
-  setAvatar("avatar-current", i);
+  setAvatar("avatar-current", i); setAvatar("prof-av", i);   // reflète le nouvel avatar sur la fiche profil en direct
   // en lobby : mettre à jour mon avatar et prévenir les autres joueurs
   if (G.online.active) {
     const meP = myPlayer(); if (meP) { meP.av = i; meP.avStyle = currentAvStyle(); meP.badge = equippedItems().badge; }
