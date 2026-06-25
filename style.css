@@ -801,11 +801,11 @@ body[data-fx="aurora"] .home-bg::after {
 }
 .btn:active { transform: translateY(1px) scale(.99); }
 .btn-primary {
-  background: linear-gradient(180deg, var(--accent), #20c98e);
+  background: linear-gradient(180deg, var(--accent), color-mix(in srgb, var(--accent) 78%, #000));
   color: var(--accent-ink);
-  box-shadow: 0 10px 24px rgba(46,230,166,.30), inset 0 1px 0 rgba(255,255,255,.4);
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--accent) 32%, transparent), inset 0 1px 0 rgba(255,255,255,.4);
 }
-.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 16px 30px rgba(46,230,166,.40), inset 0 1px 0 rgba(255,255,255,.5); }
+.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 16px 30px color-mix(in srgb, var(--accent) 42%, transparent), inset 0 1px 0 rgba(255,255,255,.5); }
 .btn-primary:disabled { opacity: .45; cursor: not-allowed; transform: none; box-shadow: none; filter: grayscale(.4); }
 .btn-ghost {
   background: rgba(255,255,255,.05);
