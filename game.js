@@ -438,6 +438,7 @@ const BANNER_ART = {
 function applyCosmetics() {
   const equipped = equippedItems();
   document.body.dataset.theme = equipped.theme && equipped.theme !== "themeDefault" ? equipped.theme : "";
+  refreshGlobeTint();   // le globe d'accueil reprend l'accent du thème équipé
   document.body.dataset.badge = BADGE_NAME[equipped.badge] || "";
   document.body.dataset.fx = equipped.fx === "fxAurora" ? "aurora" : "";
   const hero = document.querySelector(".prof-hero"); if (hero) hero.dataset.banner = bannerSkin(equipped.banner);   // .prof-hero est une CLASSE (pas un id) → le fond s'applique sur le profil perso
@@ -2879,6 +2880,24 @@ function goHome() { goTab("menu", { confirmed: true }); }   // déjà confirmé 
    dessiné à partir des contours de continents déjà embarqués (ZGEO)
    =========================================================== */
 let globeRAF = null;
+// Teinte du globe d'accueil dérivée de l'accent du thème courant (mise en cache, rafraîchie au
+// changement de thème via refreshGlobeTint()). Évite de lire getComputedStyle à chaque frame.
+function parseAccentRGB() {
+  try {
+    let c = accentColor();
+    if (c.charAt(0) === "#") { c = c.slice(1); if (c.length === 3) c = c.replace(/./g, "$&$&"); const n = parseInt(c, 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
+    const m = c.match(/(\d+)\D+(\d+)\D+(\d+)/); if (m) return [+m[1], +m[2], +m[3]];
+  } catch (e) {}
+  return [46, 230, 166];
+}
+function computeGlobeTint() {
+  const rgb = parseAccentRGB(), r = rgb[0], g = rgb[1], b = rgb[2];
+  const dk = (x) => Math.round(x * 0.32), lt = (x) => Math.min(255, Math.round(x * 1.06)), li = (x) => Math.round(x + (255 - x) * 0.5);
+  return { dR: dk(r), dG: dk(g), dB: dk(b), rR: lt(r) - dk(r), rG: lt(g) - dk(g), rB: lt(b) - dk(b),
+    line: "rgba(" + li(r) + "," + li(g) + "," + li(b) + ",.55)", halo0: "rgba(" + r + "," + g + "," + b + ",.16)", halo1: "rgba(" + r + "," + g + "," + b + ",0)" };
+}
+let GLOBE_TINT = computeGlobeTint();
+function refreshGlobeTint() { GLOBE_TINT = computeGlobeTint(); }
 function initHomeGlobe() {
   const cv = document.getElementById("home-globe");
   if (!cv || globeRAF) return;
@@ -2998,7 +3017,7 @@ function startGlobe(cv, geo) {
       lng -= TWO * Math.floor((lng + Math.PI) / TWO);   // ramener dans -π..π
       let tx = ((lng / TWO) + 0.5) * TW | 0; if (tx < 0) tx = 0; else if (tx >= TW) tx = TW - 1;
       let ty = (0.5 - latG[i] / Math.PI) * TH | 0; if (ty < 0) ty = 0; else if (ty >= TH) ty = TH - 1;
-      if (land[ty * TW + tx]) { const sh = shade[i]; d[o] = 26 + 70 * sh; d[o + 1] = 150 + 95 * sh; d[o + 2] = 112 + 70 * sh; d[o + 3] = 240; }
+      if (land[ty * TW + tx]) { const sh = shade[i], T = GLOBE_TINT; d[o] = T.dR + T.rR * sh; d[o + 1] = T.dG + T.rG * sh; d[o + 2] = T.dB + T.rB * sh; d[o + 3] = 240; }
       else d[o + 3] = 0;   // mer transparente → l'océan dégradé en dessous reste visible
     }
     octx.putImageData(oimg, 0, 0);
@@ -3013,7 +3032,7 @@ function startGlobe(cv, geo) {
 
     // contour vectoriel des côtes (net) — uniquement les segments sur la face visible
     ctx.lineJoin = "round";
-    ctx.strokeStyle = "rgba(168,252,218,.55)";
+    ctx.strokeStyle = GLOBE_TINT.line;
     ctx.lineWidth = Math.max(1, R * 0.0035);
     for (let r = 0; r < rings.length; r++) {
       const ring = rings[r]; ctx.beginPath(); let pen = false;
@@ -3031,7 +3050,7 @@ function startGlobe(cv, geo) {
 
     // halo atmosphérique doux uniquement (un seul globe, pas de cercle de contour distinct)
     const ag = ctx.createRadialGradient(cx, cy, R * 0.99, cx, cy, R * 1.14);
-    ag.addColorStop(0, "rgba(46,230,166,.16)"); ag.addColorStop(1, "rgba(46,230,166,0)");
+    ag.addColorStop(0, GLOBE_TINT.halo0); ag.addColorStop(1, GLOBE_TINT.halo1);
     ctx.beginPath(); ctx.arc(cx, cy, R * 1.14, 0, TWO); ctx.fillStyle = ag; ctx.fill();
 
     if (!dragging) { lon0 += vel; vel += (baseSpeed - vel) * 0.03; }
